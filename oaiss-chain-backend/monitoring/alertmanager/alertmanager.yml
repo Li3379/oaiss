@@ -1,0 +1,155 @@
+# AlertManager 配置文件
+# OAISS Chain Backend - 告警通知配置
+# 
+# 支持的通知渠道:
+# - 邮件 (email)
+# - 企业微信 (wechat)
+# - 钉钉 (dingtalk)
+
+global:
+  # SMTP配置 - 邮件通知
+  smtp_smarthost: 'smtp.example.com:587'
+  smtp_from: 'alertmanager@oaiss-chain.com'
+  smtp_auth_username: 'alertmanager@oaiss-chain.com'
+  smtp_auth_password: 'your-smtp-password'
+  smtp_require_tls: true
+
+  # 全局告警解决时间
+  resolve_timeout: 5m
+
+# 告警路由配置
+route:
+  # 默认接收者
+  receiver: 'default-receiver'
+  
+  # 分组等待时间
+  group_wait: 30s
+  
+  # 同组告警间隔
+  group_interval: 5m
+  
+  # 重复告警间隔
+  repeat_interval: 4h
+  
+  # 分组标签
+  group_by: ['alertname', 'severity', 'instance']
+  
+  # 子路由配置
+  routes:
+    # 严重告警 - 立即通知所有渠道
+    - match:
+        severity: critical
+      receiver: 'critical-receiver'
+      group_wait: 10s
+      repeat_interval: 1h
+      continue: true
+    
+    # 应用告警 - 发送邮件和企业微信
+    - match:
+      group_by: ['app']
+      receiver: 'app-receiver'
+      group_wait: 1m
+      repeat_interval: 2h
+    
+    # 数据库告警 - 发送邮件和钉钉
+    - match:
+      group_by: ['database']
+      receiver: 'database-receiver'
+      group_wait: 30s
+      repeat_interval: 2h
+
+# 接收者配置
+receivers:
+  # 默认接收者 - 仅邮件
+  - name: 'default-receiver'
+    email_configs:
+      - to: 'ops-team@oaiss-chain.com'
+        send_resolved: true
+        headers:
+          Subject: '[OAISS告警] {{ .Status | toUpper }} - {{ .CommonLabels.alertname }}'
+
+  # 严重告警接收者 - 邮件 + 企业微信 + 钉钉
+  - name: 'critical-receiver'
+    email_configs:
+      - to: 'ops-team@oaiss-chain.com'
+        send_resolved: true
+        headers:
+          Subject: '[严重告警] {{ .Status | toUpper }} - {{ .CommonLabels.alertname }}'
+    wechat_configs:
+      - corp_id: 'your-corp-id'
+        agent_id: 'your-agent-id'
+        api_secret: 'your-api-secret'
+        to_user: '@all'
+        message: |
+          【严重告警】
+          告警名称: {{ .CommonLabels.alertname }}
+          告警级别: {{ .CommonLabels.severity }}
+          告警详情: {{ .CommonAnnotations.description }}
+          触发时间: {{ .StartsAt.Format "2006-01-02 15:04:05" }}
+        send_resolved: true
+    dingtalk_configs:
+      - webhook_url: 'https://oapi.dingtalk.com/robot/send?access_token=your-access-token'
+        secret: 'your-dingtalk-secret'
+        message: |
+          【严重告警】
+          告警名称: {{ .CommonLabels.alertname }}
+          告警级别: {{ .CommonLabels.severity }}
+          告警详情: {{ .CommonAnnotations.description }}
+          触发时间: {{ .StartsAt.Format "2006-01-02 15:04:05" }}
+        send_resolved: true
+
+  # 应用告警接收者 - 邮件 + 企业微信
+  - name: 'app-receiver'
+    email_configs:
+      - to: 'app-team@oaiss-chain.com'
+        send_resolved: true
+        headers:
+          Subject: '[应用告警] {{ .Status | toUpper }} - {{ .CommonLabels.alertname }}'
+    wechat_configs:
+      - corp_id: 'your-corp-id'
+        agent_id: 'your-agent-id'
+        api_secret: 'your-api-secret'
+        to_user: '@all'
+        message: |
+          【应用告警】
+          告警名称: {{ .CommonLabels.alertname }}
+          告警详情: {{ .CommonAnnotations.description }}
+          触发时间: {{ .StartsAt.Format "2006-01-02 15:04:05" }}
+        send_resolved: true
+
+  # 数据库告警接收者 - 邮件 + 钉钉
+  - name: 'database-receiver'
+    email_configs:
+      - to: 'db-team@oaiss-chain.com'
+        send_resolved: true
+        headers:
+          Subject: '[数据库告警] {{ .Status | toUpper }} - {{ .CommonLabels.alertname }}'
+    dingtalk_configs:
+      - webhook_url: 'https://oapi.dingtalk.com/robot/send?access_token=your-access-token'
+        secret: 'your-dingtalk-secret'
+        message: |
+          【数据库告警】
+          告警名称: {{ .CommonLabels.alertname }}
+          告警详情: {{ .CommonAnnotations.description }}
+          触发时间: {{ .StartsAt.Format "2006-01-02 15:04:05" }}
+        send_resolved: true
+
+# 告警抑制规则
+inhibit_rules:
+  # 当实例宕机时，抑制该实例的其他告警
+  - source_match:
+      alertname: 'InstanceDown'
+    target_match_re:
+      alertname: '.*'
+    equal: ['instance']
+  
+  # 当应用不可用时，抑制该应用的其他告警
+  - source_match:
+      alertname: 'ApplicationDown'
+    target_match_re:
+      alertname: '.*'
+    equal: ['app']
+
+# 静默规则配置文件路径
+# silence_files:
+#   - 'silences/*.yml'

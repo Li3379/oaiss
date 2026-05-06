@@ -1,0 +1,21 @@
+# =============================================
+# Logstash Settings Configuration
+# OAISS Chain Logstash Settings
+# Author: OAISS Team
+# =============================================
+
+http.host: "0.0.0.0"
+
+path.config: /usr/share/logstash/pipeline
+
+# Pipeline settings
+pipeline.workers: 2
+pipeline.batch.size: 125
+pipeline.batch.delay: 50
+
+# Logging settings
+log.level: info
+path.logs: /usr/share/logstash/logs
+
+# X-Pack settings (disabled for community edition)
+xpack.monitoring.enabled: false

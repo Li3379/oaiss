@@ -1,0 +1,78 @@
+# Test Profile配置 - 支持H2（单元测试）和Testcontainers（集成测试）
+# Test Profile Configuration - Supports H2 (unit tests) and Testcontainers (integration tests)
+
+# 默认使用H2内存数据库进行快速单元测试
+# Default H2 configuration for fast unit tests
+spring:
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;NON_KEYWORDS=USER,VALUE,ORDER,GROUP
+    username: sa
+    password: 
+    driver-class-name: org.h2.Driver
+    
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+        
+  h2:
+    console:
+      enabled: true
+  
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: Asia/Shanghai
+    serialization:
+      write-dates-as-timestamps: false
+  
+  flyway:
+    enabled: false
+  
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      database: 0
+      timeout: 10000
+
+# JWT配置
+jwt:
+  secret: test-jwt-secret-key-for-unit-testing-only-must-be-256-bits-long
+  expiration: 3600000
+  refresh-expiration: 604800000
+
+# 日志配置
+logging:
+  level:
+    root: WARN
+    com.oaiss.chain: DEBUG
+    org.springframework.security: WARN
+
+# MinIO配置（测试环境）
+minio:
+  endpoint: http://localhost:9000
+  access-key: minioadmin
+  secret-key: minioadmin
+  bucket-name: oaiss-chain-test
+  presigned-url-expiry: 3600
+  max-file-size: 104857600
+
+# Actuator配置
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always
+
+# API文档配置
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
