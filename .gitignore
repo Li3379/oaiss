@@ -1,0 +1,75 @@
+# =============================================
+# OAISS CHAIN — Monorepo .gitignore
+# =============================================
+
+# ----- Environment & Secrets (NEVER commit) -----
+.env
+.env.*
+!.env.example
+
+# ----- Java / Maven / Spring Boot -----
+oaiss-chain-backend/target/
+*.class
+*.jar
+*.war
+*.ear
+*.nar
+oaiss-chain-backend/.mvn/wrapper/maven-wrapper.jar
+
+# ----- Node.js / Vue / Vite -----
+node_modules/
+dist/
+dist-ssr/
+*.tsbuildinfo
+
+# ----- Build artifacts -----
+build/
+out/
+
+# ----- Docker volumes (local data) -----
+mysql-data/
+redis-data/
+minio-data/
+
+# ----- Test results & coverage -----
+test-results/
+playwright-report/
+coverage/
+.nyc_output/
+
+# ----- IDE -----
+.idea/
+*.iml
+.vscode/*
+!.vscode/extensions.json
+*.sw?
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# ----- OS -----
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ----- Logs -----
+*.log
+logs/
+
+# ----- Playwright -----
+.playwright-cli/
+.playwright-mcp/
+
+# ----- Tool state (not project code) -----
+.omc/
+.omc*/
+.claude/
+.gstack/
+.planning/
+.entroly/
+
+# ----- Temporary -----
+*.tmp
+*.bak
+*.cache

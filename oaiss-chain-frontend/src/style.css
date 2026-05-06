@@ -1,0 +1,100 @@
+:root {
+  --bg-page: #edf2f4;
+  --bg-surface: #ffffff;
+  --bg-header: #16353a;
+  --text-primary: #1a2c30;
+  --text-secondary: #5e7377;
+  --border-color: #d6e2e3;
+  --teal: #14a79a;
+  --green: #45be75;
+  --success-soft: #d8f4e5;
+  --shadow-soft: 0 14px 34px rgba(10, 34, 38, 0.08);
+
+  font-family: 'HarmonyOS Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  color: var(--text-primary);
+  background:
+    radial-gradient(circle at 20% 16%, rgba(20, 167, 154, 0.12), transparent 42%),
+    radial-gradient(circle at 87% 82%, rgba(69, 190, 117, 0.12), transparent 36%),
+    var(--bg-page);
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.el-main {
+  --el-main-padding: 20px;
+}
+
+/* M21: Global responsive utilities */
+@media (max-width: 768px) {
+  .el-main {
+    --el-main-padding: 12px;
+  }
+
+  .el-table {
+    font-size: 13px;
+  }
+
+  .el-dialog {
+    width: 92% !important;
+    margin: 16px auto !important;
+  }
+
+  .el-card {
+    border-radius: 8px;
+  }
+
+  .el-form--inline .el-form-item {
+    width: 100%;
+    margin-right: 0;
+  }
+
+  .el-pagination {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .section-card {
+    border-radius: 8px !important;
+  }
+}
+
+/* M18: Dark mode variables */
+html.dark {
+  --bg-page: #141414;
+  --bg-surface: #1d1d1d;
+  --text-primary: #e5eaf3;
+  --text-secondary: #a3a6ad;
+  --border-color: #4c4d4f;
+  --shadow-soft: 0 14px 34px rgba(0, 0, 0, 0.3);
+
+  color-scheme: dark;
+}
+
+html.dark body {
+  background:
+    radial-gradient(circle at 20% 16%, rgba(20, 167, 154, 0.06), transparent 42%),
+    radial-gradient(circle at 87% 82%, rgba(69, 190, 117, 0.06), transparent 36%),
+    var(--bg-page);
+}

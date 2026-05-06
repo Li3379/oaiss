@@ -1,0 +1,9 @@
+services:
+  oaiss-web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: oaiss-web
+    ports:
+      - "8080:80"
+    restart: unless-stopped
