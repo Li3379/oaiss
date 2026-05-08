@@ -1,0 +1,26 @@
+{
+  "phase": 1,
+  "phase_name": "Environment Setup & Auth Baseline",
+  "status": "discuss_complete",
+  "areas_completed": ["V3 test seed data content", "Docker vs local dev stack", "JWT expiration & test session strategy", "Environment health verification"],
+  "areas_remaining": [],
+  "decisions": {
+    "v3_scope": "Minimal seed — each phase creates its own data via UI during testing",
+    "v3_content": "enterprise003 user + enterprise record + carbon coin account + credit score. Add AUTHENTICATOR(5) to user_type_list. Check and fix missing tables (rsa_key_pairs, operation_log, emission_rating).",
+    "v3_role_fix": "Fix AUTHENTICATOR(5) gap only. Defer VERIFIER/CERTIFIER to Phase 4 investigation.",
+    "v3_no_business_data": true,
+    "dev_stack": "Infrastructure Docker (MySQL/Redis/MinIO) + local dev (backend mvn spring-boot:run, frontend npm run dev)",
+    "env_setup": "Pre-filled .env with working defaults",
+    "infra_compose": "Create docker-compose.infra.yml for infrastructure-only startup",
+    "docker_check": "Check Docker Desktop running as entry criteria, prompt user if not",
+    "jwt_strategy": "Short expiry (default 45min) + manual re-login. One Incognito window per role.",
+    "jwt_refresh": "Skip refresh testing in Phase 1. Focus on login → access → logout.",
+    "jwt_logout": "Verify logout blacklists token — old token returns 401 after logout.",
+    "health_check": "Automated script checking all 5 services (MySQL, Redis, MinIO, Backend Swagger, Frontend). Fast-fail on first error.",
+    "health_flyway": "Include Flyway verification: 21 tables + V3 seed data present."
+  },
+  "outputs": {
+    "context_file": "01-CONTEXT.md",
+    "discussion_log": "01-DISCUSSION-LOG.md"
+  }
+}
