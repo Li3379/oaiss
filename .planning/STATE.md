@@ -5,32 +5,32 @@
 See: .planning/PROJECT.md (updated 2026-05-08)
 
 **Core value:** 所有五种角色的核心业务流程在真实后端数据下端到端跑通，系统功能完整可用
-**Current focus:** Phase 1: Environment Setup & Auth Baseline
+**Current focus:** Phase 2: Carbon Report Lifecycle
 
 ## Current Position
 
-Phase: 1 of 6 (Environment Setup & Auth Baseline)
-Plan: 1 of 2 in current phase (01-01 complete, 01-02 next)
-Status: Executing (Wave 1 complete, Wave 2 ready)
-Last activity: 2026-05-08 -- Plan 01-01 complete: docker-compose.infra.yml + V3 migration + health-check.sh
+Phase: 2 of 6 (Carbon Report Lifecycle)
+Plan: 0 of 3 in current phase
+Status: Ready to plan (Phase 1 complete)
+Last activity: 2026-05-08 -- Phase 1 complete (2/2 plans, verification passed)
 
-Progress: [█░░░░░░░░░] 5%
+Progress: [██░░░░░░░░] 17%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 1
+- Total plans completed: 2
 - Average duration: ~15 minutes
-- Total execution time: 0.25 hours
+- Total execution time: 0.5 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 1. Environment Setup | 1/2 | 0.25h | 0.25h |
+| 1. Environment Setup | 2/2 | 0.5h | 0.25h |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (success)
+- Last 5 plans: 01-01 (success), 01-02 (success)
 - Trend: On track
 
 *Updated after each plan completion*
@@ -54,6 +54,7 @@ Recent decisions affecting current work:
 - [01-01]: Host MySQL on port 3306 cannot be stopped (no admin); Docker MySQL runs on 3307
 - [01-01]: V3 applied manually to host MySQL + registered in flyway_schema_history
 - [01-01]: Fixed Redis health check: `&>/dev/null` before pipe suppressed output
+- [01-02]: All 7 seed accounts pass login/verify/logout/blacklist cycle; post-logout returns code 2000 (app custom code)
 
 ### Pending Todos
 
@@ -79,6 +80,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-08 22:45
-Stopped at: Plan 01-01 complete; ready to execute plan 01-02
-Resume file: .planning/phases/01-environment-setup/01-02-PLAN.md
+Last session: 2026-05-08
+Stopped at: Phase 1 complete; ready for Phase 2 discuss/plan/execute
+Resume file: .planning/phases/01-environment-setup/01-VERIFICATION.md
