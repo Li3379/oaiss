@@ -6,7 +6,7 @@ This roadmap drives OAISS CHAIN from "functionally complete but untested" to "pr
 
 ## Phases
 
-- [ ] **Phase 1: Environment Setup & Auth Baseline** - Docker stack healthy, all 6 seed accounts login-verified, JWT and role routing validated
+- [x] **Phase 1: Environment Setup & Auth Baseline** - Docker stack healthy, all 6 seed accounts login-verified, JWT and role routing validated *(completed 2026-05-08)*
 - [ ] **Phase 2: Carbon Report Lifecycle** - Full report CRUD, submission, review (approve/reject), cascading side effects (credit score, emission rating, blockchain), cross-role access control
 - [ ] **Phase 3: Carbon Coin & Trading Engine** - Carbon coin accounts, double auction buy/sell/match, P2P trade lifecycle, settlement correctness, trade controller relationship resolved
 - [ ] **Phase 4: Carbon Neutral Projects & Credit Scoring** - Project lifecycle (12+ states), VERIFIER/CERTIFIER role gap resolved, credit score levels, trade restriction enforcement
@@ -36,7 +36,7 @@ This roadmap drives OAISS CHAIN from "functionally complete but untested" to "pr
 
 Plans:
 - [x] 01-01-PLAN.md -- Docker infra compose, V3 migration (AUTHENTICATOR enum + enterprise003), health check script *(Wave 1)* -- COMPLETE 2026-05-08
-- [ ] 01-02-PLAN.md -- 7-account login test script, JWT access/logout blacklist verification, browser role-home routing checkpoint *(Wave 2, blocked on Wave 1 completion)*
+- [x] 01-02-PLAN.md -- 7-account login test script, JWT access/logout blacklist verification, browser role-home routing checkpoint *(Wave 2)* -- COMPLETE 2026-05-08
 
 ### Phase 2: Carbon Report Lifecycle
 **Goal**: The central business flow (enterprise creates report, submits for review, reviewer approves or rejects, cascading side effects fire) works end-to-end across both approval and rejection paths.
@@ -169,7 +169,7 @@ Phase 5 can run in parallel with Phase 3/4 since it only depends on Phase 1.
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Environment Setup & Auth Baseline | 1/2 | In Progress | - |
+| 1. Environment Setup & Auth Baseline | 2/2 | Complete | 2026-05-08 |
 | 2. Carbon Report Lifecycle | 0/3 | Not started | - |
 | 3. Carbon Coin & Trading Engine | 0/3 | Not started | - |
 | 4. Carbon Neutral Projects & Credit Scoring | 0/2 | Not started | - |
