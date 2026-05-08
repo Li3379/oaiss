@@ -32,11 +32,11 @@ This roadmap drives OAISS CHAIN from "functionally complete but untested" to "pr
   - **V3 migration gap**: Create `V3__test_seed_data.sql` before testing starts
   - **Flyway schema drift**: Verify `rsa_key_pairs` table exists after migration; if not, add to V3
 **Estimated Effort**: 2-3 hours (infrastructure + auth smoke test)
-**Plans**: TBD
+**Plans**: 2 plans in 2 waves
 
 Plans:
-- [ ] 01-01: Docker stack startup, health checks, V3 migration creation and verification
-- [ ] 01-02: 6-account login matrix, role home page routing, JWT lifecycle (issue/refresh/revoke)
+- [x] 01-01-PLAN.md -- Docker infra compose, V3 migration (AUTHENTICATOR enum + enterprise003), health check script *(Wave 1)* -- COMPLETE 2026-05-08
+- [ ] 01-02-PLAN.md -- 7-account login test script, JWT access/logout blacklist verification, browser role-home routing checkpoint *(Wave 2, blocked on Wave 1 completion)*
 
 ### Phase 2: Carbon Report Lifecycle
 **Goal**: The central business flow (enterprise creates report, submits for review, reviewer approves or rejects, cascading side effects fire) works end-to-end across both approval and rejection paths.
@@ -55,7 +55,7 @@ Plans:
   - **MinIO connection failures**: Verify MinIO container health before file upload tests
   - **JWT expiration mid-test**: Re-login before starting this phase; keep token fresh
 **Estimated Effort**: 4-6 hours (full lifecycle across 2 enterprises, approval + rejection paths)
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
 - [ ] 02-01: Enterprise report CRUD (create, list, detail, submit) + file upload to MinIO
@@ -80,7 +80,7 @@ Plans:
   - **N+1 query performance**: If matching is slow, note as PERF-01 but do not block
   - **Financial integrity**: After every trade, verify both account balances match expected values via DB or API
 **Estimated Effort**: 6-8 hours (dual trading paths, settlement verification, relationship investigation)
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
 - [ ] 03-01: Carbon coin balance, history, transfer, insufficient balance rejection
@@ -103,7 +103,7 @@ Plans:
   - **Hardcoded emission factors**: Credit scoring uses `CachePreloadService` constants. Do not expect runtime factor changes; test as read-only
   - **Phase dependency on Phase 2**: If Phase 2 approval flow has bugs, Phase 4 credit scoring cannot be tested. Resolve Phase 2 blockers first
 **Estimated Effort**: 4-5 hours (project lifecycle + credit scoring + role gap investigation)
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
 - [ ] 04-01: Carbon neutral project CRUD, status transitions, VERIFIER/CERTIFIER role gap investigation
@@ -127,7 +127,7 @@ Plans:
   - **Hardcoded emission factors**: Accept that config changes require backend restart; test current values only
   - **Independent testing order**: These domains can be tested in any order; if one blocks, skip and continue
 **Estimated Effort**: 5-7 hours (7 sub-domains, some can be tested in parallel if using multiple browser windows)
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
 - [ ] 05-01: Digital signatures (generate, sign, verify) + file upload/download via MinIO
@@ -153,7 +153,7 @@ Plans:
   - **i18n edge cases**: Switch language in frontend; verify error messages display in correct locale
   - **Bug fix regression**: After each fix, re-test the affected flow to ensure no new issues
 **Estimated Effort**: 4-6 hours (AOP verification + systematic edge case matrix + bug fixes)
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
 - [ ] 06-01: AOP concerns verification (AuditLog, RateLimit, DataIsolation, DistributedLock)
@@ -169,7 +169,7 @@ Phase 5 can run in parallel with Phase 3/4 since it only depends on Phase 1.
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Environment Setup & Auth Baseline | 0/2 | Not started | - |
+| 1. Environment Setup & Auth Baseline | 1/2 | In Progress | - |
 | 2. Carbon Report Lifecycle | 0/3 | Not started | - |
 | 3. Carbon Coin & Trading Engine | 0/3 | Not started | - |
 | 4. Carbon Neutral Projects & Credit Scoring | 0/2 | Not started | - |

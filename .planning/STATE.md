@@ -10,28 +10,28 @@ See: .planning/PROJECT.md (updated 2026-05-08)
 ## Current Position
 
 Phase: 1 of 6 (Environment Setup & Auth Baseline)
-Plan: 0 of 2 in current phase
-Status: Discuss complete, ready to plan
-Last activity: 2026-05-08 -- Phase 1 discuss-phase complete (16 decisions across 4 areas)
+Plan: 1 of 2 in current phase (01-01 complete, 01-02 next)
+Status: Executing (Wave 1 complete, Wave 2 ready)
+Last activity: 2026-05-08 -- Plan 01-01 complete: docker-compose.infra.yml + V3 migration + health-check.sh
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [█░░░░░░░░░] 5%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 0
-- Average duration: -
-- Total execution time: 0 hours
+- Total plans completed: 1
+- Average duration: ~15 minutes
+- Total execution time: 0.25 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| - | - | - | - |
+| 1. Environment Setup | 1/2 | 0.25h | 0.25h |
 
 **Recent Trend:**
-- Last 5 plans: -
-- Trend: -
+- Last 5 plans: 01-01 (success)
+- Trend: On track
 
 *Updated after each plan completion*
 
@@ -51,6 +51,9 @@ Recent decisions affecting current work:
 - [Phase 1]: Create docker-compose.infra.yml, pre-fill .env with defaults
 - [Phase 1]: JWT default 45min expiry, one Incognito window per role, skip refresh testing
 - [Phase 1]: Automated health check script, fast-fail, includes Flyway verification
+- [01-01]: Host MySQL on port 3306 cannot be stopped (no admin); Docker MySQL runs on 3307
+- [01-01]: V3 applied manually to host MySQL + registered in flyway_schema_history
+- [01-01]: Fixed Redis health check: `&>/dev/null` before pipe suppressed output
 
 ### Pending Todos
 
@@ -58,11 +61,12 @@ None yet.
 
 ### Blockers/Concerns
 
-- V3__test_seed_data.sql Flyway migration does not exist yet -- must create in Phase 1 plan 01-01
+- ~~V3__test_seed_data.sql Flyway migration does not exist yet~~ -- RESOLVED in 01-01
+- ~~docker-compose.infra.yml does not exist yet~~ -- RESOLVED in 01-01
+- ~~.env file may not exist~~ -- RESOLVED (exists with working defaults)
 - VERIFIER/CERTIFIER roles referenced in @PreAuthorize but not in UserTypeEnum -- may block Phase 4
 - TradeController vs DoubleAuctionController relationship unclear -- needs Phase 3 investigation
-- docker-compose.infra.yml does not exist yet -- must create in Phase 1 plan 01-01
-- .env file may not exist -- must create with working defaults in Phase 1 plan 01-01
+- Host MySQL on port 3306 blocks Docker oaiss-mysql on same port; workaround: Docker on 3307
 
 ## Deferred Items
 
@@ -75,6 +79,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-08 20:51
-Stopped at: Phase 1 discuss-phase complete; ready to run /gsd-plan-phase 1
-Resume file: .planning/phases/01-environment-setup/01-CONTEXT.md
+Last session: 2026-05-08 22:45
+Stopped at: Plan 01-01 complete; ready to execute plan 01-02
+Resume file: .planning/phases/01-environment-setup/01-02-PLAN.md
