@@ -146,30 +146,99 @@
 
 ## Traceability
 
-| Requirement | Phase | Status |
-|-------------|-------|--------|
-| ENV-01 ~ ENV-10 | Phase 1 | Pending |
-| CARB-01 ~ CARB-13 | Phase 2 | Pending |
-| COIN-01 ~ COIN-05 | Phase 3 | Pending |
-| TRADE-01 ~ TRADE-13 | Phase 3 | Pending |
-| PROJ-01 ~ PROJ-05 | Phase 4 | Pending |
-| CRED-01 ~ CRED-05 | Phase 4 | Pending |
-| SIGN-01 ~ SIGN-03 | Phase 5 | Pending |
-| FILE-01 ~ FILE-03 | Phase 5 | Pending |
-| EMIT-01 ~ EMIT-03 | Phase 5 | Pending |
-| BLOCK-01 ~ BLOCK-03 | Phase 5 | Pending |
-| ADMIN-01 ~ ADMIN-05 | Phase 5 | Pending |
-| TP-01 ~ TP-02 | Phase 5 | Pending |
-| SRCH-01 | Phase 5 | Pending |
-| AOP-01 ~ AOP-04 | Phase 6 | Pending |
-| EDGE-01 ~ EDGE-06 | Phase 6 | Pending |
-| BUG-01 ~ BUG-03 | Phase 6 | Pending |
+| Requirement | Phase | Plan | Status |
+|-------------|-------|------|--------|
+| ENV-01 | Phase 1 | 01-01 | Pending |
+| ENV-02 | Phase 1 | 01-01 | Pending |
+| ENV-03 | Phase 1 | 01-01 | Pending |
+| ENV-04 | Phase 1 | 01-01 | Pending |
+| ENV-05 | Phase 1 | 01-01 | Pending |
+| ENV-06 | Phase 1 | 01-02 | Pending |
+| ENV-07 | Phase 1 | 01-02 | Pending |
+| ENV-08 | Phase 1 | 01-02 | Pending |
+| ENV-09 | Phase 1 | 01-02 | Pending |
+| ENV-10 | Phase 1 | 01-02 | Pending |
+| CARB-01 | Phase 2 | 02-01 | Pending |
+| CARB-02 | Phase 2 | 02-01 | Pending |
+| CARB-03 | Phase 2 | 02-01 | Pending |
+| CARB-04 | Phase 2 | 02-01 | Pending |
+| CARB-05 | Phase 2 | 02-02 | Pending |
+| CARB-06 | Phase 2 | 02-02 | Pending |
+| CARB-07 | Phase 2 | 02-02 | Pending |
+| CARB-08 | Phase 2 | 02-03 | Pending |
+| CARB-09 | Phase 2 | 02-03 | Pending |
+| CARB-10 | Phase 2 | 02-03 | Pending |
+| CARB-11 | Phase 2 | 02-02 | Pending |
+| CARB-12 | Phase 2 | 02-02 | Pending |
+| CARB-13 | Phase 2 | 02-03 | Pending |
+| COIN-01 | Phase 3 | 03-01 | Pending |
+| COIN-02 | Phase 3 | 03-01 | Pending |
+| COIN-03 | Phase 3 | 03-01 | Pending |
+| COIN-04 | Phase 3 | 03-01 | Pending |
+| COIN-05 | Phase 3 | 03-01 | Pending |
+| TRADE-01 | Phase 3 | 03-02 | Pending |
+| TRADE-02 | Phase 3 | 03-02 | Pending |
+| TRADE-03 | Phase 3 | 03-02 | Pending |
+| TRADE-04 | Phase 3 | 03-02 | Pending |
+| TRADE-05 | Phase 3 | 03-02 | Pending |
+| TRADE-06 | Phase 3 | 03-02 | Pending |
+| TRADE-07 | Phase 3 | 03-03 | Pending |
+| TRADE-08 | Phase 3 | 03-03 | Pending |
+| TRADE-09 | Phase 3 | 03-03 | Pending |
+| TRADE-10 | Phase 3 | 03-03 | Pending |
+| TRADE-11 | Phase 3 | 03-03 | Pending |
+| TRADE-12 | Phase 3 | 03-02 | Pending |
+| TRADE-13 | Phase 3 | 03-02 | Pending |
+| PROJ-01 | Phase 4 | 04-01 | Pending |
+| PROJ-02 | Phase 4 | 04-01 | Pending |
+| PROJ-03 | Phase 4 | 04-01 | Pending |
+| PROJ-04 | Phase 4 | 04-01 | Pending |
+| PROJ-05 | Phase 4 | 04-01 | Pending |
+| CRED-01 | Phase 4 | 04-02 | Pending |
+| CRED-02 | Phase 4 | 04-02 | Pending |
+| CRED-03 | Phase 4 | 04-02 | Pending |
+| CRED-04 | Phase 4 | 04-02 | Pending |
+| CRED-05 | Phase 4 | 04-02 | Pending |
+| SIGN-01 | Phase 5 | 05-01 | Pending |
+| SIGN-02 | Phase 5 | 05-01 | Pending |
+| SIGN-03 | Phase 5 | 05-01 | Pending |
+| FILE-01 | Phase 5 | 05-01 | Pending |
+| FILE-02 | Phase 5 | 05-01 | Pending |
+| FILE-03 | Phase 5 | 05-01 | Pending |
+| EMIT-01 | Phase 5 | 05-02 | Pending |
+| EMIT-02 | Phase 5 | 05-02 | Pending |
+| EMIT-03 | Phase 5 | 05-02 | Pending |
+| BLOCK-01 | Phase 5 | 05-02 | Pending |
+| BLOCK-02 | Phase 5 | 05-02 | Pending |
+| BLOCK-03 | Phase 5 | 05-02 | Pending |
+| ADMIN-01 | Phase 5 | 05-03 | Pending |
+| ADMIN-02 | Phase 5 | 05-03 | Pending |
+| ADMIN-03 | Phase 5 | 05-03 | Pending |
+| ADMIN-04 | Phase 5 | 05-03 | Pending |
+| ADMIN-05 | Phase 5 | 05-03 | Pending |
+| TP-01 | Phase 5 | 05-04 | Pending |
+| TP-02 | Phase 5 | 05-04 | Pending |
+| SRCH-01 | Phase 5 | 05-04 | Pending |
+| AOP-01 | Phase 6 | 06-01 | Pending |
+| AOP-02 | Phase 6 | 06-01 | Pending |
+| AOP-03 | Phase 6 | 06-01 | Pending |
+| AOP-04 | Phase 6 | 06-01 | Pending |
+| EDGE-01 | Phase 6 | 06-02 | Pending |
+| EDGE-02 | Phase 6 | 06-02 | Pending |
+| EDGE-03 | Phase 6 | 06-03 | Pending |
+| EDGE-04 | Phase 6 | 06-03 | Pending |
+| EDGE-05 | Phase 6 | 06-03 | Pending |
+| EDGE-06 | Phase 6 | 06-03 | Pending |
+| BUG-01 | Phase 6 | 06-04 | Pending |
+| BUG-02 | Phase 6 | 06-04 | Pending |
+| BUG-03 | Phase 6 | 06-04 | Pending |
 
 **Coverage:**
-- v1 requirements: 67 total
-- Mapped to phases: 67
-- Unmapped: 0 ✓
+- v1 requirements: 84 total
+- Mapped to phases: 84
+- Mapped to plans: 84
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-05-08*
-*Last updated: 2026-05-08 after research synthesis*
+*Last updated: 2026-05-08 -- traceability updated with plan-level mapping from ROADMAP.md*
