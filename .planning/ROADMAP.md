@@ -10,7 +10,7 @@ This roadmap drives OAISS CHAIN from "functionally complete but untested" to "pr
 - [x] **Phase 2: Carbon Report Lifecycle** - Full report CRUD, submission, review (approve/reject), cascading side effects (credit score, emission rating, blockchain), cross-role access control *(completed 2026-05-09)*
 - [x] **Phase 3: Carbon Coin & Trading Engine** - Carbon coin accounts, double auction buy/sell/match, P2P trade lifecycle, settlement correctness, trade controller relationship resolved *(completed 2026-05-09)*
 - [ ] **Phase 4: Carbon Neutral Projects & Credit Scoring** - Project lifecycle (12+ states), VERIFIER/CERTIFIER role gap resolved, credit score levels, trade restriction enforcement
-- [ ] **Phase 5: Supporting Domains** - Digital signatures, file upload/download, emission ratings, blockchain explorer, admin user management, third-party monitoring, search
+- [x] **Phase 5: Supporting Domains** - Digital signatures, file upload/download, emission ratings, blockchain explorer, admin user management, third-party monitoring, search *(completed 2026-05-09)*
 - [ ] **Phase 6: Cross-Cutting & Edge Cases** - AOP concerns verified, cross-role access negative tests, state machine violations, financial integrity, input validation, bug fixes (SEC-03/04)
 
 ## Phase Details
@@ -112,11 +112,15 @@ Plans:
   - **Hardcoded emission factors**: Credit scoring uses `CachePreloadService` constants. Do not expect runtime factor changes; test as read-only
   - **Phase dependency on Phase 2**: If Phase 2 approval flow has bugs, Phase 4 credit scoring cannot be tested. Resolve Phase 2 blockers first
 **Estimated Effort**: 4-5 hours (project lifecycle + credit scoring + role gap investigation)
-**Plans**: 3 plans in 2 waves
+**Plans**: 2 plans in 2 waves
 
 Plans:
-- [ ] 04-01: Carbon neutral project CRUD, status transitions, VERIFIER/CERTIFIER role gap investigation
-- [ ] 04-02: Credit score viewing, level evaluation, trade restriction enforcement
+
+**Wave 1** *(independent)*
+- [x] 04-01-PLAN.md -- Carbon neutral project CRUD, status transitions, VERIFIER/CERTIFIER role gap investigation (PROJ-01~05) *(Wave 1)* -- COMPLETE 2026-05-09
+
+**Wave 2** *(depends on Wave 1)*
+- [x] 04-02-PLAN.md -- Credit score viewing, level evaluation, trade restriction enforcement (CRED-01~05) *(Wave 2, depends on 04-01)* -- COMPLETE 2026-05-09
 
 ### Phase 5: Supporting Domains
 **Goal**: All secondary platform features (digital signatures, file management, emission ratings, blockchain explorer, admin user management, third-party monitoring, search) are verified as functional.
@@ -136,13 +140,16 @@ Plans:
   - **Hardcoded emission factors**: Accept that config changes require backend restart; test current values only
   - **Independent testing order**: These domains can be tested in any order; if one blocks, skip and continue
 **Estimated Effort**: 5-7 hours (7 sub-domains, some can be tested in parallel if using multiple browser windows)
-**Plans**: 3 plans in 2 waves
+**Plans**: 7 independent test scripts (one per sub-domain)
 
 Plans:
-- [ ] 05-01: Digital signatures (generate, sign, verify) + file upload/download via MinIO
-- [ ] 05-02: Emission ratings + blockchain explorer (mock mode)
-- [ ] 05-03: Admin user management + system configuration
-- [ ] 05-04: Third-party monitoring + cross-entity search
+- [x] 05-01-PLAN.md -- Digital signatures: RSA keypair generate/get/sign/verify/revoke + DB check (SIGN-01~03) -- COMPLETE 2026-05-09
+- [x] 05-02-PLAN.md -- File management: upload/info/exists/list/presigned-url/download/delete + MinIO console (FILE-01~03) -- COMPLETE 2026-05-09
+- [x] 05-03-PLAN.md -- Emission ratings: view/create/recalculate ratings, rankings, AI predict + DB check (EMIT-01~03) -- COMPLETE 2026-05-09
+- [x] 05-04-PLAN.md -- Blockchain explorer: status/blocks/transactions mock data + format validation (BLOCK-01~03) -- COMPLETE 2026-05-09
+- [x] 05-05-PLAN.md -- Admin management: list/filter users, status toggle, dashboard, statistics + gap docs (ADMIN-01~05) -- COMPLETE 2026-05-09
+- [x] 05-06-PLAN.md -- Third-party monitoring: org-info/statistics/carbon-reports/contact + TP-02 gap doc (TP-01~02) -- COMPLETE 2026-05-09
+- [x] 05-07-PLAN.md -- Cross-entity search: reports/trades/market-overview + admin cross-entity (SRCH-01) -- COMPLETE 2026-05-09
 
 ### Phase 6: Cross-Cutting & Edge Cases
 **Goal**: All AOP cross-cutting concerns are verified, comprehensive edge case and negative testing is complete, critical security fixes (SEC-03, SEC-04) are applied, and all discovered bugs are resolved.
@@ -181,8 +188,8 @@ Phase 5 can run in parallel with Phase 3/4 since it only depends on Phase 1.
 | 1. Environment Setup & Auth Baseline | 2/2 | Complete | 2026-05-08 |
 | 2. Carbon Report Lifecycle | 3/3 | Complete | 2026-05-09 |
 | 3. Carbon Coin & Trading Engine | 3/3 | Complete | 2026-05-09 |
-| 4. Carbon Neutral Projects & Credit Scoring | 0/2 | Not started | - |
-| 5. Supporting Domains | 0/4 | Not started | - |
+| 4. Carbon Neutral Projects & Credit Scoring | 2/2 | Complete | 2026-05-09 |
+| 5. Supporting Domains | 0/7 | Not started | - |
 | 6. Cross-Cutting & Edge Cases | 0/4 | Not started | - |
 
 **Total Requirements:** 84 v1 requirements across 6 phases
@@ -197,7 +204,7 @@ Phase 5 can run in parallel with Phase 3/4 since it only depends on Phase 1.
 | SEC-02 (CSRF protection) | Deferred to v2 | CSRF currently disabled; acceptable for testing |
 | SEC-03 (Swagger production exposure) | Fix in Phase 6 | Must fix before production readiness |
 | SEC-04 (CORS localhost default) | Fix in Phase 6 | Must fix before production readiness |
-| VERIFIER/CERTIFIER role gap | Investigate in Phase 4 | May block project verification/certification flows |
+| VERIFIER/CERTIFIER role gap | Investigated Phase 4, documented | ADMIN workaround works; needs enum fix or annotation fix for non-ADMIN users |
 | TradeController/DoubleAuctionController | Investigate in Phase 3 | Relationship unclear; needs code-level resolution |
 | V3 Flyway migration | Create in Phase 1 | Required before any testing begins |
 
