@@ -9,19 +9,19 @@ See: .planning/PROJECT.md (updated 2026-05-08)
 
 ## Current Position
 
-Phase: 3 of 6 (Carbon Coin & Trading Engine)
-Plan: 3 of 3 in current phase
-Status: Ready to execute
-Last activity: 2026-05-09 -- Phase 3 planning complete (3 plans, 2 waves)
+Phase: 4 of 6 (Carbon Neutral Projects & Credit Scoring)
+Plan: 0 of 2 in current phase
+Status: Ready to plan
+Last activity: 2026-05-09 -- Phase 3 complete (3 plans, 18 requirements verified)
 
-Progress: [████████░░] 42%
+Progress: [█████████░] 50%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 5
+- Total plans completed: 8
 - Average duration: ~13 minutes
-- Total execution time: 1.4 hours
+- Total execution time: 1.7 hours
 
 **By Phase:**
 
@@ -29,10 +29,11 @@ Progress: [████████░░] 42%
 |-------|-------|-------|----------|
 | 1. Environment Setup | 2/2 | 0.5h | 0.25h |
 | 2. Carbon Report Lifecycle | 3/3 | 0.9h | 0.18h |
+| 3. Carbon Coin & Trading | 3/3 | 0.3h | 0.10h |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (success), 01-02 (success), 02-01 (success), 02-02 (success), 02-03 (success)
-- Trend: On track -- Phase 2 complete
+- Last 5 plans: 02-01 (success), 02-02 (success), 02-03 (success), 03-01 (success), 03-02 (success), 03-03 (success)
+- Trend: On track -- Phase 3 complete
 
 *Updated after each plan completion*
 
@@ -65,6 +66,14 @@ Recent decisions affecting current work:
 - [Phase 3]: All 3 enterprises have carbon coin balance=10000, carbonTradable: 38000/55000/50000
 - [Phase 3]: DoubleAuctionService.executeMatching() is `synchronized` — sequential testing only
 - [Phase 3]: No API endpoint exposes enterprise quota fields (carbonTradable, carbonQuota, carbonUsed) — use direct DB queries for verification
+- [03-01]: Carbon coin balance returns decimal format (10000.00) — strip decimals with cut -d. -f1 for bash arithmetic
+- [03-02]: Backend connects to host MySQL (port 3306), NOT Docker MySQL (port 3307) — use `mysql -h 127.0.0.1 -P 3306` for all DB queries
+- [03-02]: Auction order status values: PENDING=0, PARTIALLY_MATCHED=1, FULLY_MATCHED=2, CANCELLED=3
+- [03-02]: `/auction/results` requires ENTERPRISE role, not ADMIN
+- [03-02]: Test data reset required before auction tests to avoid stale order interference
+- [03-03]: P2P trade lifecycle: seller creates (PENDING) → buyer confirms (PENDING→PROCESSING→COMPLETED atomically)
+- [03-03]: P2P settlement: seller loses carbonTradable, buyer gains carbonTradable + carbonQuota
+- [03-03]: TradeController and DoubleAuctionController confirmed as SEPARATE, INDEPENDENT subsystems (no shared matching engine)
 
 ### Pending Todos
 
@@ -91,5 +100,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-05-09
-Stopped at: Phase 3 planned (3 plans, 2 waves); ready to execute
-Resume file: .planning/phases/03-trading-engine/03-01-PLAN.md
+Stopped at: Phase 3 complete; ready to plan Phase 4
+Resume file: .planning/phases/04-projects-credit/ (not yet created)
