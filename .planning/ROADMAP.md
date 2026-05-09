@@ -83,9 +83,18 @@ Plans:
 **Plans**: 3 plans in 2 waves
 
 Plans:
+
+**Wave 1** *(independent — can run in parallel)*
 - [ ] 03-01-PLAN.md -- Carbon coin balance, history, transfer, insufficient balance rejection (COIN-01~05) *(Wave 1)*
 - [ ] 03-02-PLAN.md -- Double auction buy/sell orders, admin matching, settlement, status transitions (TRADE-01~06, 12, 13) *(Wave 1)*
-- [ ] 03-03-PLAN.md -- P2P trade lifecycle + trade.ts fix + controller relationship documentation (TRADE-07~11) *(Wave 2)*
+
+**Wave 2** *(blocked on Wave 1 — 03-03 depends on 03-02)*
+- [ ] 03-03-PLAN.md -- P2P trade lifecycle + trade.ts fix + controller relationship documentation (TRADE-07~11) *(Wave 2, depends on 03-02)*
+
+**Cross-cutting constraints:**
+- TradeController (P2P) and DoubleAuctionController (auction) are separate subsystems — do NOT share matching engine
+- Sequential testing only (CON-01/02/03 deferred to v2)
+- After every trade, verify both account balances via direct DB query (`docker exec oaiss-mysql mysql`)
 
 ### Phase 4: Carbon Neutral Projects & Credit Scoring
 **Goal**: Carbon neutral project lifecycle works through all states (including verification and certification), credit score levels are correctly enforced (WARNING at 40, FROZEN at 20), and trading restrictions based on credit level are verified.
@@ -171,7 +180,7 @@ Phase 5 can run in parallel with Phase 3/4 since it only depends on Phase 1.
 |-------|----------------|--------|-----------|
 | 1. Environment Setup & Auth Baseline | 2/2 | Complete | 2026-05-08 |
 | 2. Carbon Report Lifecycle | 3/3 | Complete | 2026-05-09 |
-| 3. Carbon Coin & Trading Engine | 0/3 | Not started | - |
+| 3. Carbon Coin & Trading Engine | 3/3 | Planned | - |
 | 4. Carbon Neutral Projects & Credit Scoring | 0/2 | Not started | - |
 | 5. Supporting Domains | 0/4 | Not started | - |
 | 6. Cross-Cutting & Edge Cases | 0/4 | Not started | - |
