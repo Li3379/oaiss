@@ -42,6 +42,9 @@ public class CarbonService {
     private final EnterpriseRepository enterpriseRepository;
     private final UserRepository userRepository;
     private final ObjectMapper objectMapper;
+    private final CreditScoreService creditScoreService;
+    private final EmissionRatingService emissionRatingService;
+    private final BlockchainService blockchainService;
 
     /**
      * 创建碳报告（草稿）
@@ -123,6 +126,32 @@ public class CarbonService {
         report.setReviewComment(request.getReviewComment());
         report.setReviewedAt(LocalDateTime.now());
         report.setStatus(request.getReviewResult()); // 3-通过, 4-拒绝
+
+        // Cascading side effects for approved reports (D-01/D-02/D-03/D-05)
+        if (request.getReviewResult() == ReportStatusEnum.APPROVED.getCode()) {
+            Long enterpriseId = report.getEnterpriseId();
+
+            // 1. Credit score bonus (+5 points)
+            creditScoreService.addBonusPoints(enterpriseId, 5,
+                "碳报告审核通过奖励", currentUser.getUserId());
+
+            // 2. Emission rating calculation
+            emissionRatingService.rateEnterprise(enterpriseId,
+                report.getAccountingPeriod(),
+                report.getTotalEmission(),
+                null,
+                currentUser.getUserId());
+
+            // 3. Blockchain mock record
+            String txHash = blockchainService.commitReportToChain(
+                report.getId(), report.getEmissionData());
+            report.setBlockchainTxHash(txHash);
+            report.setOnChainAt(LocalDateTime.now());
+
+            // 4. Transition to ON_CHAIN(5) per D-05
+            report.setStatus(ReportStatusEnum.ON_CHAIN.getCode());
+        }
+
         report = carbonReportRepository.save(report);
 
         log.info("Carbon report reviewed: {} -> status={}", report.getReportNo(), request.getReviewResult());
