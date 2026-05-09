@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-05-08)
 
 **Core value:** 所有五种角色的核心业务流程在真实后端数据下端到端跑通，系统功能完整可用
-**Current focus:** Phase 2: Carbon Report Lifecycle
+**Current focus:** Phase 3: Carbon Coin & Trading Engine
 
 ## Current Position
 
-Phase: 2 of 6 (Carbon Report Lifecycle)
-Plan: 3 of 3 in current phase (phase complete)
-Status: Phase 2 complete
-Last activity: 2026-05-09 -- Plan 02-03 complete (E2E test verification + 3 bug fixes + human checkpoint)
+Phase: 3 of 6 (Carbon Coin & Trading Engine)
+Plan: 3 of 3 in current phase
+Status: Ready to execute
+Last activity: 2026-05-09 -- Phase 3 planning complete (3 plans, 2 waves)
 
-Progress: [██████░░░░] 37%
+Progress: [████████░░] 42%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 4
+- Total plans completed: 5
 - Average duration: ~13 minutes
-- Total execution time: 0.9 hours
+- Total execution time: 1.4 hours
 
 **By Phase:**
 
@@ -60,6 +60,11 @@ Recent decisions affecting current work:
 - [02-01]: Fix frontend carbon.ts dual bug + create enterprise CRUD test script -- COMPLETE 2026-05-09
 - [02-02]: Wire cascading side effects (CreditScore/EmissionRating/Blockchain) into CarbonService.reviewReport() -- COMPLETE 2026-05-09
 - [02-03]: Fix 3 bugs (pipefail, JSON escaping, rating_year truncation), verify all 13 CARB tests pass -- COMPLETE 2026-05-09
+- [Phase 3]: TradeController and DoubleAuctionController are SEPARATE subsystems — no shared matching engine (resolves TRADE-11)
+- [Phase 3]: Frontend trade.ts has TWO bugs: line 5 `carbonAmount`→`quantity`, line 6 `price`→`unitPrice`
+- [Phase 3]: All 3 enterprises have carbon coin balance=10000, carbonTradable: 38000/55000/50000
+- [Phase 3]: DoubleAuctionService.executeMatching() is `synchronized` — sequential testing only
+- [Phase 3]: No API endpoint exposes enterprise quota fields (carbonTradable, carbonQuota, carbonUsed) — use direct DB queries for verification
 
 ### Pending Todos
 
@@ -71,7 +76,7 @@ None yet.
 - ~~docker-compose.infra.yml does not exist yet~~ -- RESOLVED in 01-01
 - ~~.env file may not exist~~ -- RESOLVED (exists with working defaults)
 - VERIFIER/CERTIFIER roles referenced in @PreAuthorize but not in UserTypeEnum -- may block Phase 4
-- TradeController vs DoubleAuctionController relationship unclear -- needs Phase 3 investigation
+- ~~TradeController vs DoubleAuctionController relationship unclear~~ -- RESOLVED: separate subsystems (Phase 3 research)
 - Host MySQL on port 3306 blocks Docker oaiss-mysql on same port; workaround: Docker on 3307
 
 ## Deferred Items
@@ -86,5 +91,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-05-09
-Stopped at: Phase 2 complete (02-03-PLAN.md); next: Phase 3 (carbon coin & trading engine)
+Stopped at: Phase 3 planned (3 plans, 2 waves); ready to execute
 Resume file: .planning/phases/03-trading-engine/03-01-PLAN.md
