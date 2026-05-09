@@ -244,10 +244,285 @@ else
   FAILED=$((FAILED + 1))
 fi
 
+# --- Step 6: Login as reviewer001 and authenticator001 ---
+info "Logging in as reviewer001..."
+TOKEN_R=$(login "reviewer001") || { fail "Cannot proceed without reviewer001 token"; exit 1; }
+ok "reviewer001 logged in"
+
+info "Logging in as authenticator001..."
+TOKEN_A=$(login "authenticator001") || { fail "Cannot proceed without authenticator001 token"; exit 1; }
+ok "authenticator001 logged in"
+
+# --- Step 7: [CARB-05] Reviewer views SUBMITTED reports ---
+info "[CARB-05] Reviewer listing SUBMITTED reports (status=1)..."
+REVIEW_LIST_RESP=$(curl -s "$API/carbon/reports?status=1&page=1&size=20" \
+  -H "Authorization: Bearer $TOKEN_R")
+
+REVIEW_LIST_CODE=$(extract_field "$REVIEW_LIST_RESP" "code")
+TOTAL=$((TOTAL + 1))
+if [[ "$REVIEW_LIST_CODE" != "200" ]]; then
+  fail "CARB-05: Reviewer list SUBMITTED reports failed (code=$REVIEW_LIST_CODE)"
+  FAILED=$((FAILED + 1))
+else
+  FOUND_R1=0; FOUND_R2=0
+  [[ -n "${REPORT1_ID:-}" ]] && echo "$REVIEW_LIST_RESP" | grep -q "\"id\":$REPORT1_ID" && FOUND_R1=1
+  [[ -n "${REPORT2_ID:-}" ]] && echo "$REVIEW_LIST_RESP" | grep -q "\"id\":$REPORT2_ID" && FOUND_R2=1
+
+  if [[ "$FOUND_R1" -eq 1 || "$FOUND_R2" -eq 1 ]]; then
+    ok "CARB-05: Found submitted reports (report1=$FOUND_R1, report2=$FOUND_R2)"
+    PASSED=$((PASSED + 1))
+  else
+    fail "CARB-05: No submitted reports found for reviewer"
+    FAILED=$((FAILED + 1))
+  fi
+fi
+
+# --- Step 8: [CARB-06] Reviewer approves report1 ---
+info "[CARB-06] Reviewer approving report1..."
+TOTAL=$((TOTAL + 1))
+if [[ -z "${REPORT1_ID:-}" ]]; then
+  fail "CARB-06: Cannot approve report1: no ID"
+  FAILED=$((FAILED + 1))
+else
+  APPROVE_RESP=$(curl -s -X POST "$API/carbon/review" \
+    -H "Authorization: Bearer $TOKEN_R" \
+    -H "Content-Type: application/json" \
+    -d "{\"reportId\":$REPORT1_ID,\"reviewResult\":3,\"reviewComment\":\"Approved for testing\"}")
+
+  APPROVE_CODE=$(extract_field "$APPROVE_RESP" "code")
+  if [[ "$APPROVE_CODE" != "200" ]]; then
+    fail "CARB-06: Approve report1 failed (code=$APPROVE_CODE)"
+    echo "$APPROVE_RESP" >&2
+    FAILED=$((FAILED + 1))
+  else
+    APPROVE_STATUS=$(extract_field "$APPROVE_RESP" "status")
+    APPROVE_TXHASH=$(echo "$APPROVE_RESP" | grep -o '"blockchainTxHash":"[^"]*"' | head -1 | cut -d'"' -f4)
+    APPROVE_ONCHAIN=$(extract_field "$APPROVE_RESP" "onChainAt")
+
+    if [[ "$APPROVE_STATUS" == "5" && "$APPROVE_TXHASH" == tx_mock_* && -n "$APPROVE_ONCHAIN" ]]; then
+      ok "CARB-06: Report1 approved -> ON_CHAIN: status=$APPROVE_STATUS txHash=$APPROVE_TXHASH onChainAt=$APPROVE_ONCHAIN"
+      PASSED=$((PASSED + 1))
+    else
+      fail "CARB-06: Approval result mismatch: status=$APPROVE_STATUS (expected 5) txHash=$APPROVE_TXHASH onChainAt=$APPROVE_ONCHAIN"
+      FAILED=$((FAILED + 1))
+    fi
+  fi
+fi
+
+# --- Step 9: [CARB-07] Reviewer rejects report2 ---
+info "[CARB-07] Reviewer rejecting report2..."
+TOTAL=$((TOTAL + 1))
+if [[ -z "${REPORT2_ID:-}" ]]; then
+  fail "CARB-07: Cannot reject report2: no ID"
+  FAILED=$((FAILED + 1))
+else
+  REJECT_RESP=$(curl -s -X POST "$API/carbon/review" \
+    -H "Authorization: Bearer $TOKEN_R" \
+    -H "Content-Type: application/json" \
+    -d "{\"reportId\":$REPORT2_ID,\"reviewResult\":4,\"reviewComment\":\"Data incomplete\"}")
+
+  REJECT_CODE=$(extract_field "$REJECT_RESP" "code")
+  if [[ "$REJECT_CODE" != "200" ]]; then
+    fail "CARB-07: Reject report2 failed (code=$REJECT_CODE)"
+    echo "$REJECT_RESP" >&2
+    FAILED=$((FAILED + 1))
+  else
+    REJECT_STATUS=$(extract_field "$REJECT_RESP" "status")
+    REJECT_COMMENT=$(extract_field "$REJECT_RESP" "reviewComment")
+
+    if [[ "$REJECT_STATUS" == "4" ]]; then
+      ok "CARB-07: Report2 rejected: status=$REJECT_STATUS comment=$REJECT_COMMENT"
+      PASSED=$((PASSED + 1))
+    else
+      fail "CARB-07: Reject result mismatch: status=$REJECT_STATUS (expected 4)"
+      FAILED=$((FAILED + 1))
+    fi
+  fi
+fi
+
+# --- Step 10: [CARB-08/09/10] Verify side effects via report detail ---
+info "[CARB-08/09/10] Verifying side effects on report1..."
+TOTAL=$((TOTAL + 1))
+if [[ -z "${REPORT1_ID:-}" ]]; then
+  fail "CARB-08/09/10: Cannot verify side effects: no report1 ID"
+  FAILED=$((FAILED + 1))
+else
+  VERIFY_RESP=$(curl -s "$API/carbon/reports/$REPORT1_ID" \
+    -H "Authorization: Bearer $TOKEN_R")
+
+  VERIFY_CODE=$(extract_field "$VERIFY_RESP" "code")
+  if [[ "$VERIFY_CODE" != "200" ]]; then
+    fail "CARB-08/09/10: Fetch report1 detail failed (code=$VERIFY_CODE)"
+    FAILED=$((FAILED + 1))
+  else
+    VERIFY_STATUS=$(extract_field "$VERIFY_RESP" "status")
+    VERIFY_TXHASH=$(echo "$VERIFY_RESP" | grep -o '"blockchainTxHash":"[^"]*"' | head -1 | cut -d'"' -f4)
+    VERIFY_ONCHAIN=$(extract_field "$VERIFY_RESP" "onChainAt")
+
+    if [[ "$VERIFY_STATUS" == "5" && "$VERIFY_TXHASH" == tx_mock_* && -n "$VERIFY_ONCHAIN" ]]; then
+      ok "CARB-08/09/10: Side effects verified: status=$VERIFY_STATUS txHash=$VERIFY_TXHASH onChainAt=present"
+      PASSED=$((PASSED + 1))
+    else
+      fail "CARB-08/09/10: Side effect verification failed: status=$VERIFY_STATUS txHash=$VERIFY_TXHASH onChainAt=$VERIFY_ONCHAIN"
+      FAILED=$((FAILED + 1))
+    fi
+  fi
+fi
+
+# --- Step 11: [CARB-11] Illegal state transitions ---
+info "[CARB-11] Testing illegal state transitions..."
+
+# Try to submit report1 again (already ON_CHAIN)
+TOTAL=$((TOTAL + 1))
+if [[ -z "${REPORT1_ID:-}" ]]; then
+  fail "CARB-11a: Cannot test resubmit: no report1 ID"
+  FAILED=$((FAILED + 1))
+else
+  RESUBMIT_RESP=$(curl -s -X POST "$API/carbon/reports/$REPORT1_ID/submit" \
+    -H "Authorization: Bearer $TOKEN_E1")
+
+  RESUBMIT_CODE=$(extract_field "$RESUBMIT_RESP" "code")
+  if [[ "$RESUBMIT_CODE" != "200" ]]; then
+    ok "CARB-11a: Resubmit ON_CHAIN report correctly rejected (code=$RESUBMIT_CODE)"
+    PASSED=$((PASSED + 1))
+  else
+    fail "CARB-11a: Resubmit ON_CHAIN report should have failed but returned 200"
+    FAILED=$((FAILED + 1))
+  fi
+fi
+
+# Try to review report3 (DRAFT -- not reviewable)
+TOTAL=$((TOTAL + 1))
+if [[ -z "${REPORT3_ID:-}" ]]; then
+  fail "CARB-11b: Cannot test draft review: no report3 ID"
+  FAILED=$((FAILED + 1))
+else
+  DRAFT_REVIEW_RESP=$(curl -s -X POST "$API/carbon/review" \
+    -H "Authorization: Bearer $TOKEN_R" \
+    -H "Content-Type: application/json" \
+    -d "{\"reportId\":$REPORT3_ID,\"reviewResult\":3,\"reviewComment\":\"Should fail\"}")
+
+  DRAFT_REVIEW_CODE=$(extract_field "$DRAFT_REVIEW_RESP" "code")
+  if [[ "$DRAFT_REVIEW_CODE" != "200" ]]; then
+    ok "CARB-11b: Review of DRAFT report correctly rejected (code=$DRAFT_REVIEW_CODE)"
+    PASSED=$((PASSED + 1))
+  else
+    fail "CARB-11b: Review of DRAFT report should have failed but returned 200"
+    FAILED=$((FAILED + 1))
+  fi
+fi
+
+# --- Step 12: [CARB-12] Authenticator read-only access ---
+info "[CARB-12] Testing authenticator read-only access..."
+
+# GET /carbon/reports with authenticator token -- expect success
+TOTAL=$((TOTAL + 1))
+AUTH_LIST_RESP=$(curl -s "$API/carbon/reports?page=1&size=10" \
+  -H "Authorization: Bearer $TOKEN_A")
+
+AUTH_LIST_CODE=$(extract_field "$AUTH_LIST_RESP" "code")
+if [[ "$AUTH_LIST_CODE" == "200" ]]; then
+  ok "CARB-12a: Authenticator can list reports (code=200)"
+  PASSED=$((PASSED + 1))
+else
+  fail "CARB-12a: Authenticator list reports failed (code=$AUTH_LIST_CODE)"
+  FAILED=$((FAILED + 1))
+fi
+
+# POST /carbon/review with authenticator token -- expect 403
+TOTAL=$((TOTAL + 1))
+if [[ -z "${REPORT1_ID:-}" ]]; then
+  fail "CARB-12b: Cannot test authenticator review: no report1 ID"
+  FAILED=$((FAILED + 1))
+else
+  AUTH_REVIEW_RESP=$(curl -s -w "\n%{http_code}" -X POST "$API/carbon/review" \
+    -H "Authorization: Bearer $TOKEN_A" \
+    -H "Content-Type: application/json" \
+    -d "{\"reportId\":$REPORT1_ID,\"reviewResult\":3,\"reviewComment\":\"Should be denied\"}")
+
+  AUTH_REVIEW_HTTP=$(echo "$AUTH_REVIEW_RESP" | tail -1)
+  if [[ "$AUTH_REVIEW_HTTP" == "403" ]]; then
+    ok "CARB-12b: Authenticator POST /review correctly denied (HTTP 403)"
+    PASSED=$((PASSED + 1))
+  else
+    AUTH_REVIEW_CODE=$(extract_field "$(echo "$AUTH_REVIEW_RESP" | head -1)" "code")
+    fail "CARB-12b: Expected 403 for authenticator review, got HTTP=$AUTH_REVIEW_HTTP code=$AUTH_REVIEW_CODE"
+    FAILED=$((FAILED + 1))
+  fi
+fi
+
+# --- Step 13: [CARB-13] Cross-role access control (enterprise denied review) ---
+info "[CARB-13] Testing cross-role access control..."
+
+TOTAL=$((TOTAL + 1))
+if [[ -z "${REPORT1_ID:-}" ]]; then
+  fail "CARB-13a: Cannot test enterprise review: no report1 ID"
+  FAILED=$((FAILED + 1))
+else
+  ENT_REVIEW_RESP=$(curl -s -w "\n%{http_code}" -X POST "$API/carbon/review" \
+    -H "Authorization: Bearer $TOKEN_E1" \
+    -H "Content-Type: application/json" \
+    -d "{\"reportId\":$REPORT1_ID,\"reviewResult\":3,\"reviewComment\":\"Should be denied\"}")
+
+  ENT_REVIEW_HTTP=$(echo "$ENT_REVIEW_RESP" | tail -1)
+  if [[ "$ENT_REVIEW_HTTP" == "403" ]]; then
+    ok "CARB-13a: Enterprise POST /review correctly denied (HTTP 403)"
+    PASSED=$((PASSED + 1))
+  else
+    ENT_REVIEW_CODE=$(extract_field "$(echo "$ENT_REVIEW_RESP" | head -1)" "code")
+    fail "CARB-13a: Expected 403 for enterprise review, got HTTP=$ENT_REVIEW_HTTP code=$ENT_REVIEW_CODE"
+    FAILED=$((FAILED + 1))
+  fi
+fi
+
+# Data isolation: GET /carbon/my-reports with TOKEN_E1 does NOT contain report3
+TOTAL=$((TOTAL + 1))
+if [[ -z "${REPORT3_ID:-}" ]]; then
+  fail "CARB-13b: Cannot test data isolation: no report3 ID"
+  FAILED=$((FAILED + 1))
+else
+  ISO_E1_RESP=$(curl -s "$API/carbon/my-reports?pageNum=1&pageSize=20" \
+    -H "Authorization: Bearer $TOKEN_E1")
+
+  ISO_E1_CODE=$(extract_field "$ISO_E1_RESP" "code")
+  ISO_E1_HAS_R3=0
+  echo "$ISO_E1_RESP" | grep -q "\"id\":$REPORT3_ID" && ISO_E1_HAS_R3=1
+
+  if [[ "$ISO_E1_CODE" == "200" && "$ISO_E1_HAS_R3" -eq 0 ]]; then
+    ok "CARB-13b: Enterprise001 my-reports does NOT contain report3 (data isolation OK)"
+    PASSED=$((PASSED + 1))
+  else
+    fail "CARB-13b: Data isolation failed: code=$ISO_E1_CODE has_report3=$ISO_E1_HAS_R3"
+    FAILED=$((FAILED + 1))
+  fi
+fi
+
+# Data isolation: GET /carbon/my-reports with TOKEN_E2 contains only report3
+TOTAL=$((TOTAL + 1))
+if [[ -z "${REPORT3_ID:-}" ]]; then
+  fail "CARB-13c: Cannot test data isolation E2: no report3 ID"
+  FAILED=$((FAILED + 1))
+else
+  ISO_E2_RESP=$(curl -s "$API/carbon/my-reports?pageNum=1&pageSize=20" \
+    -H "Authorization: Bearer $TOKEN_E2")
+
+  ISO_E2_CODE=$(extract_field "$ISO_E2_RESP" "code")
+  ISO_E2_HAS_R3=0
+  echo "$ISO_E2_RESP" | grep -q "\"id\":$REPORT3_ID" && ISO_E2_HAS_R3=1
+
+  if [[ "$ISO_E2_CODE" == "200" && "$ISO_E2_HAS_R3" -eq 1 ]]; then
+    ok "CARB-13c: Enterprise002 my-reports contains report3 (data isolation OK)"
+    PASSED=$((PASSED + 1))
+  else
+    fail "CARB-13c: Data isolation failed: code=$ISO_E2_CODE has_report3=$ISO_E2_HAS_R3"
+    FAILED=$((FAILED + 1))
+  fi
+fi
+
 # --- Summary ---
 echo ""
 echo -e "========================================"
-echo -e " Carbon Report Test Results (CARB-01..04)"
+echo -e " Carbon Report Test Results (CARB-01..13)"
 echo -e "========================================"
 echo -e " Total:  $TOTAL"
 echo -e " Passed: ${GREEN}$PASSED${NC}"
