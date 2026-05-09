@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-05-08)
 
 **Core value:** 所有五种角色的核心业务流程在真实后端数据下端到端跑通，系统功能完整可用
-**Current focus:** Phase 3: Carbon Coin & Trading Engine
+**Current focus:** Phase 6: Cross-Cutting & Edge Cases
 
 ## Current Position
 
-Phase: 4 of 6 (Carbon Neutral Projects & Credit Scoring)
-Plan: 0 of 2 in current phase
-Status: Ready to plan
-Last activity: 2026-05-09 -- Phase 3 complete (3 plans, 18 requirements verified)
+Phase: 6 of 6 (Cross-Cutting & Edge Cases)
+Plan: 0 of 0 in current phase
+Status: Phase 5 complete (7/7 plans, 81 tests, 0 failures). Ready for Phase 6 planning.
+Last activity: 2026-05-09 -- Phase 5 execution complete (7/7 scripts, 81/81 tests passed)
 
-Progress: [█████████░] 50%
+Progress: [█████████████░] 83%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 8
-- Average duration: ~13 minutes
-- Total execution time: 1.7 hours
+- Total plans completed: 10
+- Average duration: ~12 minutes
+- Total execution time: 2.0 hours
 
 **By Phase:**
 
@@ -30,10 +30,12 @@ Progress: [█████████░] 50%
 | 1. Environment Setup | 2/2 | 0.5h | 0.25h |
 | 2. Carbon Report Lifecycle | 3/3 | 0.9h | 0.18h |
 | 3. Carbon Coin & Trading | 3/3 | 0.3h | 0.10h |
+| 4. Projects & Credit | 2/2 | 0.3h | 0.15h |
+| 5. Supporting Domains | 7/7 | 0.5h | 0.07h |
 
 **Recent Trend:**
-- Last 5 plans: 02-01 (success), 02-02 (success), 02-03 (success), 03-01 (success), 03-02 (success), 03-03 (success)
-- Trend: On track -- Phase 3 complete
+- Last 5 plans: 03-03 (success), 04-01 (success), 04-02 (success), 05-01~05-07 (all success)
+- Trend: On track -- Phase 5 complete
 
 *Updated after each plan completion*
 
@@ -74,6 +76,25 @@ Recent decisions affecting current work:
 - [03-03]: P2P trade lifecycle: seller creates (PENDING) → buyer confirms (PENDING→PROCESSING→COMPLETED atomically)
 - [03-03]: P2P settlement: seller loses carbonTradable, buyer gains carbonTradable + carbonQuota
 - [03-03]: TradeController and DoubleAuctionController confirmed as SEPARATE, INDEPENDENT subsystems (no shared matching engine)
+- [04-01]: VERIFIER/CERTIFIER gap confirmed: @PreAuthorize('VERIFIER'/'CERTIFIER') but UserTypeEnum has AUTHENTICATOR(5). ADMIN workaround works.
+- [04-01]: Project lifecycle: DRAFT(0)→PENDING(1)→APPROVED(2)→IMPLEMENTING(3)→TERMINATED(5), REJECTED(6). Invalid transitions → BusinessException(3003)
+- [04-01]: Certification: certStatus NONE(0)→PENDING(1)→CERTIFIED(2), verificationStatus NONE(0)→PENDING(1)→VERIFIED(2). verifyProject() auto-issues credits = verifiedReduction
+- [04-02]: check-permission/{enterpriseId} requires JWT authentication (not public as controller suggests)
+- [04-02]: Credit score levels verified: EXCELLENT(80-100), GOOD(60-79), WARNING(40-59), DANGER(20-39), FROZEN(0-19)
+- [04-02]: tradeRestricted activates at score<40 (DANGER), accountFrozen activates at score<20 (FROZEN)
+- [04-02]: addBonusPoints caps score at 100
+- [Phase 5]: 20 decisions captured via discuss-phase — 7 sub-domain scripts, 3 code gaps recorded
+- [05-discuss]: 7 independent test scripts (one per sub-domain) replace ROADMAP 4-plan structure
+- [05-discuss]: ADMIN-02/03 (create/edit user) are code gaps — no backend endpoints, no frontend UI
+- [05-discuss]: Blockchain mock verification: API 200 + field existence + format validation (txMock_ prefix, 0x blockHash)
+- [05-discuss]: TP-02 (trade audit) partially covered — no dedicated endpoint, /carbon-reports as proxy
+- [05-discuss]: Emission factors hardcoded in CachePreloadService — test current values only
+- [05-exec]: NonUniqueResultException in DigitalSignatureService when user has multiple keypairs (revoked+active) — DELETE old keypairs before testing
+- [05-exec]: MinIO bucket 'oaiss-chain' was missing — created via mc mb
+- [05-exec]: rsa_key_pair table is singular (not rsa_key_pairs)
+- [05-exec]: DB password is 123456 (not root)
+- [05-exec]: ADMIN-02/03 confirmed as code gaps (no create/edit user endpoints)
+- [05-exec]: TP-02 confirmed as partial coverage (no dedicated trade audit endpoint)
 
 ### Pending Todos
 
@@ -84,7 +105,7 @@ None yet.
 - ~~V3__test_seed_data.sql Flyway migration does not exist yet~~ -- RESOLVED in 01-01
 - ~~docker-compose.infra.yml does not exist yet~~ -- RESOLVED in 01-01
 - ~~.env file may not exist~~ -- RESOLVED (exists with working defaults)
-- VERIFIER/CERTIFIER roles referenced in @PreAuthorize but not in UserTypeEnum -- may block Phase 4
+- VERIFIER/CERTIFIER roles referenced in @PreAuthorize but not in UserTypeEnum -- CONFIRMED in Phase 4, ADMIN workaround verified
 - ~~TradeController vs DoubleAuctionController relationship unclear~~ -- RESOLVED: separate subsystems (Phase 3 research)
 - Host MySQL on port 3306 blocks Docker oaiss-mysql on same port; workaround: Docker on 3307
 
@@ -100,5 +121,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-05-09
-Stopped at: Phase 3 complete; ready to plan Phase 4
-Resume file: .planning/phases/04-projects-credit/ (not yet created)
+Stopped at: Phase 5 complete (7/7 scripts, 81/81 tests passed); ready for Phase 6 planning
+Resume file: /gsd-discuss-phase 6 or /gsd-plan-phase 6
