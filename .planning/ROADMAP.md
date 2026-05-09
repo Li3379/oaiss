@@ -59,7 +59,7 @@ Plans:
 
 Plans:
 - [x] 02-01-PLAN.md -- Fix carbon.ts field mapping bug, create API test script for enterprise report CRUD (CARB-01/02/03/04) + MinIO file upload *(Wave 1)* -- COMPLETE 2026-05-09
-- [ ] 02-02-PLAN.md -- Wire cascading side effects into CarbonService.reviewReport(), extend test script for review flows + state machine + cross-role access (CARB-05/06/07/11/12) *(Wave 2)*
+- [x] 02-02-PLAN.md -- Wire cascading side effects into CarbonService.reviewReport(), extend test script for review flows + state machine + cross-role access (CARB-05/06/07/11/12) *(Wave 2)* -- COMPLETE 2026-05-09
 - [ ] 02-03-PLAN.md -- Execute full test suite, verify side effects at runtime, fix failures, human checkpoint (CARB-08/09/10/13) *(Wave 3)*
 
 ### Phase 3: Carbon Coin & Trading Engine
@@ -170,7 +170,7 @@ Phase 5 can run in parallel with Phase 3/4 since it only depends on Phase 1.
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Environment Setup & Auth Baseline | 2/2 | Complete | 2026-05-08 |
-| 2. Carbon Report Lifecycle | 1/3 | Executing | - |
+| 2. Carbon Report Lifecycle | 2/3 | Executing | - |
 | 3. Carbon Coin & Trading Engine | 0/3 | Not started | - |
 | 4. Carbon Neutral Projects & Credit Scoring | 0/2 | Not started | - |
 | 5. Supporting Domains | 0/4 | Not started | - |
