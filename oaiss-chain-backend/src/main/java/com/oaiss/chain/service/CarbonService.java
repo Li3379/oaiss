@@ -136,8 +136,13 @@ public class CarbonService {
                 "碳报告审核通过奖励", currentUser.getUserId());
 
             // 2. Emission rating calculation
+            // Extract year from accountingPeriod (e.g., "2024-Q1" -> "2024", "2024" -> "2024")
+            String ratingYear = report.getAccountingPeriod();
+            if (ratingYear != null && ratingYear.length() > 4) {
+                ratingYear = ratingYear.substring(0, 4);
+            }
             emissionRatingService.rateEnterprise(enterpriseId,
-                report.getAccountingPeriod(),
+                ratingYear,
                 report.getTotalEmission(),
                 null,
                 currentUser.getUserId());
