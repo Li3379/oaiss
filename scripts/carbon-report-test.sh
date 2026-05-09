@@ -20,7 +20,7 @@ FAILED=0
 # --- Helper: extract JSON field value via grep ---
 extract_field() {
   local json="$1" field="$2"
-  echo "$json" | grep -o "\"$field\":[^,}]*" | head -1 | sed "s/\"$field\"://" | tr -d '"'
+  echo "$json" | { grep -o "\"$field\":[^,}]*" || true; } | head -1 | sed "s/\"$field\"://" | tr -d '"'
 }
 
 # --- Verify backend is up ---
@@ -83,6 +83,8 @@ rm -f "$UPLOAD_FILE"
 info "[CARB-01] Creating carbon reports..."
 
 EMISSION_DATA='{"scope1":[{"name":"gas","activity_data":1000,"emission_factor":2.0}],"scope2":[{"name":"electricity","activity_data":5000,"emission_factor":0.6}],"scope3":[{"name":"travel","activity_data":200,"emission_factor":0.15}]}'
+# Escape internal quotes for embedding as a JSON string value
+EMISSION_ESCAPED=$(echo "$EMISSION_DATA" | sed 's/"/\\"/g')
 
 ATTACHMENTS="null"
 if [[ -n "$OBJECT_NAME" ]]; then
@@ -93,7 +95,7 @@ fi
 REPORT1_RESP=$(curl -s -X POST "$API/carbon/reports" \
   -H "Authorization: Bearer $TOKEN_E1" \
   -H "Content-Type: application/json" \
-  -d "{\"title\":\"CARB-TEST-APPROVE-$TIMESTAMP\",\"accountingPeriod\":\"2024-Q1\",\"reportType\":1,\"emissionData\":\"${EMISSION_DATA}\",\"calculationMethod\":\"manual\",\"attachments\":$ATTACHMENTS}")
+  -d "{\"title\":\"CARB-TEST-APPROVE-$TIMESTAMP\",\"accountingPeriod\":\"2024-Q1\",\"reportType\":1,\"emissionData\":\"${EMISSION_ESCAPED}\",\"calculationMethod\":\"manual\",\"attachments\":$ATTACHMENTS}")
 
 REPORT1_CODE=$(extract_field "$REPORT1_RESP" "code")
 TOTAL=$((TOTAL + 1))
@@ -111,7 +113,7 @@ fi
 REPORT2_RESP=$(curl -s -X POST "$API/carbon/reports" \
   -H "Authorization: Bearer $TOKEN_E1" \
   -H "Content-Type: application/json" \
-  -d "{\"title\":\"CARB-TEST-REJECT-$TIMESTAMP\",\"accountingPeriod\":\"2024-Q2\",\"reportType\":1,\"emissionData\":\"${EMISSION_DATA}\",\"calculationMethod\":\"manual\",\"attachments\":null}")
+  -d "{\"title\":\"CARB-TEST-REJECT-$TIMESTAMP\",\"accountingPeriod\":\"2024-Q2\",\"reportType\":1,\"emissionData\":\"${EMISSION_ESCAPED}\",\"calculationMethod\":\"manual\",\"attachments\":null}")
 
 REPORT2_CODE=$(extract_field "$REPORT2_RESP" "code")
 TOTAL=$((TOTAL + 1))
@@ -129,7 +131,7 @@ fi
 REPORT3_RESP=$(curl -s -X POST "$API/carbon/reports" \
   -H "Authorization: Bearer $TOKEN_E2" \
   -H "Content-Type: application/json" \
-  -d "{\"title\":\"CARB-TEST-ISOLATION-$TIMESTAMP\",\"accountingPeriod\":\"2024-Q3\",\"reportType\":2,\"emissionData\":\"${EMISSION_DATA}\",\"calculationMethod\":\"manual\",\"attachments\":null}")
+  -d "{\"title\":\"CARB-TEST-ISOLATION-$TIMESTAMP\",\"accountingPeriod\":\"2024-Q3\",\"reportType\":2,\"emissionData\":\"${EMISSION_ESCAPED}\",\"calculationMethod\":\"manual\",\"attachments\":null}")
 
 REPORT3_CODE=$(extract_field "$REPORT3_RESP" "code")
 TOTAL=$((TOTAL + 1))
