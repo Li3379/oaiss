@@ -22,10 +22,10 @@
 
 ### Phase 2: 碳排放报告生命周期
 
-- [ ] **CARB-01**: 企业用户创建碳排放报告（表单填写 + 文件上传到 MinIO）
-- [ ] **CARB-02**: 企业用户查看报告列表（分页、排序）
-- [ ] **CARB-03**: 企业用户查看报告详情
-- [ ] **CARB-04**: 企业用户提交报告（状态: DRAFT → SUBMITTED）
+- [x] **CARB-01**: 企业用户创建碳排放报告（表单填写 + 文件上传到 MinIO）
+- [x] **CARB-02**: 企业用户查看报告列表（分页、排序）
+- [x] **CARB-03**: 企业用户查看报告详情
+- [x] **CARB-04**: 企业用户提交报告（状态: DRAFT → SUBMITTED）
 - [ ] **CARB-05**: 审核员查看待审列表（状态筛选: UNDER_REVIEW）
 - [ ] **CARB-06**: 审核员批准报告（状态: UNDER_REVIEW → APPROVED）
 - [ ] **CARB-07**: 审核员拒绝报告（状态: UNDER_REVIEW → REJECTED，填写拒绝原因）
@@ -158,10 +158,10 @@
 | ENV-08 | Phase 1 | 01-02 | Pending |
 | ENV-09 | Phase 1 | 01-02 | Pending |
 | ENV-10 | Phase 1 | 01-02 | Pending |
-| CARB-01 | Phase 2 | 02-01 | Pending |
-| CARB-02 | Phase 2 | 02-01 | Pending |
-| CARB-03 | Phase 2 | 02-01 | Pending |
-| CARB-04 | Phase 2 | 02-01 | Pending |
+| CARB-01 | Phase 2 | 02-01 | Complete |
+| CARB-02 | Phase 2 | 02-01 | Complete |
+| CARB-03 | Phase 2 | 02-01 | Complete |
+| CARB-04 | Phase 2 | 02-01 | Complete |
 | CARB-05 | Phase 2 | 02-02 | Pending |
 | CARB-06 | Phase 2 | 02-02 | Pending |
 | CARB-07 | Phase 2 | 02-02 | Pending |
