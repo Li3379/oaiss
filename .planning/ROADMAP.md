@@ -32,7 +32,7 @@ This roadmap drives OAISS CHAIN from "functionally complete but untested" to "pr
   - **V3 migration gap**: Create `V3__test_seed_data.sql` before testing starts
   - **Flyway schema drift**: Verify `rsa_key_pairs` table exists after migration; if not, add to V3
 **Estimated Effort**: 2-3 hours (infrastructure + auth smoke test)
-**Plans**: 2 plans in 2 waves
+**Plans**: 3 plans in 2 waves in 2 waves
 
 Plans:
 - [x] 01-01-PLAN.md -- Docker infra compose, V3 migration (AUTHENTICATOR enum + enterprise003), health check script *(Wave 1)* -- COMPLETE 2026-05-08
@@ -80,12 +80,12 @@ Plans:
   - **N+1 query performance**: If matching is slow, note as PERF-01 but do not block
   - **Financial integrity**: After every trade, verify both account balances match expected values via DB or API
 **Estimated Effort**: 6-8 hours (dual trading paths, settlement verification, relationship investigation)
-**Plans**: 2 plans
+**Plans**: 3 plans in 2 waves
 
 Plans:
-- [ ] 03-01: Carbon coin balance, history, transfer, insufficient balance rejection
-- [ ] 03-02: Double auction (buy/sell orders, admin matching, settlement, order status transitions)
-- [ ] 03-03: P2P trade lifecycle (create, accept, reject, settle) + TradeController/DoubleAuctionController relationship validation
+- [ ] 03-01-PLAN.md -- Carbon coin balance, history, transfer, insufficient balance rejection (COIN-01~05) *(Wave 1)*
+- [ ] 03-02-PLAN.md -- Double auction buy/sell orders, admin matching, settlement, status transitions (TRADE-01~06, 12, 13) *(Wave 1)*
+- [ ] 03-03-PLAN.md -- P2P trade lifecycle + trade.ts fix + controller relationship documentation (TRADE-07~11) *(Wave 2)*
 
 ### Phase 4: Carbon Neutral Projects & Credit Scoring
 **Goal**: Carbon neutral project lifecycle works through all states (including verification and certification), credit score levels are correctly enforced (WARNING at 40, FROZEN at 20), and trading restrictions based on credit level are verified.
@@ -103,7 +103,7 @@ Plans:
   - **Hardcoded emission factors**: Credit scoring uses `CachePreloadService` constants. Do not expect runtime factor changes; test as read-only
   - **Phase dependency on Phase 2**: If Phase 2 approval flow has bugs, Phase 4 credit scoring cannot be tested. Resolve Phase 2 blockers first
 **Estimated Effort**: 4-5 hours (project lifecycle + credit scoring + role gap investigation)
-**Plans**: 2 plans
+**Plans**: 3 plans in 2 waves
 
 Plans:
 - [ ] 04-01: Carbon neutral project CRUD, status transitions, VERIFIER/CERTIFIER role gap investigation
@@ -127,7 +127,7 @@ Plans:
   - **Hardcoded emission factors**: Accept that config changes require backend restart; test current values only
   - **Independent testing order**: These domains can be tested in any order; if one blocks, skip and continue
 **Estimated Effort**: 5-7 hours (7 sub-domains, some can be tested in parallel if using multiple browser windows)
-**Plans**: 2 plans
+**Plans**: 3 plans in 2 waves
 
 Plans:
 - [ ] 05-01: Digital signatures (generate, sign, verify) + file upload/download via MinIO
@@ -153,7 +153,7 @@ Plans:
   - **i18n edge cases**: Switch language in frontend; verify error messages display in correct locale
   - **Bug fix regression**: After each fix, re-test the affected flow to ensure no new issues
 **Estimated Effort**: 4-6 hours (AOP verification + systematic edge case matrix + bug fixes)
-**Plans**: 2 plans
+**Plans**: 3 plans in 2 waves
 
 Plans:
 - [ ] 06-01: AOP concerns verification (AuditLog, RateLimit, DataIsolation, DistributedLock)
