@@ -7,7 +7,7 @@ This roadmap drives OAISS CHAIN from "functionally complete but untested" to "pr
 ## Phases
 
 - [x] **Phase 1: Environment Setup & Auth Baseline** - Docker stack healthy, all 6 seed accounts login-verified, JWT and role routing validated *(completed 2026-05-08)*
-- [ ] **Phase 2: Carbon Report Lifecycle** - Full report CRUD, submission, review (approve/reject), cascading side effects (credit score, emission rating, blockchain), cross-role access control
+- [x] **Phase 2: Carbon Report Lifecycle** - Full report CRUD, submission, review (approve/reject), cascading side effects (credit score, emission rating, blockchain), cross-role access control *(completed 2026-05-09)*
 - [ ] **Phase 3: Carbon Coin & Trading Engine** - Carbon coin accounts, double auction buy/sell/match, P2P trade lifecycle, settlement correctness, trade controller relationship resolved
 - [ ] **Phase 4: Carbon Neutral Projects & Credit Scoring** - Project lifecycle (12+ states), VERIFIER/CERTIFIER role gap resolved, credit score levels, trade restriction enforcement
 - [ ] **Phase 5: Supporting Domains** - Digital signatures, file upload/download, emission ratings, blockchain explorer, admin user management, third-party monitoring, search
@@ -60,7 +60,7 @@ Plans:
 Plans:
 - [x] 02-01-PLAN.md -- Fix carbon.ts field mapping bug, create API test script for enterprise report CRUD (CARB-01/02/03/04) + MinIO file upload *(Wave 1)* -- COMPLETE 2026-05-09
 - [x] 02-02-PLAN.md -- Wire cascading side effects into CarbonService.reviewReport(), extend test script for review flows + state machine + cross-role access (CARB-05/06/07/11/12) *(Wave 2)* -- COMPLETE 2026-05-09
-- [ ] 02-03-PLAN.md -- Execute full test suite, verify side effects at runtime, fix failures, human checkpoint (CARB-08/09/10/13) *(Wave 3)*
+- [x] 02-03-PLAN.md -- Execute full test suite, verify side effects at runtime, fix failures, human checkpoint (CARB-08/09/10/13) *(Wave 3)* -- COMPLETE 2026-05-09
 
 ### Phase 3: Carbon Coin & Trading Engine
 **Goal**: Carbon coin accounts show correct balances, double auction buy/sell/match works end-to-end with correct settlement, P2P trade lifecycle (create/accept/reject/settle) works, and the relationship between TradeController and DoubleAuctionController is resolved.
@@ -170,7 +170,7 @@ Phase 5 can run in parallel with Phase 3/4 since it only depends on Phase 1.
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Environment Setup & Auth Baseline | 2/2 | Complete | 2026-05-08 |
-| 2. Carbon Report Lifecycle | 2/3 | Executing | - |
+| 2. Carbon Report Lifecycle | 3/3 | Complete | 2026-05-09 |
 | 3. Carbon Coin & Trading Engine | 0/3 | Not started | - |
 | 4. Carbon Neutral Projects & Credit Scoring | 0/2 | Not started | - |
 | 5. Supporting Domains | 0/4 | Not started | - |
