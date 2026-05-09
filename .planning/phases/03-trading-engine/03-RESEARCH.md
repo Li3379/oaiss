@@ -363,17 +363,19 @@ CONFIRM_RESP=$(curl -s -X POST "$API/trade/$P2P_ID/confirm" \
 - Seed data verified by reading V2 and V3 migration SQL [VERIFIED: Flyway migrations]
 - Frontend API module bug confirmed by reading trade.ts line 5 vs TradingP2P.vue line 113 [VERIFIED: codebase]
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **TradeController `/trade/auction` vs DoubleAuctionController -- which should tests use?**
+1. **TradeController `/trade/auction` vs DoubleAuctionController -- which should tests use?** (RESOLVED)
+   - RESOLVED: Plan 03-02 uses DoubleAuctionController as primary for TRADE-01..06 (it has the matching engine). TradeController's `/trade/auction` documented as a separate simplified path.
    - What we know: TradeController has `/trade/auction` (creates transaction with trade_type=1, buyerId=0). DoubleAuctionController has `/auction/buy` and `/auction/sell` (creates auction_order records with matching algorithm).
-   - What's unclear: Whether TradeController's auction endpoint is actively used or deprecated.
-   - Recommendation: Test DoubleAuctionController for TRADE-01..06 (it has the matching engine). Document TradeController's `/trade/auction` as a separate simplified path but do not make it the primary test target.
+   - Original question: Whether TradeController's auction endpoint is actively used or deprecated.
+   - Resolution: Test DoubleAuctionController for TRADE-01..06 (Plan 03-02). Document TradeController's `/trade/auction` as a separate simplified path but do not make it the primary test target.
 
-2. **Carbon coin balance and carbon quota are independent systems?**
+2. **Carbon coin balance and carbon quota are independent systems?** (RESOLVED)
+   - RESOLVED: Research confirmed no controller endpoint exposes buyQuota()/sellQuota(). These are unused code paths.
    - What we know: `carbon_coin_account.balance` (virtual currency) is separate from `enterprise.carbon_tradable` (emission quota). Transfer affects coin balance. Trading affects carbon quota.
-   - What's unclear: Whether any flow bridges the two (e.g., buying quota with coins).
-   - Recommendation: `CarbonCoinService.buyQuota()` and `sellQuota()` methods exist but are not exposed via controller endpoints. Test only the transfer flow (COIN-01..05) and note buyQuota/sellQuota as unused code.
+   - Original question: Whether any flow bridges the two (e.g., buying quota with coins).
+   - Resolution: `CarbonCoinService.buyQuota()` and `sellQuota()` methods exist but are not exposed via controller endpoints. Test only the transfer flow (COIN-01..05) and note buyQuota/sellQuota as unused code.
 
 ## Environment Availability
 
