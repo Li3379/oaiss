@@ -55,12 +55,12 @@ Plans:
   - **MinIO connection failures**: Verify MinIO container health before file upload tests
   - **JWT expiration mid-test**: Re-login before starting this phase; keep token fresh
 **Estimated Effort**: 4-6 hours (full lifecycle across 2 enterprises, approval + rejection paths)
-**Plans**: 2 plans
+**Plans**: 3 plans in 3 waves
 
 Plans:
-- [ ] 02-01: Enterprise report CRUD (create, list, detail, submit) + file upload to MinIO
-- [ ] 02-02: Reviewer queue, approve/reject flows, status state machine validation
-- [ ] 02-03: Cascading side effects (credit score, emission rating, blockchain) + cross-role access control
+- [ ] 02-01-PLAN.md -- Fix carbon.ts field mapping bug, create API test script for enterprise report CRUD (CARB-01/02/03/04) + MinIO file upload *(Wave 1)*
+- [ ] 02-02-PLAN.md -- Wire cascading side effects into CarbonService.reviewReport(), extend test script for review flows + state machine + cross-role access (CARB-05/06/07/11/12) *(Wave 2)*
+- [ ] 02-03-PLAN.md -- Execute full test suite, verify side effects at runtime, fix failures, human checkpoint (CARB-08/09/10/13) *(Wave 3)*
 
 ### Phase 3: Carbon Coin & Trading Engine
 **Goal**: Carbon coin accounts show correct balances, double auction buy/sell/match works end-to-end with correct settlement, P2P trade lifecycle (create/accept/reject/settle) works, and the relationship between TradeController and DoubleAuctionController is resolved.
@@ -170,7 +170,7 @@ Phase 5 can run in parallel with Phase 3/4 since it only depends on Phase 1.
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Environment Setup & Auth Baseline | 2/2 | Complete | 2026-05-08 |
-| 2. Carbon Report Lifecycle | 0/3 | Not started | - |
+| 2. Carbon Report Lifecycle | 0/3 | Planning complete | - |
 | 3. Carbon Coin & Trading Engine | 0/3 | Not started | - |
 | 4. Carbon Neutral Projects & Credit Scoring | 0/2 | Not started | - |
 | 5. Supporting Domains | 0/4 | Not started | - |
