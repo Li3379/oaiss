@@ -25,10 +25,10 @@
 - [x] **CARB-01**: 企业用户创建碳排放报告（表单填写 + 文件上传到 MinIO）
 - [x] **CARB-02**: 企业用户查看报告列表（分页、排序）
 - [x] **CARB-03**: 企业用户查看报告详情
-- [x] **CARB-04**: 企业用户提交报告（状态: DRAFT → SUBMITTED）
+- [x] **CARB-04**: 企业用户提交报告（状态: DRAFT -> SUBMITTED）
 - [ ] **CARB-05**: 审核员查看待审列表（状态筛选: UNDER_REVIEW）
-- [ ] **CARB-06**: 审核员批准报告（状态: UNDER_REVIEW → APPROVED）
-- [ ] **CARB-07**: 审核员拒绝报告（状态: UNDER_REVIEW → REJECTED，填写拒绝原因）
+- [ ] **CARB-06**: 审核员批准报告（状态: UNDER_REVIEW -> APPROVED）
+- [ ] **CARB-07**: 审核员拒绝报告（状态: UNDER_REVIEW -> REJECTED，填写拒绝原因）
 - [ ] **CARB-08**: 报告批准后自动触发信用评分更新
 - [ ] **CARB-09**: 报告批准后自动触发放射评级计算
 - [ ] **CARB-10**: 报告批准后自动触发区块链记录（mock 模式）
@@ -48,7 +48,7 @@
 - [ ] **TRADE-03**: 管理员触发撮合匹配
 - [ ] **TRADE-04**: 撮合成功后交易记录创建
 - [ ] **TRADE-05**: 撮合成功后买卖双方碳积分账户正确更新
-- [ ] **TRADE-06**: 订单状态流转：PENDING → FULLY_MATCHED / PARTIALLY_MATCHED / CANCELLED
+- [ ] **TRADE-06**: 订单状态流转：PENDING -> FULLY_MATCHED / PARTIALLY_MATCHED / CANCELLED
 - [ ] **TRADE-07**: P2P 交易发起（企业 A 向企业 B 发起交易请求）
 - [ ] **TRADE-08**: P2P 交易接受（企业 B 接受交易）
 - [ ] **TRADE-09**: P2P 交易拒绝（企业 B 拒绝交易）
@@ -202,36 +202,36 @@
 | SIGN-01 | Phase 5 | 05-01 | Pending |
 | SIGN-02 | Phase 5 | 05-01 | Pending |
 | SIGN-03 | Phase 5 | 05-01 | Pending |
-| FILE-01 | Phase 5 | 05-01 | Pending |
-| FILE-02 | Phase 5 | 05-01 | Pending |
-| FILE-03 | Phase 5 | 05-01 | Pending |
-| EMIT-01 | Phase 5 | 05-02 | Pending |
-| EMIT-02 | Phase 5 | 05-02 | Pending |
-| EMIT-03 | Phase 5 | 05-02 | Pending |
-| BLOCK-01 | Phase 5 | 05-02 | Pending |
-| BLOCK-02 | Phase 5 | 05-02 | Pending |
-| BLOCK-03 | Phase 5 | 05-02 | Pending |
-| ADMIN-01 | Phase 5 | 05-03 | Pending |
-| ADMIN-02 | Phase 5 | 05-03 | Pending |
-| ADMIN-03 | Phase 5 | 05-03 | Pending |
-| ADMIN-04 | Phase 5 | 05-03 | Pending |
-| ADMIN-05 | Phase 5 | 05-03 | Pending |
-| TP-01 | Phase 5 | 05-04 | Pending |
-| TP-02 | Phase 5 | 05-04 | Pending |
-| SRCH-01 | Phase 5 | 05-04 | Pending |
-| AOP-01 | Phase 6 | 06-01 | Pending |
-| AOP-02 | Phase 6 | 06-01 | Pending |
-| AOP-03 | Phase 6 | 06-01 | Pending |
-| AOP-04 | Phase 6 | 06-01 | Pending |
-| EDGE-01 | Phase 6 | 06-02 | Pending |
-| EDGE-02 | Phase 6 | 06-02 | Pending |
+| FILE-01 | Phase 5 | 05-02 | Pending |
+| FILE-02 | Phase 5 | 05-02 | Pending |
+| FILE-03 | Phase 5 | 05-02 | Pending |
+| EMIT-01 | Phase 5 | 05-03 | Pending |
+| EMIT-02 | Phase 5 | 05-03 | Pending |
+| EMIT-03 | Phase 5 | 05-03 | Pending |
+| BLOCK-01 | Phase 5 | 05-04 | Pending |
+| BLOCK-02 | Phase 5 | 05-04 | Pending |
+| BLOCK-03 | Phase 5 | 05-04 | Pending |
+| ADMIN-01 | Phase 5 | 05-05 | Pending |
+| ADMIN-02 | Phase 5 | 05-05 | Pending |
+| ADMIN-03 | Phase 5 | 05-05 | Pending |
+| ADMIN-04 | Phase 5 | 05-05 | Pending |
+| ADMIN-05 | Phase 5 | 05-05 | Pending |
+| TP-01 | Phase 5 | 05-06 | Pending |
+| TP-02 | Phase 5 | 05-06 | Pending |
+| SRCH-01 | Phase 5 | 05-07 | Pending |
+| BUG-01 | Phase 6 | 06-01 | Pending |
+| BUG-02 | Phase 6 | 06-01 | Pending |
+| BUG-03 | Phase 6 | 06-01 | Pending |
+| AOP-01 | Phase 6 | 06-02 | Pending |
+| AOP-02 | Phase 6 | 06-02 | Pending |
+| AOP-03 | Phase 6 | 06-02 | Pending |
+| AOP-04 | Phase 6 | 06-02 | Pending |
+| EDGE-01 | Phase 6 | 06-03 | Pending |
+| EDGE-02 | Phase 6 | 06-03 | Pending |
 | EDGE-03 | Phase 6 | 06-03 | Pending |
 | EDGE-04 | Phase 6 | 06-03 | Pending |
 | EDGE-05 | Phase 6 | 06-03 | Pending |
 | EDGE-06 | Phase 6 | 06-03 | Pending |
-| BUG-01 | Phase 6 | 06-04 | Pending |
-| BUG-02 | Phase 6 | 06-04 | Pending |
-| BUG-03 | Phase 6 | 06-04 | Pending |
 
 **Coverage:**
 - v1 requirements: 84 total
@@ -241,4 +241,4 @@
 
 ---
 *Requirements defined: 2026-05-08*
-*Last updated: 2026-05-08 -- traceability updated with plan-level mapping from ROADMAP.md*
+*Last updated: 2026-05-10 -- traceability updated for 3-plan Phase 6 structure (D-17/D-18)*
