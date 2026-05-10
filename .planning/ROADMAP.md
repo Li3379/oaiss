@@ -174,7 +174,7 @@ Plans:
 Plans:
 
 **Wave 1** *(run first -- security fixes are prerequisites)*
-- [ ] 06-01-PLAN.md -- Bug fixes (BUG-01~03): NonUniqueResult fix, SEC-03 Swagger auth, SEC-04 CORS default removal + bugfix-test.sh *(Wave 1)*
+- [x] 06-01-PLAN.md -- Bug fixes (BUG-01~03): NonUniqueResult fix, SEC-03 Swagger auth, SEC-04 CORS default removal + bugfix-test.sh *(Wave 1)* -- COMPLETE 2026-05-10
 
 **Wave 2** *(depends on 06-01 -- needs backend restart for temp annotations)*
 - [ ] 06-02-PLAN.md -- AOP verification (AOP-01~04): temporary annotation placement + aop-test.sh + revert *(Wave 2, depends on 06-01)*
@@ -200,7 +200,7 @@ Phase 5 can run in parallel with Phase 3/4 since it only depends on Phase 1.
 | 3. Carbon Coin & Trading Engine | 3/3 | Complete | 2026-05-09 |
 | 4. Carbon Neutral Projects & Credit Scoring | 2/2 | Complete | 2026-05-09 |
 | 5. Supporting Domains | 7/7 | Complete | 2026-05-09 |
-| 6. Cross-Cutting & Edge Cases | 0/3 | Planned | - |
+| 6. Cross-Cutting & Edge Cases | 1/3 | In Progress | - |
 
 **Total Requirements:** 84 v1 requirements across 6 phases
 **Estimated Total Effort:** 25-36 hours of manual testing
