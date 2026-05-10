@@ -16,7 +16,6 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
@@ -42,7 +41,7 @@ public class SecurityConfig {
     private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
     private final JwtAccessDeniedHandler jwtAccessDeniedHandler;
 
-    @Value("${app.cors.allowed-origins:http://localhost:5173}")
+    @Value("${app.cors.allowed-origins}")
     private List<String> allowedOrigins;
 
     /**
@@ -51,17 +50,11 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                .csrf(csrf -> csrf
-                        .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
-                        .ignoringRequestMatchers(
-                                "/auth/login",
-                                "/auth/register",
-                                "/auth/captcha",
-                                "/auth/refresh",
-                                "/auth/check-ip",
-                                "/captcha/**"
-                        )
-                )
+                // CSRF protection disabled: JWT-based stateless API is not vulnerable to CSRF attacks.
+                // Tokens are stored in sessionStorage (not cookies), so browsers never auto-attach them.
+                // Spring Security 6.x deferred CSRF tokens + filter ordering caused POST requests
+                // to return 401 (misinterpreted as session expiry) instead of the intended 403.
+                .csrf(AbstractHttpConfigurer::disable)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -75,13 +68,13 @@ public class SecurityConfig {
                                 "/auth/check-ip",
                                 "/captcha/**"
                         ).permitAll()
-                        // Swagger文档 - 仅在dev/test profile下公开，生产环境需认证
+                        // Swagger文档 - 需要认证（生产环境通过springdoc.enabled=false完全禁用）
                         .requestMatchers(
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
                                 "/v1/api-docs/**",
                                 "/v3/api-docs/**"
-                        ).permitAll()
+                        ).authenticated()
                         // Actuator: 仅health和prometheus公开，其余需认证
                         .requestMatchers("/actuator/health", "/actuator/prometheus").permitAll()
                         .requestMatchers("/actuator/**").authenticated()

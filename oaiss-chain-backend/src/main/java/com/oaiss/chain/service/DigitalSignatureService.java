@@ -117,7 +117,7 @@ public class DigitalSignatureService {
     public void revokeKeyPair(Long userId) {
         log.info("Revoking RSA key pair for user: {}", userId);
         
-        rsaKeyPairRepository.findByUserIdAndDeletedFalse(userId)
+        rsaKeyPairRepository.findLatestByUserId(userId)
                 .ifPresent(keyPair -> {
                     keyPair.setKeyStatus(KEY_STATUS_REVOKED);
                     rsaKeyPairRepository.save(keyPair);
@@ -134,7 +134,7 @@ public class DigitalSignatureService {
      * @throws BlockchainException 如果密钥对不存在
      */
     public RsaKeyPairResponse getKeyPair(Long userId) {
-        RsaKeyPair keyPair = rsaKeyPairRepository.findByUserIdAndDeletedFalse(userId)
+        RsaKeyPair keyPair = rsaKeyPairRepository.findLatestByUserId(userId)
                 .orElseThrow(() -> BlockchainException.rsaKeyPairNotFound(userId));
 
         // 检查密钥状态
@@ -158,7 +158,7 @@ public class DigitalSignatureService {
         log.info("Signing report data for user: {}", userId);
 
         // 获取用户密钥对
-        RsaKeyPair keyPair = rsaKeyPairRepository.findByUserIdAndDeletedFalse(userId)
+        RsaKeyPair keyPair = rsaKeyPairRepository.findLatestByUserId(userId)
                 .orElseThrow(() -> BlockchainException.rsaKeyPairNotFound(userId));
 
         // 验证密钥状态
@@ -199,7 +199,7 @@ public class DigitalSignatureService {
         log.info("Verifying signature for user: {}", userId);
 
         // 获取用户密钥对
-        RsaKeyPair keyPair = rsaKeyPairRepository.findByUserIdAndDeletedFalse(userId)
+        RsaKeyPair keyPair = rsaKeyPairRepository.findLatestByUserId(userId)
                 .orElseThrow(() -> BlockchainException.rsaKeyPairNotFound(userId));
 
         // 验证密钥状态（验签时允许使用已过期密钥，但记录警告）
@@ -244,7 +244,7 @@ public class DigitalSignatureService {
         log.info("Encrypting data for reviewer: {}", reviewerId);
 
         // 获取审核员密钥对
-        RsaKeyPair keyPair = rsaKeyPairRepository.findByUserIdAndDeletedFalse(reviewerId)
+        RsaKeyPair keyPair = rsaKeyPairRepository.findLatestByUserId(reviewerId)
                 .orElseThrow(() -> BlockchainException.rsaKeyPairNotFound(reviewerId));
 
         // 验证密钥状态
@@ -281,7 +281,7 @@ public class DigitalSignatureService {
         log.info("Decrypting data for reviewer: {}", reviewerId);
 
         // 获取审核员密钥对
-        RsaKeyPair keyPair = rsaKeyPairRepository.findByUserIdAndDeletedFalse(reviewerId)
+        RsaKeyPair keyPair = rsaKeyPairRepository.findLatestByUserId(reviewerId)
                 .orElseThrow(() -> BlockchainException.rsaKeyPairNotFound(reviewerId));
 
         // 验证密钥状态
@@ -318,7 +318,7 @@ public class DigitalSignatureService {
         log.info("Decrypting data for enterprise user: {}", enterpriseUserId);
 
         // 获取企业密钥对
-        RsaKeyPair keyPair = rsaKeyPairRepository.findByUserIdAndDeletedFalse(enterpriseUserId)
+        RsaKeyPair keyPair = rsaKeyPairRepository.findLatestByUserId(enterpriseUserId)
                 .orElseThrow(() -> BlockchainException.rsaKeyPairNotFound(enterpriseUserId));
 
         // 验证密钥状态
