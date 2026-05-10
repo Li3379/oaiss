@@ -9,9 +9,9 @@ This roadmap drives OAISS CHAIN from "functionally complete but untested" to "pr
 - [x] **Phase 1: Environment Setup & Auth Baseline** - Docker stack healthy, all 6 seed accounts login-verified, JWT and role routing validated *(completed 2026-05-08)*
 - [x] **Phase 2: Carbon Report Lifecycle** - Full report CRUD, submission, review (approve/reject), cascading side effects (credit score, emission rating, blockchain), cross-role access control *(completed 2026-05-09)*
 - [x] **Phase 3: Carbon Coin & Trading Engine** - Carbon coin accounts, double auction buy/sell/match, P2P trade lifecycle, settlement correctness, trade controller relationship resolved *(completed 2026-05-09)*
-- [ ] **Phase 4: Carbon Neutral Projects & Credit Scoring** - Project lifecycle (12+ states), VERIFIER/CERTIFIER role gap resolved, credit score levels, trade restriction enforcement
+- [x] **Phase 4: Carbon Neutral Projects & Credit Scoring** - Project lifecycle (12+ states), VERIFIER/CERTIFIER role gap resolved, credit score levels, trade restriction enforcement *(completed 2026-05-10)*
 - [x] **Phase 5: Supporting Domains** - Digital signatures, file upload/download, emission ratings, blockchain explorer, admin user management, third-party monitoring, search *(completed 2026-05-09)*
-- [ ] **Phase 6: Cross-Cutting & Edge Cases** - AOP concerns verified, cross-role access negative tests, state machine violations, financial integrity, input validation, bug fixes (SEC-03/04)
+- [x] **Phase 6: Cross-Cutting & Edge Cases** - AOP concerns verified, cross-role access negative tests, state machine violations, financial integrity, input validation, bug fixes (SEC-03/04) *(completed 2026-05-10)*
 
 ## Phase Details
 
@@ -177,10 +177,10 @@ Plans:
 - [x] 06-01-PLAN.md -- Bug fixes (BUG-01~03): NonUniqueResult fix, SEC-03 Swagger auth, SEC-04 CORS default removal + bugfix-test.sh *(Wave 1)* -- COMPLETE 2026-05-10
 
 **Wave 2** *(depends on 06-01 -- needs backend restart for temp annotations)*
-- [ ] 06-02-PLAN.md -- AOP verification (AOP-01~04): temporary annotation placement + aop-test.sh + revert *(Wave 2, depends on 06-01)*
+- [x] 06-02-PLAN.md -- AOP verification (AOP-01~04): temporary annotation placement + aop-test.sh + revert *(Wave 2, depends on 06-01)* -- COMPLETE 2026-05-10
 
 **Wave 3** *(depends on 06-01, 06-02 -- pure API testing)*
-- [ ] 06-03-PLAN.md -- Edge cases (EDGE-01~06): cross-role access, state machines, financial integrity, pagination, input validation, i18n + edge-test.sh *(Wave 3, depends on 06-01, 06-02)*
+- [x] 06-03-PLAN.md -- Edge cases (EDGE-01~06): cross-role access, state machines, financial integrity, pagination, input validation, i18n + edge-test.sh *(Wave 3, depends on 06-01, 06-02)* -- COMPLETE 2026-05-10
 
 **Cross-cutting constraints:**
 - Execution order: bugfix-test.sh -> aop-test.sh -> edge-test.sh (per D-17/D-18)
