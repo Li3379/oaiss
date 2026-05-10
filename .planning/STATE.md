@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-05-08)
 ## Current Position
 
 Phase: 6 of 6 (Cross-Cutting & Edge Cases)
-Plan: 0 of 3 in current phase
-Status: Ready to execute — 3 plans in 3 waves
-Last activity: 2026-05-10 -- Phase 6 planning complete (3 plans: bugfix, aop, edge)
+Plan: 1 of 3 in current phase
+Status: Plan 06-01 complete (3 bug fixes + test script); Plan 06-02 next
+Last activity: 2026-05-10 -- Plan 06-01: 3 bugs fixed, 12/12 tests passing
 
-Progress: [█████████████░] 83%
+Progress: [██████████████░] 87%
 
 ## Performance Metrics
 
@@ -32,6 +32,7 @@ Progress: [█████████████░] 83%
 | 3. Carbon Coin & Trading | 3/3 | 0.3h | 0.10h |
 | 4. Projects & Credit | 2/2 | 0.3h | 0.15h |
 | 5. Supporting Domains | 7/7 | 0.5h | 0.07h |
+| 6. Cross-Cutting & Edge Cases | 1/3 | 0.1h | 0.12h |
 
 **Recent Trend:**
 - Last 5 plans: 03-03 (success), 04-01 (success), 04-02 (success), 05-01~05-07 (all success)
@@ -94,7 +95,11 @@ Recent decisions affecting current work:
 - [05-exec]: rsa_key_pair table is singular (not rsa_key_pairs)
 - [05-exec]: DB password is 123456 (not root)
 - [05-exec]: ADMIN-02/03 confirmed as code gaps (no create/edit user endpoints)
-- [05-exec]: TP-02 confirmed as partial coverage (no dedicated trade audit endpoint)
+- [06-01]: BUG-01 fix: 7 call sites replaced with findLatestByUserId (plan estimated 6)
+- [06-01]: BUG-02 fix: Swagger endpoints changed to authenticated() -- docker profile disables springdoc entirely
+- [06-01]: BUG-03 fix: Removed @Value CORS default fallback -- YAML-level default still provides dev mode
+- [06-01]: DB column is is_deleted (not deleted) -- affects test script queries
+- [06-01]: JWT filter whitelist has stale swagger paths (dead code, no security impact) -- documented as tech debt
 
 ### Pending Todos
 
@@ -120,6 +125,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-09
-Stopped at: Phase 5 complete (7/7 scripts, 81/81 tests passed); ready for Phase 6 planning
-Resume file: /gsd-discuss-phase 6 or /gsd-plan-phase 6
+Last session: 2026-05-10
+Stopped at: Phase 6 Plan 01 complete (3 bug fixes, 12/12 tests); Plan 06-02 next
+Resume file: /gsd-execute-phase 6

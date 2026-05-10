@@ -105,9 +105,9 @@
 - [ ] **EDGE-04**: 分页边界（空列表、单条、满页、超页）
 - [ ] **EDGE-05**: 输入验证（负数价格、零数量、超长文本）
 - [ ] **EDGE-06**: i18n 验证（前端中英文切换，后端错误消息）
-- [ ] **BUG-01**: 修复测试中发现的所有 bug
-- [ ] **BUG-02**: 修复 SEC-03（Swagger 生产环境暴露）
-- [ ] **BUG-03**: 修复 SEC-04（CORS 默认 localhost 值）
+- [x] **BUG-01**: 修复测试中发现的所有 bug
+- [x] **BUG-02**: 修复 SEC-03（Swagger 生产环境暴露）
+- [x] **BUG-03**: 修复 SEC-04（CORS 默认 localhost 值）
 
 ## v2 Requirements
 
@@ -219,9 +219,9 @@
 | TP-01 | Phase 5 | 05-06 | Pending |
 | TP-02 | Phase 5 | 05-06 | Pending |
 | SRCH-01 | Phase 5 | 05-07 | Pending |
-| BUG-01 | Phase 6 | 06-01 | Pending |
-| BUG-02 | Phase 6 | 06-01 | Pending |
-| BUG-03 | Phase 6 | 06-01 | Pending |
+| BUG-01 | Phase 6 | 06-01 | Complete |
+| BUG-02 | Phase 6 | 06-01 | Complete |
+| BUG-03 | Phase 6 | 06-01 | Complete |
 | AOP-01 | Phase 6 | 06-02 | Pending |
 | AOP-02 | Phase 6 | 06-02 | Pending |
 | AOP-03 | Phase 6 | 06-02 | Pending |
