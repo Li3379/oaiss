@@ -84,17 +84,17 @@ Plans:
 
 Plans:
 
-**Wave 1** *(independent — can run in parallel)*
+**Wave 1** *(independent -- can run in parallel)*
 - [x] 03-01-PLAN.md -- Carbon coin balance, history, transfer, insufficient balance rejection (COIN-01~05) *(Wave 1)* -- COMPLETE 2026-05-09
 - [x] 03-02-PLAN.md -- Double auction buy/sell orders, admin matching, settlement, status transitions (TRADE-01~06, 12, 13) *(Wave 1)* -- COMPLETE 2026-05-09
 
-**Wave 2** *(blocked on Wave 1 — 03-03 depends on 03-02)*
+**Wave 2** *(blocked on Wave 1 -- 03-03 depends on 03-02)*
 - [x] 03-03-PLAN.md -- P2P trade lifecycle + trade.ts fix + controller relationship documentation (TRADE-07~11) *(Wave 2, depends on 03-02)* -- COMPLETE 2026-05-09
 
 **Cross-cutting constraints:**
-- TradeController (P2P) and DoubleAuctionController (auction) are separate subsystems — do NOT share matching engine
+- TradeController (P2P) and DoubleAuctionController (auction) are separate subsystems -- do NOT share matching engine
 - Sequential testing only (CON-01/02/03 deferred to v2)
-- After every trade, verify both account balances via direct DB query (`mysql -h 127.0.0.1 -P 3306` — backend uses host MySQL, NOT Docker MySQL on port 3307)
+- After every trade, verify both account balances via direct DB query (`mysql -h 127.0.0.1 -P 3306` -- backend uses host MySQL, NOT Docker MySQL on port 3307)
 
 ### Phase 4: Carbon Neutral Projects & Credit Scoring
 **Goal**: Carbon neutral project lifecycle works through all states (including verification and certification), credit score levels are correctly enforced (WARNING at 40, FROZEN at 20), and trading restrictions based on credit level are verified.
@@ -169,13 +169,23 @@ Plans:
   - **i18n edge cases**: Switch language in frontend; verify error messages display in correct locale
   - **Bug fix regression**: After each fix, re-test the affected flow to ensure no new issues
 **Estimated Effort**: 4-6 hours (AOP verification + systematic edge case matrix + bug fixes)
-**Plans**: 3 plans in 2 waves
+**Plans**: 3 plans in 3 waves
 
 Plans:
-- [ ] 06-01: AOP concerns verification (AuditLog, RateLimit, DataIsolation, DistributedLock)
-- [ ] 06-02: Cross-role access control matrix + state machine violation tests
-- [ ] 06-03: Financial integrity, pagination boundaries, input validation, i18n
-- [ ] 06-04: Bug fixes (SEC-03, SEC-04, discovered bugs) + regression verification
+
+**Wave 1** *(run first -- security fixes are prerequisites)*
+- [ ] 06-01-PLAN.md -- Bug fixes (BUG-01~03): NonUniqueResult fix, SEC-03 Swagger auth, SEC-04 CORS default removal + bugfix-test.sh *(Wave 1)*
+
+**Wave 2** *(depends on 06-01 -- needs backend restart for temp annotations)*
+- [ ] 06-02-PLAN.md -- AOP verification (AOP-01~04): temporary annotation placement + aop-test.sh + revert *(Wave 2, depends on 06-01)*
+
+**Wave 3** *(depends on 06-01, 06-02 -- pure API testing)*
+- [ ] 06-03-PLAN.md -- Edge cases (EDGE-01~06): cross-role access, state machines, financial integrity, pagination, input validation, i18n + edge-test.sh *(Wave 3, depends on 06-01, 06-02)*
+
+**Cross-cutting constraints:**
+- Execution order: bugfix-test.sh -> aop-test.sh -> edge-test.sh (per D-17/D-18)
+- aop-test.sh modifies source code temporarily and requires backend restart cycle (per D-19)
+- All temporary annotations must be reverted via git checkout after AOP testing (per D-03)
 
 ## Progress
 
@@ -189,8 +199,8 @@ Phase 5 can run in parallel with Phase 3/4 since it only depends on Phase 1.
 | 2. Carbon Report Lifecycle | 3/3 | Complete | 2026-05-09 |
 | 3. Carbon Coin & Trading Engine | 3/3 | Complete | 2026-05-09 |
 | 4. Carbon Neutral Projects & Credit Scoring | 2/2 | Complete | 2026-05-09 |
-| 5. Supporting Domains | 0/7 | Not started | - |
-| 6. Cross-Cutting & Edge Cases | 0/4 | Not started | - |
+| 5. Supporting Domains | 7/7 | Complete | 2026-05-09 |
+| 6. Cross-Cutting & Edge Cases | 0/3 | Planned | - |
 
 **Total Requirements:** 84 v1 requirements across 6 phases
 **Estimated Total Effort:** 25-36 hours of manual testing
