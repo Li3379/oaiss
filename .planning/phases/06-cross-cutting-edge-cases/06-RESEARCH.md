@@ -433,22 +433,13 @@ Source: [VERIFIED: RsaKeyPairRepository.java, DigitalSignatureService.java line 
 | A3 | The `rate_limit:test:*` Redis key format includes the userId or IP suffix based on limitType | AOP-02 | If key format is different, Redis cleanup will miss keys |
 | A4 | application-dev.yml can be auto-activated by Spring Boot when no profile is specified (default profile) | SEC-04 | If "dev" profile must be explicitly activated, the fix needs different approach |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **How does @DataIsolation actually enforce cross-tenant isolation?**
-   - What we know: DataIsolationAspect sets EnterpriseContextHolder ThreadLocal and skips admin users. But the aspect itself does not filter query results.
-   - What's unclear: Whether the service/repository layer uses EnterpriseContextHolder.getEnterpriseId() to filter queries, or whether the aspect only sets context and actual filtering is in the service layer.
-   - Recommendation: Test by having enterprise001 call sign() endpoint. If the sign endpoint only uses the authenticated user's userId (not enterpriseId), the isolation aspect may not block anything. The test may need to verify that the context is set correctly rather than that cross-tenant access is blocked.
+1. **How does @DataIsolation actually enforce cross-tenant isolation?** — RESOLVED: Plan 06-02 tests DataIsolation on DigitalSignatureController endpoints. The test verifies that the aspect sets EnterpriseContextHolder correctly and that service-layer queries use the authenticated user's userId. If the aspect only sets ThreadLocal without filtering queries, the test records this as a finding rather than a failure. The test approach is documented in Plan 06-02 AOP-03 section.
 
-2. **Does Spring Security return HTTP 403 or custom code 2004 for @PreAuthorize failures?**
-   - What we know: JwtAccessDeniedHandler handles access denied. Custom error codes use 2004 for PERMISSION_DENIED.
-   - What's unclear: Whether the response uses HTTP status 403 or HTTP 200 with code 2004.
-   - Recommendation: Test with a quick curl before writing the full matrix. Check both HTTP status and response body code.
+2. **Does Spring Security return HTTP 403 or custom code 2004 for @PreAuthorize failures?** — RESOLVED: Plan 06-03 edge-test.sh handles both cases. The script first probes one cross-role endpoint to detect the response format (HTTP status vs custom code), then uses the detected format for all subsequent assertions. This runtime detection approach avoids hardcoding assumptions.
 
-3. **Can application-dev.yml be used without activating "dev" profile explicitly?**
-   - What we know: application-docker.yml is activated via `spring.profiles.active=docker`. Default profile reads application.yml only.
-   - What's unclear: Whether creating application-dev.yml auto-loads when no profile is set (it does not -- need to set spring.profiles.active=dev or spring.profiles.default=dev).
-   - Recommendation: For SEC-04 fix, either (a) set `spring.profiles.include=dev` in application.yml, or (b) keep the default in application.yml but document it as dev-only, or (c) use environment variable with fallback in a safe way.
+3. **Can application-dev.yml be used without activating "dev" profile explicitly?** — RESOLVED: Plan 06-01 BUG-03 fix does NOT create application-dev.yml. Instead, it removes the @Value default while keeping the YAML-level default in application.yml (`${CORS_ALLOWED_ORIGINS:http://localhost:5173}`). This preserves dev ergonomics without adding a new profile. The @Value annotation no longer adds a second default layer.
 
 ## Environment Availability
 
