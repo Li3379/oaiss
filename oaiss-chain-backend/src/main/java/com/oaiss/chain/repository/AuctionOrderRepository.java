@@ -48,4 +48,9 @@ public interface AuctionOrderRepository extends JpaRepository<AuctionOrder, Long
      * 查询用户指定方向的挂单
      */
     Page<AuctionOrder> findByUserIdAndDirectionAndDeletedFalse(Long userId, Integer direction, Pageable pageable);
+
+    /**
+     * 查询最近的60条挂单（按创建时间降序）
+     */
+    List<AuctionOrder> findTop60ByDeletedFalseOrderByCreatedAtDesc();
 }

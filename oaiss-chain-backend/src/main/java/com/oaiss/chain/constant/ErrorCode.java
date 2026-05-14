@@ -235,4 +235,7 @@ public final class ErrorCode {
 
     /** ML预测失败 */
     public static final int ML_PREDICTION_FAILED = 6002;
+
+    /** 数据不足 */
+    public static final int INSUFFICIENT_DATA = 6003;
 }
