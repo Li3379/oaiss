@@ -82,7 +82,7 @@
 - [ ] **EMIT-02**: 放射评级查看
 - [ ] **EMIT-03**: 排放因子验证（注意：硬编码在 CachePreloadService 中）
 - [ ] **BLOCK-01**: 区块链记录查看（mock 模式）
-- [ ] **BLOCK-02**: 区块浏览器功能验证
+- [ ] **BLOCK-02**: 区块链浏览器功能验证
 - [ ] **BLOCK-03**: Mock 返回数据结构正确性验证
 - [ ] **ADMIN-01**: 管理员查看用户列表
 - [ ] **ADMIN-02**: 管理员创建用户
@@ -108,6 +108,31 @@
 - [x] **BUG-01**: 修复测试中发现的所有 bug
 - [x] **BUG-02**: 修复 SEC-03（Swagger 生产环境暴露）
 - [x] **BUG-03**: 修复 SEC-04（CORS 默认 localhost 值）
+
+## v1.1 Requirements
+
+v1.1.0 需求对齐：补齐需求文档中定义但代码中缺失的功能模块。12 个 Gap 项，分 A/B/C 三级优先级。
+
+### Priority A -- 核心缺失功能
+
+- [ ] **REQ-01**: AI 市场智能预测 -- MarketPredictionService 实现市场趋势预测、碳价走势分析、供需预测
+- [ ] **REQ-02**: AI 企业境况智能推断 -- EnterpriseInferenceService 实现企业碳排放趋势推断、合规风险评估
+- [ ] **REQ-03**: AI 碳排放预测升级 -- CarbonPredictionService 从 Stub 升级为真实 ML 模型（回归预测）
+- [ ] **REQ-04**: 前端 AI 模块页面 -- MarketPrediction.vue + EnterpriseInference.vue + 碳排放预测可视化
+
+### Priority B -- 重要功能补齐
+
+- [ ] **REQ-05**: Hyperledger Fabric 真实对接 -- BlockchainService 从 Mock 升级为 Fabric Gateway SDK
+- [ ] **REQ-06**: 碳核算行业专用公式 -- 发电行业 25 参数公式 + 电网行业 9 参数公式实现
+- [ ] **REQ-07**: 签发准入证书 -- EntryPermissionService + AdminController endpoint + 前端管理页面
+- [ ] **REQ-08**: 签发审核员资格证 -- ReviewerQualificationService + AdminController endpoint + 前端管理页面
+
+### Priority C -- 覆盖率补齐
+
+- [ ] **REQ-09**: 前端 API 覆盖补齐 -- 39 个缺失后端 endpoint 的前端 API 调用模块
+- [ ] **REQ-10**: 前端 Enterprise/Reviewer 视图功能补齐 -- 缺失的 CRUD 操作和详情页面
+- [ ] **REQ-11**: 文档 API 总览修正 -- Swagger 文档与实际 endpoint 对齐
+- [ ] **REQ-12**: 身份认证区块链方案 -- Fabric CA 集成 (optional, 可延期)
 
 ## v2 Requirements
 
@@ -145,6 +170,8 @@
 | 生产环境部署 | 当前阶段仅验证功能完整性 |
 
 ## Traceability
+
+### v1.0 Traceability
 
 | Requirement | Phase | Plan | Status |
 |-------------|-------|------|--------|
@@ -233,12 +260,28 @@
 | EDGE-05 | Phase 6 | 06-03 | Pending |
 | EDGE-06 | Phase 6 | 06-03 | Pending |
 
+### v1.1 Traceability
+
+| Requirement | Phase | Plan | Status |
+|-------------|-------|------|--------|
+| REQ-01 | Phase 7 | 07-02 | Pending |
+| REQ-02 | Phase 7 | 07-03 | Pending |
+| REQ-03 | Phase 7 | 07-04 | Pending |
+| REQ-04 | Phase 8 | 08-01 | Pending |
+| REQ-05 | Phase 9 | 09-02 | Pending |
+| REQ-06 | Phase 8 | 08-02 | Pending |
+| REQ-07 | Phase 10 | 10-01 | Pending |
+| REQ-08 | Phase 10 | 10-02 | Pending |
+| REQ-09 | Phase 11 | 11-01 | Pending |
+| REQ-10 | Phase 11 | 11-02 | Pending |
+| REQ-11 | Phase 11 | 11-04 | Pending |
+| REQ-12 | Phase 9 | 09-03 | Pending (optional) |
+
 **Coverage:**
-- v1 requirements: 84 total
-- Mapped to phases: 84
-- Mapped to plans: 84
-- Unmapped: 0
+- v1.0 requirements: 84 total, 84 mapped to phases, 0 unmapped
+- v1.1 requirements: 12 total, 12 mapped to phases, 0 unmapped
+- Total: 96 requirements, 96 mapped
 
 ---
 *Requirements defined: 2026-05-08*
-*Last updated: 2026-05-10 -- traceability updated for 3-plan Phase 6 structure (D-17/D-18)*
+*Last updated: 2026-05-14 -- v1.1.0 traceability added (REQ-01~12 mapped to Phases 7-12)*

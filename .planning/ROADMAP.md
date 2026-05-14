@@ -1,209 +1,208 @@
-# Roadmap: OAISS CHAIN Manual Testing
+# Roadmap: OAISS CHAIN
+
+## Milestones
+
+- **v1.0 Manual Testing** - Phases 1-6 (shipped 2026-05-13)
+- **v1.1.0 需求对齐** - Phases 7-12 (in progress)
 
 ## Overview
 
-This roadmap drives OAISS CHAIN from "functionally complete but untested" to "production-ready for continued blockchain development." Testing proceeds in dependency order: environment and authentication first, then the central carbon report lifecycle, then trading, then projects and credit scoring, then supporting domains, and finally cross-cutting edge cases. Each phase delivers a verifiable slice of the platform. The entire initiative covers 84 v1 requirements across 6 phases, testing 16 REST controllers, 19 services, and 65+ business flows for 5 user roles.
+v1.0 验证了 84 个需求的全角色手工测试。v1.1.0 补齐需求文档中定义但代码中缺失的 AI 智能预测、区块链真实对接、碳核算行业公式、准入/资格证签发、前端覆盖率等 12 个 Gap 项，最终达到 E2E 自动化测试覆盖率 90%、通过率 90%+ 的验收标准。
 
 ## Phases
 
-- [x] **Phase 1: Environment Setup & Auth Baseline** - Docker stack healthy, all 6 seed accounts login-verified, JWT and role routing validated *(completed 2026-05-08)*
-- [x] **Phase 2: Carbon Report Lifecycle** - Full report CRUD, submission, review (approve/reject), cascading side effects (credit score, emission rating, blockchain), cross-role access control *(completed 2026-05-09)*
-- [x] **Phase 3: Carbon Coin & Trading Engine** - Carbon coin accounts, double auction buy/sell/match, P2P trade lifecycle, settlement correctness, trade controller relationship resolved *(completed 2026-05-09)*
-- [x] **Phase 4: Carbon Neutral Projects & Credit Scoring** - Project lifecycle (12+ states), VERIFIER/CERTIFIER role gap resolved, credit score levels, trade restriction enforcement *(completed 2026-05-10)*
-- [x] **Phase 5: Supporting Domains** - Digital signatures, file upload/download, emission ratings, blockchain explorer, admin user management, third-party monitoring, search *(completed 2026-05-09)*
-- [x] **Phase 6: Cross-Cutting & Edge Cases** - AOP concerns verified, cross-role access negative tests, state machine violations, financial integrity, input validation, bug fixes (SEC-03/04) *(completed 2026-05-10)*
+**Phase Numbering:**
+- Integer phases (7-12): Planned v1.1.0 milestone work
+- v1.0 phases (1-6): Complete and collapsed below
+
+- [ ] **Phase 7: AI 智能预测基础** - 后端 AI 预测服务实现（市场预测、企业推断、碳排放 ML 模型）
+- [ ] **Phase 8: AI 前端 + 碳核算公式** - 前端 AI 模块页面 + 发电/电网行业专用碳核算公式
+- [ ] **Phase 9: 区块链真实对接** - Hyperledger Fabric Gateway SDK 集成，替换 Mock 实现
+- [ ] **Phase 10: 准入与资格证** - 准入证书签发 + 审核员资格证签发（后端+前端）
+- [ ] **Phase 11: 前端覆盖率补齐** - 39 缺失 API 调用模块、Enterprise/Reviewer 视图 CRUD、Swagger 对齐
+- [ ] **Phase 12: E2E 测试与验收** - 全量 E2E 自动化测试，达标覆盖率 90%+ 通过率 90%+
 
 ## Phase Details
 
-### Phase 1: Environment Setup & Auth Baseline
-**Goal**: All infrastructure services are healthy, all 6 seed accounts can log in and reach their correct role home pages, JWT lifecycle (issue/refresh/revoke) works end-to-end.
-**Depends on**: Nothing (first phase)
-**Requirements**: ENV-01, ENV-02, ENV-03, ENV-04, ENV-05, ENV-06, ENV-07, ENV-08, ENV-09, ENV-10
-**Success Criteria** (what must be TRUE):
-  1. `docker-compose up` starts MySQL, Redis, MinIO, backend, and frontend; all health checks pass; Swagger UI loads at `/api/v1/swagger-ui.html`; frontend loads at `localhost:5173`
-  2. Flyway migrations (V1 schema, V2 seed, V3 test data) execute successfully; all 21 tables exist with expected row counts
-  3. All 6 seed accounts (admin, enterprise001, enterprise002, reviewer001, thirdparty001, authenticator001) log in with password `admin123` and each lands on the correct role home page
-  4. JWT access token is obtained on login, `Authorization: Bearer <token>` works on protected endpoints, refresh endpoint returns a new token pair, and logout blacklists the token
-**Entry Criteria**: Docker Desktop running; `.env` file created from `.env.example`; V3 Flyway migration script written
-**Exit Criteria**: All 4 success criteria verified; any environment issues resolved; login matrix documented
-**Risk Mitigation**:
-  - **JWT expiration false failures**: Re-login every 45 minutes; keep DevTools Network tab open
-  - **Role switching stale state**: One role per Incognito window; always use logout button
-  - **V3 migration gap**: Create `V3__test_seed_data.sql` before testing starts
-  - **Flyway schema drift**: Verify `rsa_key_pairs` table exists after migration; if not, add to V3
-**Estimated Effort**: 2-3 hours (infrastructure + auth smoke test)
-**Plans**: 3 plans in 2 waves in 2 waves
+<details>
+<summary>v1.0 Manual Testing (Phases 1-6) - SHIPPED 2026-05-13</summary>
 
-Plans:
-- [x] 01-01-PLAN.md -- Docker infra compose, V3 migration (AUTHENTICATOR enum + enterprise003), health check script *(Wave 1)* -- COMPLETE 2026-05-08
-- [x] 01-02-PLAN.md -- 7-account login test script, JWT access/logout blacklist verification, browser role-home routing checkpoint *(Wave 2)* -- COMPLETE 2026-05-08
+### Phase 1: Environment Setup & Auth Baseline
+**Goal**: All infrastructure services healthy, all 6 seed accounts login-verified, JWT lifecycle works.
+**Depends on**: Nothing
+**Requirements**: ENV-01 through ENV-10
+**Success Criteria**:
+  1. Docker stack healthy, Swagger UI loads, frontend loads
+  2. Flyway migrations execute, 21 tables exist
+  3. All 6 seed accounts log in and reach correct role home pages
+  4. JWT access/refresh/revoke lifecycle works
+**Plans**: 2 plans (01-01, 01-02) -- Complete
 
 ### Phase 2: Carbon Report Lifecycle
-**Goal**: The central business flow (enterprise creates report, submits for review, reviewer approves or rejects, cascading side effects fire) works end-to-end across both approval and rejection paths.
+**Goal**: Central business flow (create, submit, review, cascading side effects) works end-to-end.
 **Depends on**: Phase 1
-**Requirements**: CARB-01, CARB-02, CARB-03, CARB-04, CARB-05, CARB-06, CARB-07, CARB-08, CARB-09, CARB-10, CARB-11, CARB-12, CARB-13
-**Success Criteria** (what must be TRUE):
-  1. Enterprise user can create a carbon report (form fill + file upload to MinIO), view it in a paginated list, view its detail, and submit it (DRAFT -> SUBMITTED)
-  2. Reviewer can view the submitted report in the review queue, approve one report and reject another with a reason; status transitions to APPROVED or REJECTED correctly
-  3. After approval, credit score updates, emission rating recalculates, and a blockchain record is created (mock mode) -- verified via DB inspection or API responses
-  4. Illegal state transitions are rejected (e.g., DRAFT directly to APPROVED returns an error)
-  5. Enterprise A cannot see Enterprise B's draft reports (data isolation); enterprise user cannot access reviewer endpoints (cross-role access control)
-**Entry Criteria**: Phase 1 complete; MinIO container healthy; at least 2 enterprise accounts available
-**Exit Criteria**: All 13 CARB requirements verified; approval and rejection paths both tested; cascading effects confirmed
-**Risk Mitigation**:
-  - **DB state pollution**: Use timestamped unique report names; reset via `docker-compose down -v` if stuck
-  - **MinIO connection failures**: Verify MinIO container health before file upload tests
-  - **JWT expiration mid-test**: Re-login before starting this phase; keep token fresh
-**Estimated Effort**: 4-6 hours (full lifecycle across 2 enterprises, approval + rejection paths)
-**Plans**: 3 plans in 3 waves
-
-Plans:
-- [x] 02-01-PLAN.md -- Fix carbon.ts field mapping bug, create API test script for enterprise report CRUD (CARB-01/02/03/04) + MinIO file upload *(Wave 1)* -- COMPLETE 2026-05-09
-- [x] 02-02-PLAN.md -- Wire cascading side effects into CarbonService.reviewReport(), extend test script for review flows + state machine + cross-role access (CARB-05/06/07/11/12) *(Wave 2)* -- COMPLETE 2026-05-09
-- [x] 02-03-PLAN.md -- Execute full test suite, verify side effects at runtime, fix failures, human checkpoint (CARB-08/09/10/13) *(Wave 3)* -- COMPLETE 2026-05-09
+**Requirements**: CARB-01 through CARB-13
+**Plans**: 3 plans (02-01, 02-02, 02-03) -- Complete
 
 ### Phase 3: Carbon Coin & Trading Engine
-**Goal**: Carbon coin accounts show correct balances, double auction buy/sell/match works end-to-end with correct settlement, P2P trade lifecycle (create/accept/reject/settle) works, and the relationship between TradeController and DoubleAuctionController is resolved.
+**Goal**: Carbon coin accounts, double auction, P2P trade, settlement correctness.
 **Depends on**: Phase 1
-**Requirements**: COIN-01, COIN-02, COIN-03, COIN-04, COIN-05, TRADE-01, TRADE-02, TRADE-03, TRADE-04, TRADE-05, TRADE-06, TRADE-07, TRADE-08, TRADE-09, TRADE-10, TRADE-11, TRADE-12, TRADE-13
-**Success Criteria** (what must be TRUE):
-  1. Enterprise user can view carbon coin balance and paginated transaction history; transfer coins to another enterprise; both balances update atomically
-  2. Enterprise can place buy and sell orders; admin triggers matching; matched orders create trade records with correct balance updates on both sides
-  3. P2P trade can be created by Enterprise A, accepted by Enterprise B, and both accounts settle correctly; rejection path also works
-  4. Order status transitions (PENDING -> FULLY_MATCHED / PARTIALLY_MATCHED / CANCELLED) are correct; insufficient balance/quota orders are rejected
-  5. The relationship between `TradeController` auction endpoints and `DoubleAuctionController` is documented (shared or separate matching engine)
-**Entry Criteria**: Phase 1 complete; enterprise accounts have carbon coin balances (from V3 seed data or Phase 2 approved reports)
-**Exit Criteria**: All 18 COIN+TRADE requirements verified; settlement financial integrity confirmed; TradeController/DoubleAuctionController relationship documented
-**Risk Mitigation**:
-  - **Trading race conditions**: Test trading sequentially, never concurrently; never open two tabs placing orders for the same enterprise
-  - **Concurrent test execution**: Known issue CON-01/02/03 -- do not test concurrency; accept single-threaded behavior
-  - **N+1 query performance**: If matching is slow, note as PERF-01 but do not block
-  - **Financial integrity**: After every trade, verify both account balances match expected values via DB or API
-**Estimated Effort**: 6-8 hours (dual trading paths, settlement verification, relationship investigation)
-**Plans**: 3 plans in 2 waves
-
-Plans:
-
-**Wave 1** *(independent -- can run in parallel)*
-- [x] 03-01-PLAN.md -- Carbon coin balance, history, transfer, insufficient balance rejection (COIN-01~05) *(Wave 1)* -- COMPLETE 2026-05-09
-- [x] 03-02-PLAN.md -- Double auction buy/sell orders, admin matching, settlement, status transitions (TRADE-01~06, 12, 13) *(Wave 1)* -- COMPLETE 2026-05-09
-
-**Wave 2** *(blocked on Wave 1 -- 03-03 depends on 03-02)*
-- [x] 03-03-PLAN.md -- P2P trade lifecycle + trade.ts fix + controller relationship documentation (TRADE-07~11) *(Wave 2, depends on 03-02)* -- COMPLETE 2026-05-09
-
-**Cross-cutting constraints:**
-- TradeController (P2P) and DoubleAuctionController (auction) are separate subsystems -- do NOT share matching engine
-- Sequential testing only (CON-01/02/03 deferred to v2)
-- After every trade, verify both account balances via direct DB query (`mysql -h 127.0.0.1 -P 3306` -- backend uses host MySQL, NOT Docker MySQL on port 3307)
+**Requirements**: COIN-01 through COIN-05, TRADE-01 through TRADE-13
+**Plans**: 3 plans (03-01, 03-02, 03-03) -- Complete
 
 ### Phase 4: Carbon Neutral Projects & Credit Scoring
-**Goal**: Carbon neutral project lifecycle works through all states (including verification and certification), credit score levels are correctly enforced (WARNING at 40, FROZEN at 20), and trading restrictions based on credit level are verified.
-**Depends on**: Phase 2 (approved reports provide data for projects and credit scoring)
-**Requirements**: PROJ-01, PROJ-02, PROJ-03, PROJ-04, PROJ-05, CRED-01, CRED-02, CRED-03, CRED-04, CRED-05
-**Success Criteria** (what must be TRUE):
-  1. Enterprise user can create a carbon neutral project, view project list (paginated, filtered), and view project detail
-  2. Project status transitions work through all 12+ states; VERIFIER/CERTIFIER role gap is resolved (either roles exist or annotations are fixed)
-  3. Enterprise user can view credit score and score change history; score levels (WARNING at 40, FROZEN at 20) are correctly evaluated
-  4. When credit score drops below WARNING threshold, trading operations are restricted; when below FROZEN, account is effectively frozen
-**Entry Criteria**: Phase 2 complete (approved reports exist for credit scoring); VERIFIER/CERTIFIER role issue investigated
-**Exit Criteria**: All 10 PROJ+CRED requirements verified; role gap either fixed or documented as known blocker with workaround
-**Risk Mitigation**:
-  - **VERIFIER/CERTIFIER role mismatch**: `@PreAuthorize` references roles not in `UserTypeEnum`. Investigate early; if 403 on verification/certification flows, either add roles to enum or document as known issue
-  - **Hardcoded emission factors**: Credit scoring uses `CachePreloadService` constants. Do not expect runtime factor changes; test as read-only
-  - **Phase dependency on Phase 2**: If Phase 2 approval flow has bugs, Phase 4 credit scoring cannot be tested. Resolve Phase 2 blockers first
-**Estimated Effort**: 4-5 hours (project lifecycle + credit scoring + role gap investigation)
-**Plans**: 2 plans in 2 waves
-
-Plans:
-
-**Wave 1** *(independent)*
-- [x] 04-01-PLAN.md -- Carbon neutral project CRUD, status transitions, VERIFIER/CERTIFIER role gap investigation (PROJ-01~05) *(Wave 1)* -- COMPLETE 2026-05-09
-
-**Wave 2** *(depends on Wave 1)*
-- [x] 04-02-PLAN.md -- Credit score viewing, level evaluation, trade restriction enforcement (CRED-01~05) *(Wave 2, depends on 04-01)* -- COMPLETE 2026-05-09
+**Goal**: Project lifecycle through all states, credit score levels enforced.
+**Depends on**: Phase 2
+**Requirements**: PROJ-01 through PROJ-05, CRED-01 through CRED-05
+**Plans**: 2 plans (04-01, 04-02) -- Complete
 
 ### Phase 5: Supporting Domains
-**Goal**: All secondary platform features (digital signatures, file management, emission ratings, blockchain explorer, admin user management, third-party monitoring, search) are verified as functional.
+**Goal**: Signatures, files, emissions, blockchain, admin, third-party, search verified.
 **Depends on**: Phase 1
-**Requirements**: SIGN-01, SIGN-02, SIGN-03, FILE-01, FILE-02, FILE-03, EMIT-01, EMIT-02, EMIT-03, BLOCK-01, BLOCK-02, BLOCK-03, ADMIN-01, ADMIN-02, ADMIN-03, ADMIN-04, ADMIN-05, TP-01, TP-02, SRCH-01
-**Success Criteria** (what must be TRUE):
-  1. RSA key pair generation, data signing, and signature verification all work end-to-end
-  2. File upload to MinIO and download verification work; MinIO console accessible at `localhost:9001`
-  3. Emission data and emission ratings are viewable; emission factors (hardcoded in CachePreloadService) load correctly on startup
-  4. Blockchain records are viewable in mock mode; block explorer shows structurally correct data (proper tx hash format, block number format)
-  5. Admin can list, create, edit, enable/disable users and modify system configuration; third-party can view monitoring data and trade audit records; cross-entity search returns correct results
-**Entry Criteria**: Phase 1 complete; all Docker services (especially MinIO) healthy
-**Exit Criteria**: All 20 supporting domain requirements verified; no untested controllers remaining
-**Risk Mitigation**:
-  - **MinIO connectivity**: Verify MinIO container health before file tests; check bucket creation
-  - **Blockchain mock correctness**: Verify mock return data has proper tx hash and block number formats so downstream consumers do not break
-  - **Hardcoded emission factors**: Accept that config changes require backend restart; test current values only
-  - **Independent testing order**: These domains can be tested in any order; if one blocks, skip and continue
-**Estimated Effort**: 5-7 hours (7 sub-domains, some can be tested in parallel if using multiple browser windows)
-**Plans**: 7 independent test scripts (one per sub-domain)
-
-Plans:
-- [x] 05-01-PLAN.md -- Digital signatures: RSA keypair generate/get/sign/verify/revoke + DB check (SIGN-01~03) -- COMPLETE 2026-05-09
-- [x] 05-02-PLAN.md -- File management: upload/info/exists/list/presigned-url/download/delete + MinIO console (FILE-01~03) -- COMPLETE 2026-05-09
-- [x] 05-03-PLAN.md -- Emission ratings: view/create/recalculate ratings, rankings, AI predict + DB check (EMIT-01~03) -- COMPLETE 2026-05-09
-- [x] 05-04-PLAN.md -- Blockchain explorer: status/blocks/transactions mock data + format validation (BLOCK-01~03) -- COMPLETE 2026-05-09
-- [x] 05-05-PLAN.md -- Admin management: list/filter users, status toggle, dashboard, statistics + gap docs (ADMIN-01~05) -- COMPLETE 2026-05-09
-- [x] 05-06-PLAN.md -- Third-party monitoring: org-info/statistics/carbon-reports/contact + TP-02 gap doc (TP-01~02) -- COMPLETE 2026-05-09
-- [x] 05-07-PLAN.md -- Cross-entity search: reports/trades/market-overview + admin cross-entity (SRCH-01) -- COMPLETE 2026-05-09
+**Requirements**: SIGN-01~03, FILE-01~03, EMIT-01~03, BLOCK-01~03, ADMIN-01~05, TP-01~02, SRCH-01
+**Plans**: 7 plans (05-01 through 05-07) -- Complete
 
 ### Phase 6: Cross-Cutting & Edge Cases
-**Goal**: All AOP cross-cutting concerns are verified, comprehensive edge case and negative testing is complete, critical security fixes (SEC-03, SEC-04) are applied, and all discovered bugs are resolved.
-**Depends on**: Phases 2, 3, 4, 5 (all functional flows must work before edge case testing)
-**Requirements**: AOP-01, AOP-02, AOP-03, AOP-04, EDGE-01, EDGE-02, EDGE-03, EDGE-04, EDGE-05, EDGE-06, BUG-01, BUG-02, BUG-03
+**Goal**: AOP concerns verified, edge cases complete, SEC-03/04 fixed, bugs resolved.
+**Depends on**: Phases 2-5
+**Requirements**: AOP-01~04, EDGE-01~06, BUG-01~03
+**Plans**: 3 plans (06-01, 06-02, 06-03) -- Complete
+
+</details>
+
+### v1.1.0 需求对齐 (In Progress)
+
+**Milestone Goal:** 所有需求文档中定义但代码中缺失的功能模块实现并验证，E2E 测试覆盖率 90%、通过率 90%+
+
+**Quality Standard:** E2E 测试覆盖率 90%, 通过率 90%+
+
+#### Phase 7: AI 智能预测基础
+**Goal**: 用户可通过后端 API 获取市场趋势预测、企业境况推断、碳排放 ML 回归预测
+**Depends on**: Phase 6 (v1.0 complete)
+**Requirements**: REQ-01, REQ-02, REQ-03
 **Success Criteria** (what must be TRUE):
-  1. `@AuditLog` records operations to the `operation_log` table with correct details; `@RateLimit` rejects requests exceeding threshold (fail-open when Redis is down)
-  2. `@DataIsolation` prevents Enterprise A from accessing Enterprise B's data across all endpoints; `@DistributedLock` serializes concurrent operations
-  3. Cross-role access control blocks all 6 role-pair combinations from unauthorized endpoints; state machine violations (7 illegal transitions) return proper errors
-  4. Financial integrity holds: trade amounts and quantities are consistent; pagination works at boundaries (empty, single, full, overflow); input validation rejects negative prices, zero quantities, oversized text
-  5. SEC-03 (Swagger production exposure) and SEC-04 (CORS default localhost value) are fixed; all bugs found during testing are resolved
-**Entry Criteria**: Phases 2-5 complete; all functional flows verified; bug list compiled from earlier phases
-**Exit Criteria**: All 13 cross-cutting + edge case requirements verified; SEC-03/04 fixed; all discovered bugs resolved or documented as known issues
-**Risk Mitigation**:
-  - **Rate limit thresholds unknown**: Code-level verification of `RateLimitAspect` needed to design effective test cases
-  - **Distributed lock key patterns**: Verify lock key generation logic before testing
-  - **i18n edge cases**: Switch language in frontend; verify error messages display in correct locale
-  - **Bug fix regression**: After each fix, re-test the affected flow to ensure no new issues
-**Estimated Effort**: 4-6 hours (AOP verification + systematic edge case matrix + bug fixes)
-**Plans**: 3 plans in 3 waves
+  1. 调用 MarketPredictionService API 可返回碳价走势分析、供需预测、市场趋势数据
+  2. 调用 EnterpriseInferenceService API 可返回指定企业的排放趋势推断和合规风险评估
+  3. CarbonPredictionService 不再返回 Stub 硬编码值，而是基于历史排放数据执行 ML 回归预测
+  4. 三个 AI 服务共享统一的模型加载与推理框架（技术选型：DL4J / ONNX Runtime / Python 微服务）
+**Plans**: 4 plans
 
 Plans:
+- [ ] 07-01: AI 技术选型研究与模型框架搭建
+- [ ] 07-02: MarketPredictionService 实现（市场趋势预测 + 碳价走势 + 供需预测）
+- [ ] 07-03: EnterpriseInferenceService 实现（企业排放趋势推断 + 合规风险评估）
+- [ ] 07-04: CarbonPredictionService Stub 升级为 ML 回归模型
 
-**Wave 1** *(run first -- security fixes are prerequisites)*
-- [x] 06-01-PLAN.md -- Bug fixes (BUG-01~03): NonUniqueResult fix, SEC-03 Swagger auth, SEC-04 CORS default removal + bugfix-test.sh *(Wave 1)* -- COMPLETE 2026-05-10
+#### Phase 8: AI 前端 + 碳核算公式
+**Goal**: 用户可在前端查看 AI 预测可视化图表；企业上报碳排放时使用行业专用核算公式
+**Depends on**: Phase 7
+**Requirements**: REQ-04, REQ-06
+**Success Criteria** (what must be TRUE):
+  1. 用户可在 MarketPrediction.vue 页面查看碳价走势、供需预测、市场趋势图表
+  2. 用户可在 EnterpriseInference.vue 页面查看企业排放趋势推断和合规风险评估图表
+  3. 碳排放预测页面展示 ML 模型输出的回归预测结果（替代原 Stub 占位数据）
+  4. 发电行业企业上报时可用 25 参数专用碳核算公式计算排放量
+  5. 电网行业企业上报时可用 9 参数专用碳核算公式计算排放量
+**Plans**: 3 plans
+**UI hint**: yes
 
-**Wave 2** *(depends on 06-01 -- needs backend restart for temp annotations)*
-- [x] 06-02-PLAN.md -- AOP verification (AOP-01~04): temporary annotation placement + aop-test.sh + revert *(Wave 2, depends on 06-01)* -- COMPLETE 2026-05-10
+Plans:
+- [ ] 08-01: MarketPrediction.vue + EnterpriseInference.vue + 碳排放预测可视化升级
+- [ ] 08-02: 发电行业 25 参数碳核算公式实现
+- [ ] 08-03: 电网行业 9 参数碳核算公式实现
 
-**Wave 3** *(depends on 06-01, 06-02 -- pure API testing)*
-- [x] 06-03-PLAN.md -- Edge cases (EDGE-01~06): cross-role access, state machines, financial integrity, pagination, input validation, i18n + edge-test.sh *(Wave 3, depends on 06-01, 06-02)* -- COMPLETE 2026-05-10
+#### Phase 9: 区块链真实对接
+**Goal**: 区块链记录从 Mock 模式升级为 Hyperledger Fabric 真实链上存储与查询
+**Depends on**: Phase 6 (v1.0 complete)
+**Requirements**: REQ-05, REQ-12
+**Success Criteria** (what must be TRUE):
+  1. BlockchainService 调用 Fabric Gateway SDK 将交易记录写入 Hyperledger Fabric 网络
+  2. 区块链浏览器查询返回真实链上数据（交易哈希、区块号、时间戳）
+  3. 碳报告审批后的上链流程走真实 Fabric 通道（而非 Mock 返回假数据）
+  4. Fabric CA 可为用户签发区块链身份证书（REQ-12 optional，可降级为 mock CA）
+**Plans**: 3 plans
 
-**Cross-cutting constraints:**
-- Execution order: bugfix-test.sh -> aop-test.sh -> edge-test.sh (per D-17/D-18)
-- aop-test.sh modifies source code temporarily and requires backend restart cycle (per D-19)
-- All temporary annotations must be reverted via git checkout after AOP testing (per D-03)
+Plans:
+- [ ] 09-01: Fabric 网络搭建（Docker Compose + Channel + Chaincode 部署）
+- [ ] 09-02: Fabric Gateway SDK Java 集成 + BlockchainService 替换
+- [ ] 09-03: Fabric CA 集成（REQ-12 optional，可降级）
+
+#### Phase 10: 准入与资格证
+**Goal**: 管理员可签发企业准入证书和审核员资格证，企业和审核员可在前端查看证书状态
+**Depends on**: Phase 6 (v1.0 complete)
+**Requirements**: REQ-07, REQ-08
+**Success Criteria** (what must be TRUE):
+  1. 管理员可通过 Admin API 签发企业准入证书（EntryPermission），证书状态可在数据库查询
+  2. 管理员可通过 Admin API 签发审核员资格证（ReviewerQualification），资格证状态可在数据库查询
+  3. 企业用户可在前端查看自身准入证书状态（已签发/未签发/已吊销）
+  4. 审核员可在前端查看自身资格证状态（已签发/未签发/已吊销）
+**Plans**: 3 plans
+**UI hint**: yes
+
+Plans:
+- [ ] 10-01: EntryPermissionService + AdminController endpoint + Flyway V3 migration
+- [ ] 10-02: ReviewerQualificationService + AdminController endpoint + Flyway migration
+- [ ] 10-03: 前端准入证书 + 资格证管理页面
+
+#### Phase 11: 前端覆盖率补齐
+**Goal**: 前端 API 模块覆盖全部后端 endpoint，Enterprise/Reviewer 视图功能完整，Swagger 文档与实际 API 对齐
+**Depends on**: Phase 7, Phase 8, Phase 9, Phase 10
+**Requirements**: REQ-09, REQ-10, REQ-11
+**Success Criteria** (what must be TRUE):
+  1. 前端 api/ 目录下 39 个缺失的 endpoint 调用全部补齐（与后端 Swagger 一一对应）
+  2. Enterprise 视图缺失的 CRUD 操作（报告编辑/删除、交易详情、项目申请等）全部可用
+  3. Reviewer 视图缺失的审核操作（批量审核、审核历史、资格证查看等）全部可用
+  4. Swagger 文档与实际 endpoint 100% 对齐（无遗漏、无过时描述、无错误参数）
+**Plans**: 4 plans
+**UI hint**: yes
+
+Plans:
+- [ ] 11-01: 前端 API 模块补齐（39 缺失 endpoint 对应的 api/*.ts 调用）
+- [ ] 11-02: Enterprise 视图功能补齐（缺失的 CRUD 操作和详情页面）
+- [ ] 11-03: Reviewer 视图功能补齐（缺失的审核操作和资格证页面）
+- [ ] 11-04: Swagger 文档对齐修正（endpoint 描述、参数、响应与实际代码一致）
+
+#### Phase 12: E2E 测试与验收
+**Goal**: 全量 E2E 自动化测试通过，覆盖率 90%+，通过率 90%+，v1.1.0 验收达标
+**Depends on**: Phase 7, Phase 8, Phase 9, Phase 10, Phase 11
+**Requirements**: (quality gate -- covers all REQ-01 through REQ-12)
+**Success Criteria** (what must be TRUE):
+  1. E2E 自动化测试覆盖 v1.1.0 全部 12 个需求项的验证场景
+  2. E2E 测试覆盖率 >= 90%（覆盖核心业务流程 endpoint）
+  3. E2E 测试通过率 >= 90%（允许少量非阻塞 flaky 失败）
+  4. v1.0 已验证功能未被 v1.1.0 修改破坏（回归测试通过）
+  5. v1.1.0 milestone 验收报告签署通过
+**Plans**: 6 plans
+
+Plans:
+- [ ] 12-01: E2E 测试框架搭建（Playwright 配置 + 测试数据管理 + CI 集成）
+- [ ] 12-02: REQ-01~04 AI 模块 E2E 测试（市场预测 + 企业推断 + 碳排放预测 + 前端页面）
+- [ ] 12-03: REQ-05~06 区块链 + 碳核算 E2E 测试（Fabric 上链查询 + 行业公式计算）
+- [ ] 12-04: REQ-07~08 准入 + 资格证 E2E 测试（签发 + 查询 + 吊销 + 前端展示）
+- [ ] 12-05: REQ-09~11 前端覆盖率 E2E 测试（API 调用 + 视图操作 + Swagger 一致性）
+- [ ] 12-06: 回归测试 + 验收报告（v1.0 功能未破坏 + 覆盖率/通过率达标确认）
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
-Phase 5 can run in parallel with Phase 3/4 since it only depends on Phase 1.
+Phases 7-12 execute primarily in numeric order.
+Phase 9 and Phase 10 are independent of each other and can run in parallel once Phase 6 is complete.
+Phase 8 depends on Phase 7. Phase 11 depends on Phases 7-10. Phase 12 depends on all prior v1.1.0 phases.
 
-| Phase | Plans Complete | Status | Completed |
-|-------|----------------|--------|-----------|
-| 1. Environment Setup & Auth Baseline | 2/2 | Complete | 2026-05-08 |
-| 2. Carbon Report Lifecycle | 3/3 | Complete | 2026-05-09 |
-| 3. Carbon Coin & Trading Engine | 3/3 | Complete | 2026-05-09 |
-| 4. Carbon Neutral Projects & Credit Scoring | 2/2 | Complete | 2026-05-09 |
-| 5. Supporting Domains | 7/7 | Complete | 2026-05-09 |
-| 6. Cross-Cutting & Edge Cases | 1/3 | In Progress | - |
-
-**Total Requirements:** 84 v1 requirements across 6 phases
-**Estimated Total Effort:** 25-36 hours of manual testing
+| Phase | Milestone | Plans Complete | Status | Completed |
+|-------|-----------|----------------|--------|-----------|
+| 1. Environment Setup & Auth Baseline | v1.0 | 2/2 | Complete | 2026-05-08 |
+| 2. Carbon Report Lifecycle | v1.0 | 3/3 | Complete | 2026-05-09 |
+| 3. Carbon Coin & Trading Engine | v1.0 | 3/3 | Complete | 2026-05-09 |
+| 4. Carbon Neutral Projects & Credit Scoring | v1.0 | 2/2 | Complete | 2026-05-09 |
+| 5. Supporting Domains | v1.0 | 7/7 | Complete | 2026-05-09 |
+| 6. Cross-Cutting & Edge Cases | v1.0 | 3/3 | Complete | 2026-05-13 |
+| 7. AI 智能预测基础 | v1.1.0 | 0/4 | Not started | - |
+| 8. AI 前端 + 碳核算公式 | v1.1.0 | 0/3 | Not started | - |
+| 9. 区块链真实对接 | v1.1.0 | 0/3 | Not started | - |
+| 10. 准入与资格证 | v1.1.0 | 0/3 | Not started | - |
+| 11. 前端覆盖率补齐 | v1.1.0 | 0/4 | Not started | - |
+| 12. E2E 测试与验收 | v1.1.0 | 0/6 | Not started | - |
 
 ## Known Issues & Deferred Items
 
@@ -212,13 +211,13 @@ Phase 5 can run in parallel with Phase 3/4 since it only depends on Phase 1.
 | CON-01/02/03 (concurrency) | Deferred to v2 | Do not test concurrent trading; accept single-threaded behavior |
 | SEC-01 (RSA private key in DB) | Deferred to v2 | Low risk in dev/test environment |
 | SEC-02 (CSRF protection) | Deferred to v2 | CSRF currently disabled; acceptable for testing |
-| SEC-03 (Swagger production exposure) | Fix in Phase 6 | Must fix before production readiness |
-| SEC-04 (CORS localhost default) | Fix in Phase 6 | Must fix before production readiness |
-| VERIFIER/CERTIFIER role gap | Investigated Phase 4, documented | ADMIN workaround works; needs enum fix or annotation fix for non-ADMIN users |
-| TradeController/DoubleAuctionController | Investigate in Phase 3 | Relationship unclear; needs code-level resolution |
-| V3 Flyway migration | Create in Phase 1 | Required before any testing begins |
+| REQ-12 (Fabric CA) | Optional in Phase 9 | Can degrade to mock CA; does not block v1.1.0 |
+| AI model tech selection | Pending research (Phase 7 Plan 07-01) | Blocks Phase 7 Plans 07-02/03/04 |
+| Fabric SDK version | Pending research (Phase 9 Plan 09-01) | Blocks Phase 9 Plans 09-02/03 |
+| Carbon formula parameters | Pending research (Phase 8 Plan 08-02) | Blocks Phase 8 Plans 08-02/03 |
 
 ---
 *Roadmap created: 2026-05-08*
-*Based on: REQUIREMENTS.md (84 v1 requirements), PROJECT.md, research/SUMMARY.md*
-*Granularity: standard (6 phases, derived from requirement categories)*
+*v1.1.0 phases added: 2026-05-14*
+*Based on: REQUIREMENTS.md (12 v1.1.0 requirements), PROJECT.md, research/SUMMARY.md*
+*Granularity: standard (6 v1.1.0 phases, derived from requirement dependencies)*
