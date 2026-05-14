@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -26,6 +27,8 @@ public interface CarbonReportRepository extends JpaRepository<CarbonReport, Long
     /**
      * 根据企业ID分页查询
      */
+    List<CarbonReport> findByEnterpriseIdAndDeletedFalse(Long enterpriseId);
+
     Page<CarbonReport> findByEnterpriseIdAndDeletedFalse(Long enterpriseId, Pageable pageable);
 
     /**
@@ -61,4 +64,14 @@ public interface CarbonReportRepository extends JpaRepository<CarbonReport, Long
             @Param("status") Integer status,
             @Param("keyword") String keyword,
             Pageable pageable);
+
+    /**
+     * 统计指定状态的报告数量
+     */
+    long countByStatusAndDeletedFalse(Integer status);
+
+    /**
+     * 根据多个状态分页查询
+     */
+    Page<CarbonReport> findByStatusInAndDeletedFalse(List<Integer> statuses, Pageable pageable);
 }
