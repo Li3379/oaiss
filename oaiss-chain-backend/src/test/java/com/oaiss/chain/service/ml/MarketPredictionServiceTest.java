@@ -47,13 +47,16 @@ class MarketPredictionServiceTest {
     @BeforeEach
     void setUp() {
         sampleOrders = IntStream.range(0, 30)
-                .mapToObj(i -> AuctionOrder.builder()
-                        .id((long) i)
-                        .price(BigDecimal.valueOf(50.0 + i))
-                        .quantity(BigDecimal.valueOf(100 + i * 5))
-                        .direction(0)
-                        .createdAt(LocalDateTime.now().minusDays(30 - i))
-                        .build())
+                .mapToObj(i -> {
+                    AuctionOrder order = AuctionOrder.builder()
+                            .price(BigDecimal.valueOf(50.0 + i))
+                            .quantity(BigDecimal.valueOf(100 + i * 5))
+                            .direction(0)
+                            .build();
+                    order.setId((long) i);
+                    order.setCreatedAt(LocalDateTime.now().minusDays(30 - i));
+                    return order;
+                })
                 .collect(Collectors.toList());
 
         sampleResponse = MarketForecastResponse.builder()

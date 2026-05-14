@@ -37,8 +37,8 @@ public class MlServiceConfig {
                         (int) connectTimeout.toMillis())
                 .responseTimeout(readTimeout)
                 .doOnConnected(conn -> conn
-                        .addHandlerLast(new ReadTimeoutHandler(readTimeout.toSeconds()))
-                        .addHandlerLast(new WriteTimeoutHandler(readTimeout.toSeconds())));
+                        .addHandlerLast(new ReadTimeoutHandler((int) readTimeout.toSeconds()))
+                        .addHandlerLast(new WriteTimeoutHandler((int) readTimeout.toSeconds())));
 
         return webClientBuilder
                 .baseUrl(url)
