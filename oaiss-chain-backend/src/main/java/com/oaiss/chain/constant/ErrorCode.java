@@ -99,6 +99,9 @@ public final class ErrorCode {
     /** 原密码错误 */
     public static final int OLD_PASSWORD_ERROR = 2012;
 
+    /** 不能禁用自己的账号 */
+    public static final int CANNOT_DISABLE_SELF = 2013;
+
     // ==================== 碳核算模块错误 (3xxx) ====================
     
     /** 碳报告不存在 */
@@ -221,4 +224,15 @@ public final class ErrorCode {
     
     /** RSA密钥已失效 */
     public static final int RSA_KEY_REVOKED = 5015;
+
+    // ==================== AI预测模块错误 (6xxx) ====================
+
+    /** ML服务不可用 */
+    public static final int ML_SERVICE_UNAVAILABLE = 6000;
+
+    /** ML服务调用失败 */
+    public static final int ML_SERVICE_ERROR = 6001;
+
+    /** ML预测失败 */
+    public static final int ML_PREDICTION_FAILED = 6002;
 }
