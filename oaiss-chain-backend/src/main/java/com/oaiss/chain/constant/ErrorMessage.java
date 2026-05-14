@@ -230,4 +230,7 @@ public final class ErrorMessage {
 
     /** ML预测失败 */
     public static final String ML_PREDICTION_FAILED = "error.ml.prediction.failed";
+
+    /** 数据不足 */
+    public static final String INSUFFICIENT_DATA = "error.insufficient.data";
 }
