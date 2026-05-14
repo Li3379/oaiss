@@ -11,8 +11,9 @@ from typing import AsyncGenerator
 
 from fastapi import FastAPI
 
+from app.routers.enterprise_router import router as enterprise_router
+from app.routers.market_router import router as market_router
 from app.schemas.emission import EmissionForecastRequest, EmissionForecastResponse
-from app.schemas.enterprise import EnterpriseInferenceRequest, EnterpriseInferenceResponse
 from app.schemas.market import MarketForecastRequest, MarketForecastResponse
 
 logger = logging.getLogger(__name__)
@@ -32,41 +33,17 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Register market prediction router (Plan 07-02)
+app.include_router(market_router)
+
+# Register enterprise inference router (Plan 07-03)
+app.include_router(enterprise_router)
+
 
 @app.get("/health")
 async def health_check() -> dict[str, str]:
     """Health check endpoint for Docker and load balancer probes."""
     return {"status": "healthy", "version": "1.0.0"}
-
-
-@app.post(
-    "/api/v1/predict/market",
-    response_model=MarketForecastResponse,
-    summary="Market price forecast (stub)",
-)
-async def predict_market(request: MarketForecastRequest) -> None:
-    """Stub endpoint for market forecasting. Returns 501 until Plan 07-02 implements it."""
-    from fastapi.responses import JSONResponse
-
-    return JSONResponse(
-        status_code=501,
-        content={"detail": "Market prediction endpoint not yet implemented"},
-    )
-
-
-@app.post(
-    "/api/v1/predict/enterprise",
-    response_model=EnterpriseInferenceResponse,
-    summary="Enterprise compliance inference (stub)",
-)
-async def infer_enterprise(request: EnterpriseInferenceRequest) -> None:
-    """Stub endpoint for enterprise inference. Returns 501 until Plan 07-03 implements it."""
-    from fastapi.responses import JSONResponse
-
-    return JSONResponse(
-        status_code=501,
-        content={"detail": "Enterprise inference endpoint not yet implemented"},
-    )
 
 
 @app.post(
