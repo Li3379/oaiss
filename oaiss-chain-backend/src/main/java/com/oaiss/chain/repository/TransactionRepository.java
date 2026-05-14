@@ -34,6 +34,12 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
     Page<Transaction> findByBuyerIdAndDeletedFalse(Long buyerId, Pageable pageable);
 
     /**
+     * 统计与指定用户相关的交易数量（作为买方或卖方）
+     */
+    @Query("SELECT COUNT(t) FROM Transaction t WHERE t.deleted = false AND (t.buyerId = :userId OR t.sellerId = :userId)")
+    long countByUserIdRelated(@Param("userId") Long userId);
+
+    /**
      * 根据交易类型分页查询
      */
     Page<Transaction> findByTradeTypeAndDeletedFalse(Integer tradeType, Pageable pageable);
