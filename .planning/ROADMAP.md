@@ -132,7 +132,7 @@ Plans:
 **Depends on**: Phase 6 (v1.0 complete)
 **Requirements**: REQ-07, REQ-08
 **Success Criteria** (what must be TRUE):
-  1. 管理员可通过 Admin API 签发企业准入证书（EntryPermission），证书状态可在数据库查询
+  1. 管理员可通过 Admin API 签发企业准入证书（EnterpriseAdmission），证书状态可在数据库查询
   2. 管理员可通过 Admin API 签发审核员资格证（ReviewerQualification），资格证状态可在数据库查询
   3. 企业用户可在前端查看自身准入证书状态（已签发/未签发/已吊销）
   4. 审核员可在前端查看自身资格证状态（已签发/未签发/已吊销）
@@ -140,9 +140,9 @@ Plans:
 **UI hint**: yes
 
 Plans:
-- [ ] 10-01: EntryPermissionService + AdminController endpoint + Flyway V3 migration
-- [ ] 10-02: ReviewerQualificationService + AdminController endpoint + Flyway migration
-- [ ] 10-03: 前端准入证书 + 资格证管理页面
+- [ ] 10-01-PLAN.md — EnterpriseAdmission 实体 + 仓库 + 服务 + AdminController 端点 + Flyway V4 迁移 (REQ-07)
+- [ ] 10-02-PLAN.md — ReviewerQualificationService + AdminController 端点 (REQ-08)
+- [ ] 10-03-PLAN.md — 前端证书管理页面 + 企业/审核员证书状态展示 (REQ-07 + REQ-08)
 
 #### Phase 11: 前端覆盖率补齐
 **Goal**: 前端 API 模块覆盖全部后端 endpoint，Enterprise/Reviewer 视图功能完整，Swagger 文档与实际 API 对齐
@@ -198,9 +198,9 @@ Phase 8 depends on Phase 7. Phase 11 depends on Phases 7-10. Phase 12 depends on
 | 5. Supporting Domains | v1.0 | 7/7 | Complete | 2026-05-09 |
 | 6. Cross-Cutting & Edge Cases | v1.0 | 3/3 | Complete | 2026-05-13 |
 | 7. AI 智能预测基础 | v1.1.0 | 4/4 | Complete | 2026-05-14 |
-| 8. AI 前端 + 碳核算公式 | v1.1.0 | 0/3 | Planning | - |
-| 9. 区块链真实对接 | v1.1.0 | 3/3 | Planning | - |
-| 10. 准入与资格证 | v1.1.0 | 0/3 | Not started | - |
+| 8. AI 前端 + 碳核算公式 | v1.1.0 | 3/3 | Complete | 2026-05-15 |
+| 9. 区块链真实对接 | v1.1.0 | 3/3 | Complete | 2026-05-15 |
+| 10. 准入与资格证 | v1.1.0 | 3/3 | Planned | - |
 | 11. 前端覆盖率补齐 | v1.1.0 | 0/4 | Not started | - |
 | 12. E2E 测试与验收 | v1.1.0 | 0/6 | Not started | - |
 
@@ -221,5 +221,6 @@ Phase 8 depends on Phase 7. Phase 11 depends on Phases 7-10. Phase 12 depends on
 *v1.1.0 phases added: 2026-05-14*
 *Phase 7 planned: 2026-05-14 -- AI tech selection resolved (Python FastAPI), 4 plans created*
 *Phase 8 planned: 2026-05-14 -- carbon formula parameters resolved (GB/T 32150-2015), 3 plans created*
+*Phase 10 planned: 2026-05-15 -- 3 plans created (EnterpriseAdmission + ReviewerQualification + Frontend)*
 *Based on: REQUIREMENTS.md (12 v1.1.0 requirements), PROJECT.md, research/SUMMARY.md*
 *Granularity: standard (6 v1.1.0 phases, derived from requirement dependencies)*
