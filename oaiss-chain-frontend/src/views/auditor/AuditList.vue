@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getReportList, reviewReport } from '../../api/carbon'
+import { getMyReviewerQualification } from '../../api/admin'
 
 const { t } = useI18n()
 
@@ -92,13 +93,50 @@ const getStatusType = (status) => {
   return statusMap[status] || 'info'
 }
 
+const qualificationStatus = ref<Record<string, unknown> | null>(null)
+const qualificationLoading = ref(false)
+
+const fetchQualificationStatus = async () => {
+  qualificationLoading.value = true
+  try {
+    const res = await getMyReviewerQualification()
+    const list = Array.isArray(res) ? res : ((res as Record<string, unknown>)?.items as unknown[] || [])
+    qualificationStatus.value = list.length > 0 ? list[0] as Record<string, unknown> : null
+  } catch {
+    qualificationStatus.value = null
+  } finally {
+    qualificationLoading.value = false
+  }
+}
+
+const qualificationStatusType = computed(() => {
+  if (!qualificationStatus.value) return 'info'
+  return qualificationStatus.value.status === 1 ? 'success' : 'danger'
+})
+
+const qualificationStatusText = computed(() => {
+  if (!qualificationStatus.value) return t('certificateManage.notIssued')
+  return qualificationStatus.value.status === 1 ? t('certificateManage.active') : t('certificateManage.revoked')
+})
+
 onMounted(() => {
   fetchData()
+  fetchQualificationStatus()
 })
 </script>
 
 <template>
   <section class="audit-page">
+    <el-card class="section-card" shadow="never">
+      <el-space>
+        <span>{{ t('certificateManage.myQualification') }}:</span>
+        <el-tag :type="qualificationStatusType">{{ qualificationStatusText }}</el-tag>
+        <span v-if="qualificationStatus" style="color: #999; font-size: 13px;">
+          {{ qualificationStatus.certificateNo }}
+        </span>
+      </el-space>
+    </el-card>
+
     <el-card class="section-card" shadow="never">
       <el-breadcrumb separator="/">
         <el-breadcrumb-item>{{ t('auditList.breadcrumbAudit') }}</el-breadcrumb-item>
