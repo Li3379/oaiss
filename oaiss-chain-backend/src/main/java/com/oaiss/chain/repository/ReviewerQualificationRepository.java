@@ -1,6 +1,8 @@
 package com.oaiss.chain.repository;
 
 import com.oaiss.chain.entity.ReviewerQualification;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -19,4 +21,8 @@ public interface ReviewerQualificationRepository extends JpaRepository<ReviewerQ
     List<ReviewerQualification> findByReviewerIdAndStatusAndDeletedFalse(Long reviewerId, Integer status);
 
     boolean existsByCertificateNoAndDeletedFalse(String certificateNo);
+
+    Page<ReviewerQualification> findByDeletedFalse(Pageable pageable);
+
+    Page<ReviewerQualification> findByStatusAndDeletedFalse(Integer status, Pageable pageable);
 }

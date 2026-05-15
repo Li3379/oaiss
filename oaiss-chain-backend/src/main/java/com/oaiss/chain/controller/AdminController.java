@@ -5,12 +5,16 @@ import com.oaiss.chain.constant.ErrorMessage;
 import com.oaiss.chain.dto.ApiResponse;
 import com.oaiss.chain.entity.AccountPermissionList;
 import com.oaiss.chain.entity.EnterpriseAdmission;
+import com.oaiss.chain.entity.Reviewer;
+import com.oaiss.chain.entity.ReviewerQualification;
 import com.oaiss.chain.entity.User;
 import com.oaiss.chain.exception.BusinessException;
 import com.oaiss.chain.repository.AccountPermissionListRepository;
+import com.oaiss.chain.repository.ReviewerRepository;
 import com.oaiss.chain.repository.UserRepository;
 import com.oaiss.chain.security.JwtUserDetails;
 import com.oaiss.chain.service.EnterpriseAdmissionService;
+import com.oaiss.chain.service.ReviewerQualificationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -42,6 +46,8 @@ public class AdminController {
     private final UserRepository userRepository;
     private final AccountPermissionListRepository permissionRepository;
     private final EnterpriseAdmissionService enterpriseAdmissionService;
+    private final ReviewerQualificationService reviewerQualificationService;
+    private final ReviewerRepository reviewerRepository;
 
     @GetMapping("/users")
     @Operation(
@@ -287,5 +293,83 @@ public class AdminController {
         }
         java.util.List<EnterpriseAdmission> admissions = enterpriseAdmissionService.getMyCertificate(enterpriseId);
         return ApiResponse.success(admissions);
+    }
+
+    // ==================== 审核员资格证管理 ====================
+
+    @PostMapping("/reviewer-qualification/{reviewerId}/issue")
+    @Operation(
+        summary = "签发审核员资格证",
+        description = "为指定审核员签发资格证。同一审核员已有有效资格证时拒绝重复签发。",
+        security = @SecurityRequirement(name = "Bearer Authentication")
+    )
+    @ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "签发成功"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "无权限"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "已有有效资格证")
+    })
+    public ApiResponse<ReviewerQualification> issueQualification(
+            @Parameter(description = "审核员ID", required = true, example = "1")
+            @PathVariable Long reviewerId) {
+        ReviewerQualification qualification = reviewerQualificationService.issueCertificate(reviewerId);
+        return ApiResponse.success(qualification);
+    }
+
+    @DeleteMapping("/reviewer-qualification/{reviewerId}")
+    @Operation(
+        summary = "吊销审核员资格证",
+        description = "吊销指定审核员的有效资格证。",
+        security = @SecurityRequirement(name = "Bearer Authentication")
+    )
+    @ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "吊销成功"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "无权限"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "无有效资格证")
+    })
+    public ApiResponse<Void> revokeQualification(
+            @Parameter(description = "审核员ID", required = true, example = "1")
+            @PathVariable Long reviewerId) {
+        reviewerQualificationService.revokeCertificate(reviewerId);
+        return ApiResponse.success();
+    }
+
+    @GetMapping("/reviewer-qualification")
+    @Operation(
+        summary = "查询审核员资格证列表",
+        description = "分页查询审核员资格证列表。支持按状态筛选。",
+        security = @SecurityRequirement(name = "Bearer Authentication")
+    )
+    @ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "查询成功"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "无权限")
+    })
+    public ApiResponse<Page<ReviewerQualification>> listQualifications(
+            @Parameter(description = "状态筛选 (1-有效, 2-已吊销)", example = "1")
+            @RequestParam(required = false) Integer status,
+            @Parameter(description = "页码，从1开始", example = "1")
+            @RequestParam(defaultValue = "1") Integer page,
+            @Parameter(description = "每页数量", example = "10")
+            @RequestParam(defaultValue = "10") Integer size) {
+        Page<ReviewerQualification> qualifications = reviewerQualificationService.listCertificates(status, page, size);
+        return ApiResponse.success(qualifications);
+    }
+
+    @GetMapping("/reviewer-qualification/my")
+    @PreAuthorize("hasRole('REVIEWER')")
+    @Operation(
+        summary = "查看自身资格证",
+        description = "审核员用户查看自身的资格证列表。",
+        security = @SecurityRequirement(name = "Bearer Authentication")
+    )
+    @ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "查询成功"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "无权限，仅审核员可访问")
+    })
+    public ApiResponse<java.util.List<ReviewerQualification>> getMyQualification(
+            @AuthenticationPrincipal JwtUserDetails currentUser) {
+        Reviewer reviewer = reviewerRepository.findByUserId(currentUser.getUserId())
+                .orElseThrow(() -> BusinessException.notFound("error.reviewer.notFound"));
+        java.util.List<ReviewerQualification> qualifications = reviewerQualificationService.getMyCertificate(reviewer.getId());
+        return ApiResponse.success(qualifications);
     }
 }
