@@ -81,6 +81,7 @@ export const MENU_BY_ROLE: Record<RoleType, MenuItem[]> = {
         ] },
         { label: 'menu.dataManage', children: [{ label: 'menu.statisticsData', path: '/admin/data/statistics' }] },
         { label: 'menu.certificationManage', children: [{ label: 'menu.certificationList', path: '/admin/verify/list' }] },
+        { label: 'menu.certificateManage', children: [{ label: 'menu.certificateList', path: '/admin/certificates' }] },
       ],
     },
   ],

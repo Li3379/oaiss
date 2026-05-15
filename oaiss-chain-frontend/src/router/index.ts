@@ -152,6 +152,12 @@ const routes: RouteRecordRaw[] = [
         component: () => import('../views/admin/DataStatistics.vue'),
         meta: { title: '统计数据', roles: [ROLE.ADMIN] },
       },
+      {
+        path: 'admin/certificates',
+        name: 'AdminCertificates',
+        component: () => import('../views/admin/CertificateManage.vue'),
+        meta: { title: '证书管理', roles: [ROLE.ADMIN] },
+      },
     ],
   },
   { path: '/:pathMatch(.*)*', name: 'NotFound', component: () => import('../views/NotFound.vue'), meta: { title: '页面未找到' } },
