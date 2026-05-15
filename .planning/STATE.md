@@ -20,11 +20,11 @@
 | 7 | AI 智能预测基础 | Complete | 4/4 |
 | 8 | AI 前端 + 碳核算公式 | Complete | 3/3 |
 | 9 | 区块链真实对接 | Complete | 3/3 |
-| 10 | 准入与资格证 | Not started | 0/3 |
+| 10 | 准入与资格证 | Ready to execute | 3/3 |
 | 11 | 前端覆盖率补齐 | Not started | 0/4 |
 | 12 | E2E 测试与验收 | Not started | 0/6 |
 
-Progress: [========....] 67% (8 of 12 phases done; Phase 9 planned with 3/3 plans)
+Progress: [========....] 67% (8 of 12 phases done; Phase 10 planned with 3/3 plans)
 
 ## Active Context
 
@@ -93,6 +93,22 @@ Key decisions:
 - 共享组织身份作为 MVP 默认（REQ-12 降级为 mock CA）
 - Profile 切换: `fabric.enabled=false` (Mock) / `fabric.enabled=true` (Fabric)
 
+## Phase 10 Planning Summary
+
+**Phase 10: 准入与资格证** — Ready to execute (2026-05-15)
+
+3 plans created:
+- **10-01**: EnterpriseAdmission 准入证书 (2 tasks — Flyway V4 migration + entity + repository, service + AdminController endpoints + unit tests)
+- **10-02**: ReviewerQualification 审核员资格证 (2 tasks — paginated repository methods + service + AdminController endpoints, unit tests)
+- **10-03**: 前端证书管理页面 (3 tasks — API client + i18n + router/menu, CertificateManage.vue admin page, enterprise/auditor status views)
+
+Key decisions:
+- EnterpriseAdmission 是新实体，不复用 EntryPermission（D-01）
+- 证书状态: ACTIVE(1) + REVOKED(2)，无记录 = 未签发（D-02）
+- 证书编号自动生成: EA-{date}-{random} / RQ-{date}-{random}（D-04）
+- 重复签发防护：已有 ACTIVE 证书时拒绝（D-07）
+- 吊销 = status 1→2，仅 ACTIVE 可吊销（D-08）
+
 ## Deferred Items
 
 | Category | Item | Status | Deferred At |
@@ -104,5 +120,5 @@ Key decisions:
 ## Session Continuity
 
 Last session: 2026-05-15
-Stopped at: Phase 9 planned (3/3 plans), ready for execution
+Stopped at: Phase 10 planned (3/3 plans), ready for execution
 Resume file: None
