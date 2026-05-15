@@ -3,10 +3,12 @@ package com.oaiss.chain.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.oaiss.chain.entity.EnterpriseAdmission;
 import com.oaiss.chain.repository.AccountPermissionListRepository;
+import com.oaiss.chain.repository.ReviewerRepository;
 import com.oaiss.chain.repository.UserRepository;
 import com.oaiss.chain.security.JwtTokenProvider;
 import com.oaiss.chain.security.JwtUserDetails;
 import com.oaiss.chain.service.EnterpriseAdmissionService;
+import com.oaiss.chain.service.ReviewerQualificationService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -59,6 +61,12 @@ class AdminControllerAdmissionTest {
 
     @MockBean
     private JwtTokenProvider jwtTokenProvider;
+
+    @MockBean
+    private ReviewerQualificationService reviewerQualificationService;
+
+    @MockBean
+    private ReviewerRepository reviewerRepository;
 
     private EnterpriseAdmission testAdmission;
     private JwtUserDetails enterpriseUser;
