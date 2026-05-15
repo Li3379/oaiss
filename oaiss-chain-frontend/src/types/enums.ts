@@ -4,7 +4,6 @@ export const UserTypeEnum = {
   REVIEWER: 2,
   THIRD_PARTY: 3,
   ADMIN: 4,
-  AUTHENTICATOR: 5,
 } as const
 export type UserType = (typeof UserTypeEnum)[keyof typeof UserTypeEnum]
 

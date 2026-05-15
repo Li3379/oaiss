@@ -70,7 +70,7 @@ public class CachePreloadService {
             // 检查缓存是否已存在
             if (Boolean.FALSE.equals(redisTemplate.hasKey(cacheKey))) {
                 // 用户类型枚举值缓存
-                Set<String> userTypes = Set.of("ENTERPRISE", "REVIEWER", "AUTHENTICATOR", "THIRD_PARTY", "ADMIN");
+                Set<String> userTypes = Set.of("ENTERPRISE", "REVIEWER", "THIRD_PARTY", "ADMIN");
                 redisTemplate.opsForSet().add(cacheKey, userTypes.toArray());
                 redisTemplate.expire(cacheKey, 24, TimeUnit.HOURS);
                 log.debug("预热用户类型缓存完成: {} types", userTypes.size());

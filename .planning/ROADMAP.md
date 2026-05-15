@@ -199,7 +199,7 @@ Phase 8 depends on Phase 7. Phase 11 depends on Phases 7-10. Phase 12 depends on
 | 6. Cross-Cutting & Edge Cases | v1.0 | 3/3 | Complete | 2026-05-13 |
 | 7. AI 智能预测基础 | v1.1.0 | 4/4 | Complete | 2026-05-14 |
 | 8. AI 前端 + 碳核算公式 | v1.1.0 | 0/3 | Planning | - |
-| 9. 区块链真实对接 | v1.1.0 | 0/3 | Not started | - |
+| 9. 区块链真实对接 | v1.1.0 | 3/3 | Planning | - |
 | 10. 准入与资格证 | v1.1.0 | 0/3 | Not started | - |
 | 11. 前端覆盖率补齐 | v1.1.0 | 0/4 | Not started | - |
 | 12. E2E 测试与验收 | v1.1.0 | 0/6 | Not started | - |
@@ -214,7 +214,7 @@ Phase 8 depends on Phase 7. Phase 11 depends on Phases 7-10. Phase 12 depends on
 | REQ-12 (Fabric CA) | Optional in Phase 9 | Can degrade to mock CA; does not block v1.1.0 |
 | AI model tech selection | Resolved: Python FastAPI microservice (Prophet + XGBoost + IsolationForest) | No longer blocks Phase 7 |
 | Carbon formula parameters | Resolved: 发电 25 参数 + 电网 9 参数 per GB/T 32150-2015 | No longer blocks Phase 8 |
-| Fabric SDK version | Pending research (Phase 9 Plan 09-01) | Blocks Phase 9 Plans 09-02/03 |
+| Fabric SDK version | Resolved: Fabric Gateway SDK 1.7.1 + Fabric 2.5.x LTS | No longer blocks Phase 9 |
 
 ---
 *Roadmap created: 2026-05-08*

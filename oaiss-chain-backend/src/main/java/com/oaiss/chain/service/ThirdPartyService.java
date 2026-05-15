@@ -6,6 +6,7 @@ import com.oaiss.chain.entity.CarbonReport;
 import com.oaiss.chain.entity.ThirdPartyOrg;
 import com.oaiss.chain.exception.BusinessException;
 import com.oaiss.chain.repository.CarbonReportRepository;
+import com.oaiss.chain.repository.EnterpriseRepository;
 import com.oaiss.chain.repository.ThirdPartyOrgRepository;
 import com.oaiss.chain.security.JwtUserDetails;
 import lombok.RequiredArgsConstructor;
@@ -33,6 +34,7 @@ public class ThirdPartyService {
 
     private final ThirdPartyOrgRepository thirdPartyOrgRepository;
     private final CarbonReportRepository carbonReportRepository;
+    private final EnterpriseRepository enterpriseRepository;
 
     /**
      * 获取当前第三方机构信息
@@ -73,6 +75,12 @@ public class ThirdPartyService {
         log.info("ThirdPartyOrg {} queried carbon reports (accessLevel={})",
                 org.getOrgName(), org.getAccessLevel());
 
+        // 填充企业名称
+        reports.forEach(report ->
+                enterpriseRepository.findById(report.getEnterpriseId())
+                        .ifPresent(ent -> report.setEnterpriseName(ent.getEnterpriseName()))
+        );
+
         return ApiResponse.success(reports);
     }
 
@@ -91,9 +99,15 @@ public class ThirdPartyService {
                 PageRequest.of(0, 1)).getTotalElements();
         long pendingReports = carbonReportRepository.findByStatusAndDeletedFalse(
                 1, PageRequest.of(0, 1)).getTotalElements();
+        long approvedReports = carbonReportRepository.findByStatusInAndDeletedFalse(
+                java.util.Arrays.asList(3, 5), PageRequest.of(0, 1)).getTotalElements();
+        long rejectedReports = carbonReportRepository.findByStatusAndDeletedFalse(
+                4, PageRequest.of(0, 1)).getTotalElements();
 
         stats.put("totalReports", totalReports);
         stats.put("pendingReports", pendingReports);
+        stats.put("approvedReports", approvedReports);
+        stats.put("rejectedReports", rejectedReports);
 
         return ApiResponse.success(stats);
     }

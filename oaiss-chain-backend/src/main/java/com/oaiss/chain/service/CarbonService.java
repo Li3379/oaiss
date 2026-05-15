@@ -44,7 +44,7 @@ public class CarbonService {
     private final ObjectMapper objectMapper;
     private final CreditScoreService creditScoreService;
     private final EmissionRatingService emissionRatingService;
-    private final BlockchainService blockchainService;
+    private final BlockchainServicePort blockchainService;
 
     /**
      * 创建碳报告（草稿）
@@ -55,14 +55,34 @@ public class CarbonService {
         Enterprise enterprise = enterpriseRepository.findByUserId(currentUser.getUserId())
                 .orElseThrow(() -> CarbonException.submitFailed("未找到关联企业信息"));
 
+        // Parse emission data JSON to calculate totals
+        BigDecimal scope1 = BigDecimal.ZERO;
+        BigDecimal scope2 = BigDecimal.ZERO;
+        BigDecimal scope3 = BigDecimal.ZERO;
+        try {
+            if (request.getEmissionData() != null) {
+                JsonNode node = objectMapper.readTree(request.getEmissionData());
+                scope1 = node.has("scope1") ? new BigDecimal(node.get("scope1").asText()) : BigDecimal.ZERO;
+                scope2 = node.has("scope2") ? new BigDecimal(node.get("scope2").asText()) : BigDecimal.ZERO;
+                scope3 = node.has("scope3") ? new BigDecimal(node.get("scope3").asText()) : BigDecimal.ZERO;
+            }
+        } catch (Exception e) {
+            log.warn("Failed to parse emission data JSON for total calculation: {}", e.getMessage());
+        }
+        BigDecimal totalEmission = scope1.add(scope2).add(scope3);
+
         CarbonReport report = CarbonReport.builder()
                 .reportNo(CommonUtils.generateReportId())
                 .enterpriseId(enterprise.getId())
                 .submitterId(currentUser.getUserId())
                 .accountingPeriod(request.getAccountingPeriod())
-                .title(request.getTitle())
+                .title(CommonUtils.sanitizeHtml(CommonUtils.sanitizeInput(request.getTitle())))
                 .reportType(request.getReportType())
                 .emissionData(request.getEmissionData())
+                .totalEmission(totalEmission)
+                .scope1Emission(scope1)
+                .scope2Emission(scope2)
+                .scope3Emission(scope3)
                 .calculationMethod(request.getCalculationMethod())
                 .status(ReportStatusEnum.DRAFT.getCode())
                 .signatureData(request.getSignatureData())
@@ -123,7 +143,7 @@ public class CarbonService {
 
         // 更新审核信息
         report.setReviewerId(currentUser.getUserId());
-        report.setReviewComment(request.getReviewComment());
+        report.setReviewComment(CommonUtils.sanitizeHtml(CommonUtils.sanitizeInput(request.getReviewComment())));
         report.setReviewedAt(LocalDateTime.now());
         report.setStatus(request.getReviewResult()); // 3-通过, 4-拒绝
 

@@ -1,8 +1,14 @@
 package com.oaiss.chain.controller;
 
+import com.oaiss.chain.constant.ErrorCode;
+import com.oaiss.chain.constant.ErrorMessage;
 import com.oaiss.chain.dto.ApiResponse;
+import com.oaiss.chain.entity.AccountPermissionList;
 import com.oaiss.chain.entity.User;
+import com.oaiss.chain.exception.BusinessException;
+import com.oaiss.chain.repository.AccountPermissionListRepository;
 import com.oaiss.chain.repository.UserRepository;
+import com.oaiss.chain.security.JwtUserDetails;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -16,6 +22,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -31,6 +38,7 @@ import org.springframework.web.bind.annotation.*;
 public class AdminController {
 
     private final UserRepository userRepository;
+    private final AccountPermissionListRepository permissionRepository;
 
     @GetMapping("/users")
     @Operation(
@@ -96,11 +104,16 @@ public class AdminController {
             @Parameter(description = "用户ID", required = true, example = "1")
             @PathVariable Long userId,
             @Parameter(description = "目标状态 (0-禁用, 1-启用)", required = true, example = "1")
-            @RequestParam Integer status) {
+            @RequestParam Integer status,
+            @AuthenticationPrincipal JwtUserDetails currentUser) {
+
+        // 防止管理员禁用自己的账号
+        if (currentUser != null && currentUser.getUserId().equals(userId) && status == 0) {
+            throw new BusinessException(ErrorCode.CANNOT_DISABLE_SELF, ErrorMessage.CANNOT_DISABLE_SELF);
+        }
 
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new com.oaiss.chain.exception.BusinessException(
-                        com.oaiss.chain.constant.ErrorCode.RESOURCE_NOT_FOUND, "用户不存在"));
+                .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "用户不存在"));
 
         user.setStatus(status);
         userRepository.save(user);
@@ -154,5 +167,41 @@ public class AdminController {
         statistics.put("thirdPartyCount", userRepository.findByUserTypeAndDeletedFalse(3, PageRequest.of(0, 1)).getTotalElements());
         
         return ApiResponse.success(statistics);
+    }
+
+    @GetMapping("/config")
+    @Operation(
+        summary = "获取系统配置",
+        description = "获取系统运行配置参数。",
+        security = @SecurityRequirement(name = "Bearer Authentication")
+    )
+    @ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "获取成功"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "无权限")
+    })
+    public ApiResponse<java.util.Map<String, Object>> getConfig() {
+        java.util.Map<String, Object> config = new java.util.HashMap<>();
+        config.put("systemName", "OAISS CHAIN 双碳链动系统");
+        config.put("version", "1.0.0");
+        config.put("maxUploadSize", "10MB");
+        config.put("sessionTimeout", 3600);
+        config.put("enableCaptcha", true);
+        config.put("enableBlockChain", true);
+        return ApiResponse.success(config);
+    }
+
+    @GetMapping("/permissions")
+    @Operation(
+        summary = "获取权限列表",
+        description = "获取系统所有权限定义列表。",
+        security = @SecurityRequirement(name = "Bearer Authentication")
+    )
+    @ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "获取成功"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "无权限")
+    })
+    public ApiResponse<java.util.List<AccountPermissionList>> getPermissions() {
+        java.util.List<AccountPermissionList> permissions = permissionRepository.findByDeletedFalseOrderBySortOrderAsc();
+        return ApiResponse.success(permissions);
     }
 }

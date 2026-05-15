@@ -1,241 +1,307 @@
-# OAISS CHAIN - Architecture
+<!-- refreshed: 2026-05-15 -->
+# Architecture
 
-> Last updated: 2026-05-08
+**Analysis Date:** 2026-05-15
 
-## Overview
+## System Overview
 
-OAISS CHAIN is a carbon trading and blockchain platform built as a monorepo with a Java/Spring Boot backend and a Vue 3/TypeScript frontend. The system serves five distinct user roles through role-based access control at both the API and UI layers.
-
-## Architectural Pattern
-
-**Layered monolith** following a classic 3-tier pattern:
-
-```
-[Vue SPA] --HTTP/JSON--> [Spring Boot API] --JPA--> [MySQL]
-                              |                        |
-                              +---> [Redis]            +---> [Flyway migrations]
-                              +---> [MinIO]
-                              +---> [Blockchain service]
-```
-
-- **Frontend**: Single-page application (Vue 3 + Vite), role-based routing and menus
-- **Backend**: Spring Boot 3.2.5 monolith with AOP cross-cutting concerns
-- **Storage**: MySQL 8 (primary), Redis 7 (caching/sessions/locks), MinIO (file storage)
-- **Infrastructure**: Docker Compose for all services
-
-## Backend Layers
-
-### Layer 1: Security Filter Chain
-
-Entry point for every authenticated request.
-
-```
-HTTP Request
-  --> JwtAuthenticationFilter (extracts & validates JWT from Authorization header)
-    --> Spring Security FilterChain (CSRF disabled, stateless sessions)
-      --> @PreAuthorize on controller methods (role-based authorization)
-```
-
-Key components:
-- `JwtAuthenticationFilter` - extracts JWT from `Authorization: Bearer` header, loads `JwtUserDetails` into security context
-- `JwtTokenProvider` - issues/validates JWTs (access + refresh tokens)
-- `SecurityConfig` - configures permit-all endpoints (`/auth/login`, `/auth/register`, `/captcha/**`, `/actuator/health`), all other endpoints require authentication
-- `JwtAuthenticationEntryPoint` / `JwtAccessDeniedHandler` - 401/403 error responses
-
-### Layer 2: AOP Cross-Cutting Concerns
-
-Five custom annotations with corresponding aspects intercept controller/service calls:
-
-| Annotation | Aspect | Purpose |
-|---|---|---|
-| `@AuditLog` | `AuditLogAspect` | Records operation logs to `OperationLog` table |
-| `@RateLimit` | `RateLimitAspect` | Redis-based request throttling |
-| `@RequirePermission` | `PermissionAspect` | Additional permission checks beyond `@PreAuthorize` |
-| `@DataIsolation` | `DataIsolationAspect` | Tenant-level data isolation (scopes queries to enterprise) |
-| `@DistributedLock` | `DistributedLockAspect` | Redis-based distributed locking for concurrent operations |
-
-### Layer 3: Controllers (REST API)
-
-16 controllers under `com.oaiss.chain.controller`, all prefixed with `/api/v1`. Each returns `ApiResponse<T>`.
-
-| Controller | Base Path | Role Access | Domain |
-|---|---|---|---|
-| `AuthController` | `/auth` | Public + authenticated | Login, register, captcha, token refresh, logout |
-| `UserController` | `/users` | Authenticated | User profile CRUD |
-| `AdminController` | `/admin` | ADMIN | System user management |
-| `CarbonController` | `/carbon` | ENTERPRISE | Carbon report submission |
-| `CarbonCoinController` | `/carbon-coin` | ENTERPRISE | Carbon coin accounts, transfers |
-| `CarbonNeutralProjectController` | `/carbon-neutral` | ENTERPRISE | Carbon neutral project management |
-| `CreditScoreController` | `/credit` | ENTERPRISE | Credit scoring |
-| `DoubleAuctionController` | `/auction` | ENTERPRISE | Double auction trading |
-| `TradeController` | `/trade` | ENTERPRISE | P2P trading |
-| `EmissionController` | `/emission` | ENTERPRISE | Emission data & ratings |
-| `BlockchainController` | `/blockchain` | ENTERPRISE | Blockchain explorer |
-| `DigitalSignatureController` | `/signature` | ENTERPRISE | RSA digital signatures |
-| `FileController` | `/files` | Authenticated | File upload/download via MinIO |
-| `SearchController` | `/search` | Authenticated | Cross-entity search |
-| `CaptchaController` | `/captcha` | Public | CAPTCHA generation |
-| `ThirdPartyController` | `/third-party` | THIRD_PARTY | Third-party monitoring |
-
-### Layer 4: Services (Business Logic)
-
-19 services under `com.oaiss.chain.service`. Services contain the core business logic and are injected into controllers. Key services:
-
-- `AuthService` - authentication, registration, token management
-- `CarbonService` - carbon report lifecycle
-- `DoubleAuctionService` - auction order matching algorithm
-- `TradeService` - P2P trade execution
-- `BlockchainService` - blockchain interaction
-- `CreditScoreService` - credit score calculation
-- `CarbonCoinService` - carbon coin account management
-- `RedisLockService` - distributed lock implementation
-- `MinioService` - MinIO file operations
-- `MetricsService` - application metrics
-
-### Layer 5: Repositories (Data Access)
-
-21 Spring Data JPA repositories under `com.oaiss.chain.repository`. Standard `JpaRepository` interfaces with custom query methods. All entities extend `BaseEntity` which provides:
-
-- `id` (Long, auto-increment)
-- `createdAt` (audited)
-- `updatedAt` (audited)
-- `deleted` (soft delete flag)
-
-### Layer 6: Database
-
-- **ORM**: Spring Data JPA with Hibernate
-- **Migrations**: Flyway (`V1__init_schema.sql`, `V2__seed_data.sql`)
-- **Profiles**: `application.yml` (default), `application-dev.yml`, `application-test.yml`, `application-docker.yml`
-
-## Frontend Layers
-
-### Request Pipeline
-
-```
-Vue Component
-  --> API module (src/api/*.ts) --typed request functions
-    --> Axios instance (src/api/request.ts) --interceptors
-      --> Backend REST API
+```text
+┌──────────────────────────────────────────────────────────────────────────┐
+│                        Frontend (Vue 3 + TypeScript)                      │
+│                      oaiss-chain-frontend (port 5173)                     │
+└───────────────────────────────┬──────────────────────────────────────────┘
+                                │ HTTP (JWT Bearer + CSRF cookie)
+                                ▼
+┌──────────────────────────────────────────────────────────────────────────┐
+│                      Spring Boot Application (port 8080)                  │
+│                                                                          │
+│  ┌────────────────────────────────────────────────────────────────────┐  │
+│  │                   Security Filter Chain                            │  │
+│  │  JwtAuthenticationFilter -> SecurityConfig (role-based)            │  │
+│  └───────────────────────────────┬────────────────────────────────────┘  │
+│                                  v                                       │
+│  ┌────────────────────────────────────────────────────────────────────┐  │
+│  │                   AOP Cross-Cutting Layer                          │  │
+│  │  @AuditLog  @RateLimit  @DataIsolation  @DistributedLock          │  │
+│  │  @RequirePermission                                                │  │
+│  └───────────────────────────────┬────────────────────────────────────┘  │
+│                                  v                                       │
+│  ┌────────────────────────────────────────────────────────────────────┐  │
+│  │                   Controller Layer (20 controllers)                │  │
+│  │  `controller/*.java` -- REST endpoints, @PreAuthorize             │  │
+│  └───────────────────────────────┬────────────────────────────────────┘  │
+│                                  v                                       │
+│  ┌────────────────────────────────────────────────────────────────────┐  │
+│  │                   Service Layer (24+ services)                     │  │
+│  │  `service/*.java` -- Business logic, transactional                │  │
+│  │  `service/ml/*.java` -- ML/AI prediction services                 │  │
+│  └─────────────┬───────────────────────────────┬─────────────────────┘  │
+│                │                               │                         │
+│                v                               v                         │
+│  ┌──────────────────────────┐  ┌─────────────────────────────────────┐  │
+│  │  Repository Layer (JPA)  │  │  External Integrations              │  │
+│  │  `repository/*.java`     │  │  Redis, MinIO, Blockchain          │  │
+│  └──────────┬───────────────┘  └─────────────────────────────────────┘  │
+│             │                                                            │
+└─────────────┼────────────────────────────────────────────────────────────┘
+              v
+┌──────────────────────────────────────────────────────────────────────────┐
+│  Data Layer                                                              │
+│  MySQL 8 (JPA/Hibernate)  |  Redis 7 (cache/locks/rate-limit)           │
+│  MinIO (file storage)     |  Hyperledger Fabric (blockchain)            │
+└──────────────────────────────────────────────────────────────────────────┘
 ```
 
-**Axios interceptors** handle:
-1. **Request**: Token injection (`Authorization: Bearer`), pagination param renaming (`pageNum/pageSize` -> `page/size`), automatic token refresh on expiry
-2. **Response**: `ApiResponse` unwrapping, Spring Data `Page` format transformation to `{ items, total, page, size, totalPages }`, error handling with `ElMessage` notifications, retry on network errors (max 2 attempts)
+## Component Responsibilities
 
-### Routing & Authorization
+| Component | Responsibility | File |
+|-----------|----------------|------|
+| JwtAuthenticationFilter | Token validation, security context setup, whitelist bypass, path traversal protection | `security/JwtAuthenticationFilter.java` |
+| SecurityConfig | Filter chain, CORS, CSRF, session policy, endpoint authorization rules | `config/SecurityConfig.java` |
+| GlobalExceptionHandler | Unified exception-to-ApiResponse mapping | `exception/GlobalExceptionHandler.java` |
+| BusinessException | Base business exception with i18n message key support | `exception/BusinessException.java` |
+| ErrorCode | Numeric error code constants (1xxx-6xxx by module) | `constant/ErrorCode.java` |
+| ApiResponse | Standard response envelope with code/message/data/meta | `dto/ApiResponse.java` |
+| BaseEntity | JPA superclass with id, createdAt, updatedAt, deleted fields | `entity/BaseEntity.java` |
+| JwtTokenProvider | JWT generation, parsing, validation (HMAC-SHA) | `security/JwtTokenProvider.java` |
+| JwtUserDetails | Spring Security UserDetails implementation with roles/userType/enterpriseId | `security/JwtUserDetails.java` |
+| EnterpriseContextHolder | Thread-local storage for enterprise context during request processing | `security/EnterpriseContextHolder.java` |
+| BlockchainServicePort | Hexagonal port interface for blockchain operations | `service/BlockchainServicePort.java` |
 
-- Vue Router with `createWebHistory`
-- Route guards in `router.beforeEach`:
-  - Public routes (`meta.public: true`) bypass auth
-  - Authenticated routes redirect to `/login` if no token
-  - Role-based routes check `meta.roles` against stored role
-- Role-specific home paths defined in `ROLE_HOME` mapping
+## Pattern Overview
 
-### State Management
+**Overall:** Classic layered architecture with AOP-driven cross-cutting concerns
 
-Single Pinia store (`store/index.ts`) manages:
-- Authentication state (tokens, role, user info)
-- Role-based home path resolution
+**Key Characteristics:**
+- Controller-Service-Repository three-layer separation
+- Custom annotations + AOP aspects for cross-cutting concerns (audit, rate-limit, permissions, data isolation, distributed locks)
+- Unified ApiResponse envelope for all endpoints
+- JWT stateless authentication with token blacklist via Redis cache
+- Role-based access control via both `@PreAuthorize` (Spring Security) and custom `@RequirePermission` (AOP)
+- Hexagonal-style port adapter for blockchain integration (`BlockchainServicePort` interface with `FabricBlockchainService` and `MockBlockchainService` implementations)
+- ML microservice integration via HTTP client (`MlServiceClient`) for AI prediction features
 
-### View Structure
+## Layers
 
-Views organized by role domain:
-- `views/enterprise/` (11 views) - main business interface
-- `views/admin/` (4 views) - system administration
-- `views/auditor/` (1 view) - review interface
-- `views/authenticator/` (1 view) - certification interface
-- `views/third-party/` (1 view) - monitoring interface
-- Root views: `Login.vue`, `OfficialHome.vue`, `NotFound.vue`
+**Controller Layer:**
+- Purpose: HTTP endpoint definitions, request validation, response wrapping
+- Location: `src/main/java/com/oaiss/chain/controller/`
+- Contains: `@RestController` classes with `@RequestMapping`, Swagger annotations, `@PreAuthorize`
+- Depends on: Service layer, DTOs, Security context (`@AuthenticationPrincipal JwtUserDetails`)
+- Used by: Frontend via REST API (`/api/v1/*`)
+
+**Service Layer:**
+- Purpose: Business logic, transaction management, orchestration
+- Location: `src/main/java/com/oaiss/chain/service/` and `service/ml/`
+- Contains: `@Service` classes with `@Transactional`, domain operations
+- Depends on: Repository layer, external services (Redis, MinIO, Blockchain, ML microservice)
+- Used by: Controller layer
+
+**Repository Layer:**
+- Purpose: Data access abstraction via Spring Data JPA
+- Location: `src/main/java/com/oaiss/chain/repository/`
+- Contains: `JpaRepository` interfaces with custom query methods
+- Depends on: JPA entities, database connection
+- Used by: Service layer
+
+**Entity Layer:**
+- Purpose: JPA entity definitions mapped to database tables
+- Location: `src/main/java/com/oaiss/chain/entity/`
+- Contains: `@Entity` classes extending `BaseEntity`
+- Depends on: JPA annotations, Lombok
+- Used by: Repository layer, Service layer
+
+**DTO Layer:**
+- Purpose: Request/response data transfer objects, API envelope
+- Location: `src/main/java/com/oaiss/chain/dto/`
+- Contains: Request DTOs (`*Request`), response DTOs (`*Response`), `ApiResponse`, `PageRequest`, `PageResponse`
+- Depends on: Jakarta Validation, Jackson, Lombok
+- Used by: Controller layer, Service layer
+
+**Security Layer:**
+- Purpose: Authentication, authorization, JWT handling
+- Location: `src/main/java/com/oaiss/chain/security/`
+- Contains: JWT filter, token provider, user details, entry point, access denied handler, enterprise context
+- Depends on: JJWT library, Spring Security, Redis (token blacklist)
+- Used by: SecurityConfig, Controller layer
+
+**AOP Layer:**
+- Purpose: Cross-cutting concerns via aspect-oriented programming
+- Location: `src/main/java/com/oaiss/chain/aop/` (aspects) and `annotation/` (annotations)
+- Contains: `@Aspect` components for audit logging, rate limiting, data isolation, distributed locking, permission checking
+- Depends on: Redis (rate limit, distributed lock), OperationLogRepository (audit), SecurityContext
+- Used by: Applied to Controller/Service methods via annotations
+
+**Configuration Layer:**
+- Purpose: Spring framework configuration
+- Location: `src/main/java/com/oaiss/chain/config/`
+- Contains: Security, Redis, MinIO, JPA auditing, Swagger, CORS, health indicators, Fabric gateway, i18n, metrics, ML service
+- Depends on: Spring Boot auto-configuration, application properties
+- Used by: Spring IoC container
 
 ## Data Flow
 
+### Primary Request Path (Authenticated CRUD)
+
+1. **Frontend** sends HTTP request with `Authorization: Bearer <JWT>` header (`api/request.ts` interceptor injects token)
+2. **JwtAuthenticationFilter** (`security/JwtAuthenticationFilter.java`) extracts JWT, validates signature/expiry, checks Redis token blacklist, builds `JwtUserDetails` and sets `SecurityContextHolder`
+3. **SecurityConfig** (`config/SecurityConfig.java`) applies URL-based authorization rules
+4. **AOP aspects** execute in order: `@RateLimit` (Redis Lua script counter) -> `@RequirePermission` (user type + API path check) -> `@DataIsolation` (enterprise context setup) -> `@AuditLog` (operation logging) -> `@DistributedLock` (Redis lock if annotated)
+5. **Controller** (`controller/*.java`) receives `@AuthenticationPrincipal JwtUserDetails`, validates `@Valid @RequestBody`, calls service, returns `ApiResponse<T>`
+6. **Service** (`service/*.java`) executes business logic within `@Transactional`, calls repository
+7. **Repository** (`repository/*.java`) executes JPA queries against MySQL
+8. **Response** flows back as `ApiResponse` with `{ code, message, data, meta }` envelope
+
 ### Authentication Flow
 
-```
-1. POST /auth/captcha --> returns captcha image + key
-2. POST /auth/login {username, password, captchaKey, captchaCode}
-   --> AuthService validates credentials + captcha
-   --> Returns {accessToken, refreshToken}
-3. Frontend stores tokens, sets role in Pinia store
-4. Subsequent requests: Authorization: Bearer {accessToken}
-5. On 401: POST /auth/refresh with Refresh-Token header
-   --> Returns new token pair
-```
+1. Frontend POSTs to `/api/v1/auth/login` with `{ username, password, captchaCode, captchaKey }`
+2. `AuthService` validates credentials via BCrypt, generates access + refresh JWT via `JwtTokenProvider`
+3. Access token includes: `userId`, `username`, `roles`, `userType`, `enterpriseId`
+4. Frontend stores tokens in sessionStorage; Axios interceptor attaches `Authorization: Bearer <token>`
+5. Token refresh: POST to `/api/v1/auth/refresh` with refresh token; new access token returned in `Authorization` header
 
-### Carbon Report Flow
+### Blockchain Integration Flow
 
-```
-1. ENTERPRISE uploads report via CarbonUpload.vue
-2. File uploaded to MinIO via FileController
-3. CarbonReport entity created with PENDING status
-4. REVIEWER sees report in AuditList.vue, approves/rejects
-5. On approval: CarbonReport status -> APPROVED, EmissionRating calculated
-6. CreditScore updated via CreditScoreService
-7. Blockchain hash recorded via BlockchainService
-```
+1. Service calls `BlockchainServicePort` interface methods (e.g., `commitReportToChain`)
+2. Spring profile selects implementation: `FabricBlockchainService` (real Fabric SDK, `@Profile("fabric")`) or `MockBlockchainService` (`@Profile("mock")`)
+3. `FabricGatewayConfig` (`config/FabricGatewayConfig.java`) creates `Gateway`, `Network`, and `Contract` beans from crypto material in `resources/fabric/crypto/`
+4. Chaincode invocations go through Hyperledger Fabric Gateway SDK
 
-### Trading Flow
+### ML Prediction Flow
 
-```
-Double Auction:
-1. ENTERPRISE places buy/sell order via TradingMarket.vue
-2. DoubleAuctionService attempts order matching
-3. On match: Transaction created, CarbonCoinAccounts updated
-4. BlockchainService records transaction hash
+1. Controller calls `EnterpriseInferenceService` or `MarketPredictionService` (`service/ml/`)
+2. Service calls `MlServiceClient` (`service/ml/MlServiceClient.java`) which makes HTTP requests to an external ML microservice
+3. ML service URL configured via `MlServiceConfig` (`config/MlServiceConfig.java`)
+4. Responses returned as `EnterpriseInferenceResponse` or `MarketForecastResponse`
 
-P2P Trade:
-1. ENTERPRISE initiates trade via TradingP2P.vue
-2. TradeService creates trade request
-3. Counterparty accepts/rejects
-4. On acceptance: Transaction executed, accounts settled
-```
+**State Management:**
+- No server-side session (STATELESS session policy)
+- JWT claims carry all user context (userId, roles, userType, enterpriseId)
+- `EnterpriseContextHolder` (ThreadLocal) provides enterprise context during request lifecycle, cleared in `finally` block
+- Redis used for: token blacklist, distributed locks, rate limit counters, cache
 
 ## Key Abstractions
 
-| Abstraction | Location | Purpose |
-|---|---|---|
-| `ApiResponse<T>` | `dto/ApiResponse.java` | Unified response envelope with `code`, `message`, `data`, `meta` |
-| `BaseEntity` | `entity/BaseEntity.java` | Common entity fields (id, timestamps, soft delete) |
-| `PageRequest/PageResponse` | `dto/` | Pagination DTOs |
-| `BusinessException` | `exception/BusinessException.java` | Base business exception with error codes |
-| `GlobalExceptionHandler` | `exception/GlobalExceptionHandler.java` | Maps all exceptions to `ApiResponse` error format |
-| `ErrorCode` | `constant/ErrorCode.java` | Numeric error code constants |
-| `UserTypeEnum` | `enums/UserTypeEnum.java` | 5 user roles: ENTERPRISE(1), REVIEWER(2), THIRD_PARTY(3), ADMIN(4), AUTHENTICATOR(5) |
+**ApiResponse Envelope:**
+- Purpose: Unified response format for all endpoints
+- Pattern: Static factory methods (`ApiResponse.success()`, `ApiResponse.error()`)
+- Files: `dto/ApiResponse.java`
+- Includes: `code`, `message`, `data`, `meta` (with `requestId`, `timestamp`, optional `pagination`)
+
+**PageRequest / PageResponse:**
+- Purpose: Standardized pagination across the API
+- Pattern: `PageRequest.toPageable()` converts 1-based pageNum to 0-based Spring Data Pageable; `PageResponse.of(Page)` converts back
+- Files: `dto/PageRequest.java`, `dto/PageResponse.java`
+
+**BlockchainServicePort (Hexagonal Port):**
+- Purpose: Abstract blockchain operations behind an interface
+- Pattern: Port/Adapter -- `BlockchainServicePort` (interface) -> `FabricBlockchainService` / `MockBlockchainService`
+- Files: `service/BlockchainServicePort.java`, `service/FabricBlockchainService.java`, `service/MockBlockchainService.java`
+
+**BusinessException with i18n:**
+- Purpose: Domain exceptions with internationalized messages
+- Pattern: Message keys prefixed with `error.` resolved via `MessageUtils.getMessage()` from `resources/i18n/messages*.properties`
+- Files: `exception/BusinessException.java`, `util/MessageUtils.java`
 
 ## Entry Points
 
-### Backend
+**REST API:**
+- Location: `src/main/java/com/oaiss/chain/controller/*.java`
+- Base path: `/api/v1` (configured as context-path)
+- Triggers: Frontend Axios HTTP requests
+- Responsibilities: Request validation, service delegation, response wrapping
 
-- **Application**: `com.oaiss.chain.OaissChainApplication` (Spring Boot main class)
-- **Security**: `SecurityConfig.securityFilterChain()` - filter chain configuration
-- **API Docs**: `/swagger-ui.html` (SpringDoc OpenAPI 2.5)
-- **Health**: `/actuator/health`, `/actuator/prometheus`
+**Application Bootstrap:**
+- Location: `src/main/java/com/oaiss/chain/OaissChainApplication.java`
+- Triggers: `mvn spring-boot:run` or JAR execution
+- Responsibilities: Spring Boot application startup, component scanning
 
-### Frontend
+**Scheduled Tasks:**
+- Location: `service/CachePreloadService.java`
+- Triggers: `@Scheduled` annotations for cache warming
+- Responsibilities: Pre-load frequently accessed data into Redis
 
-- **Dev server**: `npm run dev` (Vite, port 5173)
-- **Entry point**: `src/main.ts` -> App -> Router -> Layout -> Views
-- **API base**: `VITE_API_BASE_URL` env variable (defaults to backend at port 8080)
+## Architectural Constraints
 
-## Technology Stack Summary
+- **Threading:** Single-threaded request handling per HTTP request (Tomcat thread pool); no explicit thread creation in business logic. Distributed locks (`@DistributedLock`) prevent concurrent modification of shared resources.
+- **Global state:** `EnterpriseContextHolder` uses ThreadLocal for enterprise context; cleared in `finally` blocks. `SecurityContextHolder` is Spring Security's standard thread-local.
+- **No circular dependencies:** Controller -> Service -> Repository is strictly unidirectional. Services do not call controllers. Repositories do not call services.
+- **Profile-based implementations:** Blockchain service uses `@Profile("fabric")` / `@Profile("mock")` for environment-specific implementations. Fabric config only activates under `fabric` profile.
+- **Soft delete:** All entities extend `BaseEntity` with `deleted` boolean field. Repository queries must use `...AndDeletedFalse` method naming convention.
+- **ML service external dependency:** AI prediction features (`service/ml/`) depend on an external ML microservice reachable via HTTP. If unavailable, predictions fail but core platform functions are unaffected.
 
-| Layer | Technology | Version |
-|---|---|---|
-| Language (BE) | Java | 17 |
-| Framework | Spring Boot | 3.2.5 |
-| ORM | Spring Data JPA / Hibernate | via Spring Boot |
-| Database | MySQL | 8 |
-| Cache | Redis | 7 |
-| File Storage | MinIO | latest |
-| Auth | JWT (jjwt) | 0.12.5 |
-| Migrations | Flyway | via Spring Boot |
-| API Docs | SpringDoc OpenAPI | 2.5 |
-| Language (FE) | TypeScript | 6 |
-| Framework | Vue | 3.5 |
-| Build Tool | Vite | 8 |
-| UI Library | Element Plus | 2.13 |
-| State | Pinia | 3 |
-| Router | Vue Router | 5 |
-| Charts | ECharts | 6 |
-| i18n | vue-i18n | 11 |
-| HTTP Client | Axios | (via request.ts) |
+## Anti-Patterns
+
+### UserTypeEnum vs Integer userType
+
+**What happens:** `User.entity` stores `userType` as `Integer`, and `DataIsolationAspect` / `PermissionAspect` compare against integer constants (e.g., `USER_TYPE_ADMIN = 99`). However, `UserTypeEnum` defines ADMIN as code `4`.
+**Why it's wrong:** The admin user type code is inconsistent -- `UserTypeEnum.ADMIN` is `4`, but AOP aspects check for `99`. This could cause admin bypass logic to fail silently.
+**Do this instead:** Use `UserTypeEnum` consistently everywhere. Replace integer constants in AOP aspects with `UserTypeEnum.ADMIN.getCode()`. See `enums/UserTypeEnum.java`, `aop/DataIsolationAspect.java:38`, `aop/PermissionAspect.java:48`.
+
+### Duplicate ErrorCode values
+
+**What happens:** `ErrorCode.OPERATION_IN_PROGRESS` and `ErrorCode.FILE_TYPE_NOT_SUPPORTED` both have value `1009`.
+**Why it's wrong:** Ambiguous error codes make debugging and client-side error handling unreliable.
+**Do this instead:** Assign unique error codes. See `constant/ErrorCode.java:53-56`.
+
+## Error Handling
+
+**Strategy:** Centralized `@RestControllerAdvice` (`GlobalExceptionHandler`) catches all exceptions and maps them to `ApiResponse.error(code, message)` with appropriate HTTP status codes.
+
+**Exception Hierarchy:**
+- `BusinessException` -- base for all domain errors, carries `ErrorCode` + i18n message key
+  - `AuthenticationException` -- auth failures (HTTP 401)
+  - `AuthorizationException` -- permission denied (HTTP 403)
+  - `CarbonException` -- carbon domain errors (3xxx codes)
+  - `TradeException` -- trade domain errors (4xxx codes)
+  - `BlockchainException` -- blockchain errors (5xxx codes)
+
+**HTTP Status Mapping (in GlobalExceptionHandler.getHttpStatus):**
+- 1xxx error codes -> 400 BAD_REQUEST (except 1002 -> 404 NOT_FOUND)
+- 2000-2003 -> 401 UNAUTHORIZED
+- 2004 -> 403 FORBIDDEN
+- Spring validation errors -> 400 with field-level error list
+- Uncaught exceptions -> 500 with generic message (no internal details leaked)
+
+**Patterns:**
+- Controllers throw `BusinessException` with specific `ErrorCode` constant
+- Services validate business rules and throw `BusinessException.paramError()`, `.notFound()`, `.authFailed()`, etc.
+- `GlobalExceptionHandler` logs all exceptions at WARN level (ERROR for uncaught)
+- Validation errors (`@Valid`) are caught and returned as structured field-level error lists
+
+## Cross-Cutting Concerns
+
+**Logging:**
+- SLF4J + Logback (`logback-spring.xml`)
+- AOP `@AuditLog` persists operation logs to `operation_log` table via `OperationLogRepository`
+- Sensitive fields (password, token, secret) automatically redacted from audit logs
+
+**Validation:**
+- Jakarta Bean Validation (`@Valid`, `@NotNull`, `@Min`, `@Max`, etc.) on DTO fields
+- Controller-level `@Valid @RequestBody` triggers validation before service invocation
+- Custom validation in services for business rules (e.g., report status transitions)
+
+**Authentication:**
+- JWT Bearer token in `Authorization` header
+- `JwtAuthenticationFilter` runs before `UsernamePasswordAuthenticationFilter`
+- Token blacklist via Redis cache (`tokenBlacklist`) for logout support
+- Path traversal protection via path normalization in whitelist matching
+
+**Rate Limiting:**
+- `@RateLimit` annotation with Redis Lua script (atomic incr + expire)
+- Supports: global, per-IP, per-user, per-IP+user rate limiting
+- Graceful degradation: if Redis fails, request proceeds (fail-open)
+
+**Data Isolation:**
+- `@DataIsolation` annotation sets enterprise context via `EnterpriseContextHolder`
+- Admin users skip isolation by default (`skipAdmin = true`)
+- Enterprise users validated to have non-null enterpriseId
+
+**Distributed Locking:**
+- `@DistributedLock` with SpEL key expressions
+- Redis-based lock via `RedisLockService` (tryLock/releaseLock)
+- Configurable wait time and expiry
+
+---
+
+*Architecture analysis: 2026-05-15*

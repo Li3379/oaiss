@@ -81,6 +81,12 @@ public class UserService {
         if (request.getAvatar() != null) {
             user.setAvatar(request.getAvatar());
         }
+        if (request.getCompany() != null) {
+            user.setCompany(request.getCompany());
+        }
+        if (request.getAddress() != null) {
+            user.setAddress(request.getAddress());
+        }
 
         user = userRepository.save(user);
         log.info("User profile updated: {}", user.getUsername());
@@ -147,6 +153,8 @@ public class UserService {
                 .phone(user.getPhone())
                 .email(user.getEmail())
                 .avatar(user.getAvatar())
+                .company(user.getCompany())
+                .address(user.getAddress())
                 .userType(user.getUserType())
                 .userTypeDesc(userTypeDesc)
                 .status(user.getStatus())

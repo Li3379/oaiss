@@ -233,7 +233,7 @@ const onDelete = async (row) => {
     </el-card>
 
     <el-card class="section-card" shadow="never">
-      <div class="table-tip">{{ t('common.total') }} {{ selectedRows.length }}</div>
+      <div class="table-tip">{{ t('common.total', { count: total }) }}</div>
 
       <el-table :data="pagedData" border @selection-change="onSelectionChange">
         <el-table-column type="selection" width="56" />

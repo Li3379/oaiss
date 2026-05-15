@@ -31,6 +31,11 @@ mysql-data/
 redis-data/
 minio-data/
 
+# ----- Fabric crypto materials (generated, never commit) -----
+fabric-config/crypto/
+fabric-config/channel-artifacts/
+oaiss-chain-backend/src/main/resources/fabric/crypto/
+
 # ----- Test results & coverage -----
 test-results/
 playwright-report/

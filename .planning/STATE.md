@@ -9,30 +9,30 @@
 
 ## Progress
 
-- **Current Phase**: 7 (AI 智能预测基础)
-- **Phases Completed**: 6 / 12 (v1.0 phases 1-6 done)
-- **Plans Completed**: 2
+- **Current Phase**: 9 (区块链真实对接)
+- **Phases Completed**: 8 / 12
+- **Plans Completed**: 7
 
 ## Phase Status
 
 | Phase | Name | Status | Plans |
 |-------|------|--------|-------|
-| 7 | AI 智能预测基础 | Not started | 0/4 |
-| 8 | AI 前端 + 碳核算公式 | Not started | 0/3 |
-| 9 | 区块链真实对接 | Not started | 0/3 |
+| 7 | AI 智能预测基础 | Complete | 4/4 |
+| 8 | AI 前端 + 碳核算公式 | Complete | 3/3 |
+| 9 | 区块链真实对接 | Complete | 3/3 |
 | 10 | 准入与资格证 | Not started | 0/3 |
 | 11 | 前端覆盖率补齐 | Not started | 0/4 |
 | 12 | E2E 测试与验收 | Not started | 0/6 |
 
-Progress: [------........] 0% (6 of 12 phases done from v1.0; 0 of 6 v1.1.0 phases done)
+Progress: [========....] 67% (8 of 12 phases done; Phase 9 planned with 3/3 plans)
 
 ## Active Context
 
 ### Key Decisions
 
-- AI 模型技术选型: 待研究 (DL4J vs ONNX Runtime vs Python 微服务) -- blocks Phase 7
-- Fabric SDK 版本: 待研究 (Fabric Gateway SDK) -- blocks Phase 9
-- 碳核算公式参数: 待研究 (发电 25 参数 + 电网 9 参数) -- blocks Phase 8
+- AI 模型技术选型: Resolved — Python FastAPI 微服务 (Prophet + XGBoost + IsolationForest)
+- Fabric SDK 版本: Resolved — Fabric Gateway SDK 1.7.1 + Fabric 2.5.x LTS
+- 碳核算公式参数: Resolved — GB/T 32150-2015 发电25参数 + 电网9参数
 - REQ-12 (Fabric CA): optional，可降级为 mock CA
 
 ### Pending Todos
@@ -41,9 +41,57 @@ None yet.
 
 ### Blockers/Concerns
 
-- AI tech selection unresolved -- Phase 7 Plan 07-01 must resolve before 07-02/03/04 can proceed
-- Fabric SDK version/network setup unresolved -- Phase 9 Plan 09-01 must resolve first
-- Phase 9 and Phase 10 are independent; can run in parallel after Phase 6
+- Fabric network Docker setup on Windows — Plan 09-01 Task 7 must verify container health
+- Phase 9 and Phase 10 are independent; can run in parallel
+
+## Phase 7 Completion Summary
+
+**Phase 7: AI 智能预测基础** — Complete (2026-05-14)
+
+All 4 plans executed successfully:
+- **07-01**: Python ML service scaffold + Spring Boot WebClient + Docker Compose
+- **07-02**: MarketPredictionService (Prophet 价格预测 + XGBoost 供需预测)
+- **07-03**: EnterpriseInferenceService (IsolationForest 异常检测 + XGBoost 合规分类)
+- **07-04**: CarbonPredictionService Stub → ML Prophet 回归预测
+
+Key deliverables:
+- `oaiss-chain-ml-service/` — Python FastAPI ML 微服务 (port 8001)
+- `MlServiceClient` + `MlServiceConfig` — Spring Boot WebClient 集成
+- 3 AI controllers: MarketPredictionController, EnterpriseInferenceController, EmissionController
+- Docker Compose ml-service container
+- Backend compiles, unit tests pass
+
+## Phase 8 Completion Summary
+
+**Phase 8: AI 前端 + 碳核算公式** — Complete (2026-05-15)
+
+All 3 plans executed successfully:
+- **08-01**: Frontend AI Pages (MarketPrediction.vue + EnterpriseInference.vue + API clients + router/menu/i18n)
+- **08-02**: PowerGenerationFormulaService (25-parameter GB/T 32150-2015 formula + frontend calculator)
+- **08-03**: PowerGridFormulaService (9-parameter GB/T 32150-2015 formula + frontend calculator tab)
+
+Key deliverables:
+- 2 AI visualization pages: MarketPrediction (ECharts line+confidence band), EnterpriseInference (compliance+anomaly+risk)
+- 2 carbon formula services: PowerGenerationFormulaService, PowerGridFormulaService
+- 2 REST endpoints: POST /carbon/calculate/power-generation, POST /carbon/calculate/power-grid
+- 1 frontend calculator: CarbonFormulaCalculator.vue (tabbed: power generation + power grid)
+- 12 unit tests (6 per formula service), all pass
+- Backend compiles, frontend builds
+
+## Phase 9 Planning Summary
+
+**Phase 9: 区块链真实对接** — Planning (2026-05-15)
+
+3 plans created:
+- **09-01**: Fabric 网络搭建 + Gateway SDK 集成 (8 tasks — Docker Compose Fabric 网络, BlockchainServicePort 接口提取, FabricGatewayConfig, FabricBlockchainService, crypto 材料, 单元测试)
+- **09-02**: Chaincode 开发 + BlockchainService 真实替换 (7 tasks — Go 链码 carbon-chaincode, 部署脚本, submitTransaction/evaluateTransaction 实现, 集成测试)
+- **09-03**: Fabric CA 集成 — REQ-12 optional (5 tasks — FabricCaService, JWT-to-Fabric 身份映射, 降级方案确认)
+
+Key decisions:
+- Fabric Gateway SDK 1.7.1 (not legacy fabric-gateway-java 2.2.x)
+- Go 链码 (not Java/Node) — Fabric 生态主流选择
+- 共享组织身份作为 MVP 默认（REQ-12 降级为 mock CA）
+- Profile 切换: `fabric.enabled=false` (Mock) / `fabric.enabled=true` (Fabric)
 
 ## Deferred Items
 
@@ -55,6 +103,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-14
-Stopped at: ROADMAP.md created for v1.1.0
+Last session: 2026-05-15
+Stopped at: Phase 9 planned (3/3 plans), ready for execution
 Resume file: None

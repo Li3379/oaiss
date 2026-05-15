@@ -245,12 +245,16 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 14px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .collapse-btn {
   border-color: rgba(255, 255, 255, 0.16);
   background: rgba(255, 255, 255, 0.08);
   color: #ecf7f4;
+  flex-shrink: 0;
 }
 
 .collapse-btn:hover {
@@ -325,6 +329,8 @@ onMounted(() => {
 
 .main-content {
   min-height: calc(100vh - 70px);
+  max-width: 1600px;
+  margin: 0 auto;
 }
 
 @media (max-width: 768px) {

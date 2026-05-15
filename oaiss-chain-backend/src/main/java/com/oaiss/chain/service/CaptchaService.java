@@ -45,6 +45,7 @@ public class CaptchaService {
         String imageBase64 = generateImage(code);
 
         captchaStore.put(captchaKey, new CaptchaEntry(code, System.currentTimeMillis()));
+        log.info("generateCaptcha: key={}, code={}", captchaKey, code);
 
         return CaptchaResponse.builder()
                 .captchaKey(captchaKey)
@@ -54,24 +55,38 @@ public class CaptchaService {
     }
 
     /**
-     * 验证验证码
+     * 验证验证码（详细结果）
      */
-    public boolean verifyCaptcha(String captchaKey, String userInput) {
+    public CaptchaVerifyResult verifyCaptchaDetailed(String captchaKey, String userInput) {
         if (captchaKey == null || userInput == null) {
-            return false;
+            log.warn("verifyCaptcha: captchaKey or userInput is null");
+            return CaptchaVerifyResult.WRONG_CODE;
         }
 
+        log.info("verifyCaptcha: key={}, storeSize={}", captchaKey, captchaStore.size());
         CaptchaEntry entry = captchaStore.remove(captchaKey);
         if (entry == null) {
-            return false;
+            log.warn("verifyCaptcha: entry not found for key={}", captchaKey);
+            return CaptchaVerifyResult.NOT_FOUND;
         }
 
         long elapsed = System.currentTimeMillis() - entry.timestamp;
+        log.info("verifyCaptcha: elapsed={}ms, code={}, input={}", elapsed, entry.code, userInput);
         if (elapsed > TimeUnit.SECONDS.toMillis(EXPIRE_SECONDS)) {
-            return false;
+            log.warn("verifyCaptcha: expired for key={}", captchaKey);
+            return CaptchaVerifyResult.EXPIRED;
         }
 
-        return entry.code.equalsIgnoreCase(userInput.trim());
+        boolean match = entry.code.equalsIgnoreCase(userInput.trim());
+        log.info("verifyCaptcha: result={}", match);
+        return match ? CaptchaVerifyResult.SUCCESS : CaptchaVerifyResult.WRONG_CODE;
+    }
+
+    /**
+     * 验证验证码（兼容旧接口）
+     */
+    public boolean verifyCaptcha(String captchaKey, String userInput) {
+        return verifyCaptchaDetailed(captchaKey, userInput) == CaptchaVerifyResult.SUCCESS;
     }
 
     /**

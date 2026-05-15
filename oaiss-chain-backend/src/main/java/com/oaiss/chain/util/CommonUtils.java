@@ -202,6 +202,38 @@ public final class CommonUtils {
         return Character.toUpperCase(str.charAt(0)) + str.substring(1);
     }
 
+    // ==================== 输入净化 ====================
+
+    /**
+     * HTML特殊字符净化，防止存储型XSS
+     * Sanitize HTML special characters to prevent stored XSS
+     */
+    public static String sanitizeHtml(String input) {
+        if (input == null || input.isEmpty()) {
+            return input;
+        }
+        return input
+                .replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("\"", "&quot;")
+                .replace("'", "&#x27;");
+    }
+
+    /**
+     * 净化用户输入字符串（去除危险字符）
+     * Sanitize user input by removing potentially dangerous characters
+     */
+    public static String sanitizeInput(String input) {
+        if (input == null || input.isEmpty()) {
+            return input;
+        }
+        // Remove script tags and event handlers
+        String sanitized = input.replaceAll("(?i)<script[^>]*>.*?</script>", "");
+        sanitized = sanitized.replaceAll("(?i)on\\w+\\s*=", "");
+        return sanitized.trim();
+    }
+
     // ==================== 数值处理 ====================
 
     /**

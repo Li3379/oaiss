@@ -804,19 +804,19 @@ class CarbonNeutralProjectControllerTest {
     void testApplyForCertificationNotVerified() throws Exception {
         // Given
         setAuthentication(normalUser);
-        when(projectService.applyForCertification(any(JwtUserDetails.class), eq(1L), eq("认证机构")))
+        when(projectService.applyForCertification(any(JwtUserDetails.class), eq(1L), eq("管理员")))
                 .thenThrow(new BusinessException(3003, "项目需先完成核证"));
 
         // When & Then
         mockMvc.perform(post("/carbon-neutral/1/apply-certification")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"certOrg\": \"认证机构\"}"))
+                        .content("{\"certOrg\": \"管理员\"}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(3003))
                 .andExpect(jsonPath("$.message").value("项目需先完成核证"));
 
         verify(projectService, times(1))
-                .applyForCertification(any(JwtUserDetails.class), eq(1L), eq("认证机构"));
+                .applyForCertification(any(JwtUserDetails.class), eq(1L), eq("管理员"));
     }
 
     // ==================== POST /carbon-neutral/{id}/certify Tests ====================

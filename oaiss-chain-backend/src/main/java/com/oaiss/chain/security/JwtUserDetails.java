@@ -144,10 +144,4 @@ public class JwtUserDetails implements UserDetails {
         return hasRole("REVIEWER");
     }
 
-    /**
-     * 判断是否为认证机构
-     */
-    public boolean isAuthenticator() {
-        return hasRole("AUTHENTICATOR");
-    }
 }

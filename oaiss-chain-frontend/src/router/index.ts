@@ -93,16 +93,34 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '个人中心', roles: [ROLE.ENTERPRISE] },
       },
       {
+        path: 'enterprise/market-prediction',
+        name: 'EnterpriseMarketPrediction',
+        component: () => import('../views/enterprise/MarketPrediction.vue'),
+        meta: { title: 'AI市场预测', roles: [ROLE.ENTERPRISE] },
+      },
+      {
+        path: 'enterprise/enterprise-inference',
+        name: 'EnterpriseEnterpriseInference',
+        component: () => import('../views/enterprise/EnterpriseInference.vue'),
+        meta: { title: 'AI企业推理', roles: [ROLE.ENTERPRISE] },
+      },
+      {
+        path: 'enterprise/carbon-formula',
+        name: 'EnterpriseCarbonFormula',
+        component: () => import('../views/enterprise/CarbonFormulaCalculator.vue'),
+        meta: { title: '碳核算公式', roles: [ROLE.ENTERPRISE] },
+      },
+      {
         path: 'auditor/audit/list',
         name: 'AuditorAuditList',
         component: () => import('../views/auditor/AuditList.vue'),
         meta: { title: '碳排放数据', roles: [ROLE.REVIEWER] },
       },
       {
-        path: 'authenticator/verify/list',
-        name: 'AuthenticatorVerifyList',
-        component: () => import('../views/authenticator/VerifyList.vue'),
-        meta: { title: '认证列表', roles: [ROLE.AUTHENTICATOR] },
+        path: 'admin/verify/list',
+        name: 'AdminVerifyList',
+        component: () => import('../views/admin/VerifyList.vue'),
+        meta: { title: '认证列表', roles: [ROLE.ADMIN] },
       },
       {
         path: 'third-party/monitor',

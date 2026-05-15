@@ -99,7 +99,7 @@ onMounted(() => {
             </el-tag>
           </div>
           <div class="score-meta">
-            <span>{{ t('creditScore.updateTime') }}：{{ scoreData.updatedAt || '-' }}</span>
+            <span>{{ t('creditScore.updateTime') }}：{{ scoreData.lastEvaluatedAt || '-' }}</span>
           </div>
         </div>
         <el-empty v-else :description="t('creditScore.emptyText')" />
@@ -118,18 +118,18 @@ onMounted(() => {
           <el-table-column prop="eventType" :label="t('creditScore.colEventType')" min-width="140">
             <template #default="{ row }">
               <el-tag :type="getEventTypeTag(row.eventType)">
-                {{ row.eventType }}
+                {{ row.eventTypeName }}
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="changeAmount" :label="t('creditScore.colChangeValue')" min-width="100">
+          <el-table-column prop="pointsChanged" :label="t('creditScore.colChangeValue')" min-width="100">
             <template #default="{ row }">
-              <span :class="row.changeAmount >= 0 ? 'positive' : 'negative'">
-                {{ row.changeAmount >= 0 ? '+' : '' }}{{ row.changeAmount }}
+              <span :class="row.pointsChanged >= 0 ? 'positive' : 'negative'">
+                {{ row.pointsChanged >= 0 ? '+' : '' }}{{ row.pointsChanged }}
               </span>
             </template>
           </el-table-column>
-          <el-table-column prop="reason" :label="t('creditScore.colReason')" min-width="200" show-overflow-tooltip />
+          <el-table-column prop="eventDescription" :label="t('creditScore.colReason')" min-width="200" show-overflow-tooltip />
           <el-table-column prop="createdAt" :label="t('creditScore.colTime')" min-width="170" />
         </el-table>
 

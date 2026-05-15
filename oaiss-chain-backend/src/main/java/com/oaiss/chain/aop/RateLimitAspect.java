@@ -37,8 +37,8 @@ import java.util.concurrent.TimeUnit;
 @Component
 @RequiredArgsConstructor
 public class RateLimitAspect {
-
     private final RedisTemplate<String, Object> redisTemplate;
+    private final RedisTemplate<String, Long> redisScriptTemplate;
 
     private static final String RATE_LIMIT_KEY_PREFIX = "rate_limit:";
 
@@ -67,7 +67,7 @@ public class RateLimitAspect {
         try {
             // 使用Lua脚本原子操作：递增+设置过期
             DefaultRedisScript<Long> script = new DefaultRedisScript<>(LUA_INCR_EXPIRE, Long.class);
-            Long currentCount = redisTemplate.execute(script,
+            Long currentCount = redisScriptTemplate.execute(script,
                     Collections.singletonList(key), String.valueOf(period));
 
             // 检查是否超过限制

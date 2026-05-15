@@ -2,6 +2,7 @@ package com.oaiss.chain.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -33,6 +34,7 @@ public class CarbonReportRequest {
      */
     @NotBlank(message = "报告标题不能为空")
     @Size(max = 200, message = "标题不能超过200字符")
+    @Pattern(regexp = "^[^<>]*$", message = "标题不能包含特殊字符<>")
     private String title;
 
     /**

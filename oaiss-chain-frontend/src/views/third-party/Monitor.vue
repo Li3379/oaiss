@@ -66,22 +66,21 @@ const onCurrentChange = (page) => {
   loadReports()
 }
 
+const statusMap = {
+  0: { tag: 'info', text: t('monitor.statusDraft') || '草稿' },
+  1: { tag: 'warning', text: t('monitor.statusPending') },
+  2: { tag: 'warning', text: t('monitor.statusPending') },
+  3: { tag: 'success', text: t('monitor.statusApproved') },
+  4: { tag: 'danger', text: t('monitor.statusRejected') },
+  5: { tag: 'success', text: t('monitor.statusApproved') },
+}
+
 const getStatusTag = (status) => {
-  const map = {
-    'PENDING': 'warning',
-    'APPROVED': 'success',
-    'REJECTED': 'danger',
-  }
-  return map[status] || 'info'
+  return statusMap[status]?.tag || 'info'
 }
 
 const getStatusText = (status) => {
-  const map = {
-    'PENDING': t('monitor.statusPending'),
-    'APPROVED': t('monitor.statusApproved'),
-    'REJECTED': t('monitor.statusRejected'),
-  }
-  return map[status] || status
+  return statusMap[status]?.text || status
 }
 
 onMounted(() => {
@@ -139,10 +138,10 @@ onMounted(() => {
               {{ (currentPage - 1) * pageSize + scope.$index + 1 }}
             </template>
           </el-table-column>
-          <el-table-column prop="reportId" :label="t('monitor.colReportNo')" min-width="150" />
+          <el-table-column prop="reportNo" :label="t('monitor.colReportNo')" min-width="150" />
           <el-table-column prop="enterpriseName" :label="t('monitor.colEnterpriseName')" min-width="180" show-overflow-tooltip />
-          <el-table-column prop="year" :label="t('monitor.colYear')" min-width="100" />
-          <el-table-column prop="totalEmissions" :label="t('monitor.colTotalEmission')" min-width="140" />
+          <el-table-column prop="accountingPeriod" :label="t('monitor.colYear')" min-width="100" />
+          <el-table-column prop="totalEmission" :label="t('monitor.colTotalEmission')" min-width="140" />
           <el-table-column prop="status" :label="t('monitor.colStatus')" min-width="100">
             <template #default="{ row }">
               <el-tag :type="getStatusTag(row.status)">

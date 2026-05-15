@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# 加载数据库配置
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/db-config.sh"
+
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -12,6 +16,30 @@ info() { echo -e "${YELLOW}[..]${NC} $1"; }
 
 API="http://localhost:8080/api/v1"
 TIMESTAMP=$(date +%s)
+
+# --- Cleanup test data before running ---
+cleanup_test_data() {
+    info "Cleaning up existing test data..."
+    if docker ps --format '{{.Names}}' | grep -q "^${MYSQL_CONTAINER}$"; then
+        docker exec "$MYSQL_CONTAINER" mysql -u"$DB_USERNAME" -p"$DB_PASSWORD" "$DB_NAME" -e "
+            DELETE FROM emission_rating WHERE remark LIKE '%TEST%' OR remark LIKE '%UAT%' OR remark LIKE '%CARB-TEST%';
+            DELETE FROM credit_event WHERE event_type LIKE '%TEST%' OR event_type LIKE '%UAT%';
+            DELETE FROM carbon_report WHERE title LIKE 'TEST-%' OR title LIKE 'UAT-%' OR title LIKE '%CARB-TEST%' OR title LIKE '%STATE-TEST%';
+        " 2>/dev/null || true
+    else
+        mysql $MYSQL_CONN "$DB_NAME" -e "
+            DELETE FROM emission_rating WHERE remark LIKE '%TEST%' OR remark LIKE '%UAT%' OR remark LIKE '%CARB-TEST%';
+            DELETE FROM credit_event WHERE event_type LIKE '%TEST%' OR event_type LIKE '%UAT%';
+            DELETE FROM carbon_report WHERE title LIKE 'TEST-%' OR title LIKE 'UAT-%' OR title LIKE '%CARB-TEST%' OR title LIKE '%STATE-TEST%';
+        " 2>/dev/null || true
+    fi
+    ok "Test data cleanup complete"
+}
+
+# Run cleanup if SKIP_CLEANUP is not set
+if [[ "${SKIP_CLEANUP:-}" != "true" ]]; then
+    cleanup_test_data
+fi
 
 TOTAL=0
 PASSED=0
@@ -246,14 +274,10 @@ else
   FAILED=$((FAILED + 1))
 fi
 
-# --- Step 6: Login as reviewer001 and authenticator001 ---
+# --- Step 6: Login as reviewer001 ---
 info "Logging in as reviewer001..."
 TOKEN_R=$(login "reviewer001") || { fail "Cannot proceed without reviewer001 token"; exit 1; }
 ok "reviewer001 logged in"
-
-info "Logging in as authenticator001..."
-TOKEN_A=$(login "authenticator001") || { fail "Cannot proceed without authenticator001 token"; exit 1; }
-ok "authenticator001 logged in"
 
 # --- Step 7: [CARB-05] Reviewer views SUBMITTED reports ---
 info "[CARB-05] Reviewer listing SUBMITTED reports (status=1)..."
@@ -414,46 +438,7 @@ else
   fi
 fi
 
-# --- Step 12: [CARB-12] Authenticator read-only access ---
-info "[CARB-12] Testing authenticator read-only access..."
-
-# GET /carbon/reports with authenticator token -- expect success
-TOTAL=$((TOTAL + 1))
-AUTH_LIST_RESP=$(curl -s "$API/carbon/reports?page=1&size=10" \
-  -H "Authorization: Bearer $TOKEN_A")
-
-AUTH_LIST_CODE=$(extract_field "$AUTH_LIST_RESP" "code")
-if [[ "$AUTH_LIST_CODE" == "200" ]]; then
-  ok "CARB-12a: Authenticator can list reports (code=200)"
-  PASSED=$((PASSED + 1))
-else
-  fail "CARB-12a: Authenticator list reports failed (code=$AUTH_LIST_CODE)"
-  FAILED=$((FAILED + 1))
-fi
-
-# POST /carbon/review with authenticator token -- expect 403
-TOTAL=$((TOTAL + 1))
-if [[ -z "${REPORT1_ID:-}" ]]; then
-  fail "CARB-12b: Cannot test authenticator review: no report1 ID"
-  FAILED=$((FAILED + 1))
-else
-  AUTH_REVIEW_RESP=$(curl -s -w "\n%{http_code}" -X POST "$API/carbon/review" \
-    -H "Authorization: Bearer $TOKEN_A" \
-    -H "Content-Type: application/json" \
-    -d "{\"reportId\":$REPORT1_ID,\"reviewResult\":3,\"reviewComment\":\"Should be denied\"}")
-
-  AUTH_REVIEW_HTTP=$(echo "$AUTH_REVIEW_RESP" | tail -1)
-  if [[ "$AUTH_REVIEW_HTTP" == "403" ]]; then
-    ok "CARB-12b: Authenticator POST /review correctly denied (HTTP 403)"
-    PASSED=$((PASSED + 1))
-  else
-    AUTH_REVIEW_CODE=$(extract_field "$(echo "$AUTH_REVIEW_RESP" | head -1)" "code")
-    fail "CARB-12b: Expected 403 for authenticator review, got HTTP=$AUTH_REVIEW_HTTP code=$AUTH_REVIEW_CODE"
-    FAILED=$((FAILED + 1))
-  fi
-fi
-
-# --- Step 13: [CARB-13] Cross-role access control (enterprise denied review) ---
+# --- Step 12: [CARB-13] Cross-role access control (enterprise denied review) ---
 info "[CARB-13] Testing cross-role access control..."
 
 TOTAL=$((TOTAL + 1))

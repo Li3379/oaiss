@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 class EmissionForecastRequest(BaseModel):
     """Request schema for carbon emission forecasting."""
 
+    enterprise_id: int = Field(..., description="Enterprise ID")
     dates: list[str] = Field(..., min_length=1, description="ISO 8601 date strings")
     emissions: list[float] = Field(
         ..., min_length=1, description="Historical emission values"

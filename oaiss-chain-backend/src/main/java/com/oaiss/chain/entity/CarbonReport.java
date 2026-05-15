@@ -139,4 +139,10 @@ public class CarbonReport extends BaseEntity {
      */
     @Column(name = "attachments", columnDefinition = "TEXT")
     private String attachments;
+
+    /**
+     * 企业名称（非持久化，用于列表展示）
+     */
+    @Transient
+    private String enterpriseName;
 }

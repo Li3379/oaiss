@@ -24,9 +24,6 @@ const request = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL,
   timeout: REQUEST_TIMEOUT_MS,
   headers: { 'Content-Type': 'application/json' },
-  withCredentials: true,
-  xsrfCookieName: 'XSRF-TOKEN',
-  xsrfHeaderName: 'X-XSRF-TOKEN',
 })
 
 let isRefreshing = false

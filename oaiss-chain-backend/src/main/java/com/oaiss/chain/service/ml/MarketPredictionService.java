@@ -52,10 +52,7 @@ public class MarketPredictionService {
 
         MarketForecastRequest request = buildForecastRequest(recentOrders, horizonDays);
 
-        MarketForecastResponse response = mlServiceClient.post(
-                "/predict/market/trend",
-                request,
-                MarketForecastResponse.class);
+        MarketForecastResponse response = mlServiceClient.predictMarketTrend(request);
 
         log.info("Market trend prediction result: trend={}, horizon={}days, modelVersion={}",
                 response.getTrend(), horizonDays, response.getModelVersion());
@@ -81,10 +78,7 @@ public class MarketPredictionService {
 
         MarketForecastRequest request = buildForecastRequest(recentOrders, horizonDays);
 
-        MarketForecastResponse response = mlServiceClient.post(
-                "/predict/market/price",
-                request,
-                MarketForecastResponse.class);
+        MarketForecastResponse response = mlServiceClient.predictCarbonPrice(request);
 
         log.info("Carbon price prediction result: trend={}, horizon={}days",
                 response.getTrend(), horizonDays);
@@ -110,10 +104,7 @@ public class MarketPredictionService {
 
         MarketForecastRequest request = buildForecastRequest(recentOrders, horizonDays);
 
-        MarketForecastResponse response = mlServiceClient.post(
-                "/predict/market/supply-demand",
-                request,
-                MarketForecastResponse.class);
+        MarketForecastResponse response = mlServiceClient.predictSupplyDemand(request);
 
         log.info("Supply/demand prediction result: trend={}, horizon={}days",
                 response.getTrend(), horizonDays);

@@ -361,7 +361,7 @@ class JwtAuthenticationFilterTest {
         when(jwtTokenProvider.validateToken(token)).thenReturn(true);
         when(jwtTokenProvider.getUsernameFromToken(token)).thenReturn("multiRoleUser");
         when(jwtTokenProvider.getUserIdFromToken(token)).thenReturn(3L);
-        when(jwtTokenProvider.getRolesFromToken(token)).thenReturn(List.of("USER", "REVIEWER", "AUTHENTICATOR"));
+        when(jwtTokenProvider.getRolesFromToken(token)).thenReturn(List.of("USER", "REVIEWER", "ADMIN"));
         when(jwtTokenProvider.getUserTypeFromToken(token)).thenReturn(1);
         when(jwtTokenProvider.getEnterpriseIdFromToken(token)).thenReturn(null);
 
@@ -373,7 +373,7 @@ class JwtAuthenticationFilterTest {
         assertThat(authentication).isNotNull();
         assertThat(authentication.getAuthorities())
                 .extracting("authority")
-                .containsExactlyInAnyOrder("ROLE_USER", "ROLE_REVIEWER", "ROLE_AUTHENTICATOR");
+                .containsExactlyInAnyOrder("ROLE_USER", "ROLE_REVIEWER", "ROLE_ADMIN");
     }
 
     @Test

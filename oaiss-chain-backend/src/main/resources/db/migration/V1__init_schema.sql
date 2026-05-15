@@ -24,6 +24,8 @@ CREATE TABLE `user` (
     `last_login_time` DATETIME     NULL,
     `last_login_ip`   VARCHAR(50)  NULL,
     `avatar`          VARCHAR(500) NULL,
+    `company`         VARCHAR(200) NULL,
+    `address`         VARCHAR(500) NULL,
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_user_username` (`username`),
     UNIQUE KEY `uk_user_phone` (`phone`)

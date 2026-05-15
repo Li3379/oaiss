@@ -108,7 +108,7 @@ onMounted(() => {
 
     <el-card class="section-card" shadow="never">
       <el-table :data="tableData" border v-loading="loading">
-        <el-table-column prop="reportNo" :label="t('auditList.colReportNo')" min-width="140" />
+        <el-table-column prop="reportNo" :label="t('auditList.colReportNo')" min-width="180" show-overflow-tooltip />
         <el-table-column prop="enterpriseName" :label="t('auditList.colEnterpriseName')" min-width="180" />
         <el-table-column prop="title" :label="t('auditList.colReportTitle')" min-width="200" show-overflow-tooltip />
         <el-table-column prop="totalEmission" :label="t('auditList.colTotalEmission')" min-width="130">

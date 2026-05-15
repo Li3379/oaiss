@@ -26,4 +26,10 @@ public class UserProfileUpdateRequest {
 
     @Size(max = 500, message = "头像URL不能超过500字符")
     private String avatar;
+
+    @Size(max = 200, message = "公司名称不能超过200字符")
+    private String company;
+
+    @Size(max = 500, message = "地址不能超过500字符")
+    private String address;
 }

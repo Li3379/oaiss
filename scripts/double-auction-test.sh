@@ -24,7 +24,7 @@ extract_field() {
 
 # --- Verify backend is up ---
 info "Checking backend availability..."
-curl -sf "$API/swagger-ui.html" -o /dev/null || { fail "Backend not running. Start it first: cd oaiss-chain-backend && mvn spring-boot:run"; exit 1; }
+curl -sf "$API/auth/login" -o /dev/null -X POST -H "Content-Type: application/json" -d '{"username":"admin","password":"admin123"}' || { fail "Backend not running. Start it first: cd oaiss-chain-backend && mvn spring-boot:run"; exit 1; }
 ok "Backend is reachable"
 
 # --- Login helper ---
