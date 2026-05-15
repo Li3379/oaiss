@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, watch, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { getProfile, updateProfile, changePassword } from '../../api/user'
+import { getMyEnterpriseAdmission } from '../../api/admin'
 import PageContainer from '../../components/PageContainer.vue'
 
 const { t } = useI18n()
@@ -117,8 +118,35 @@ const onChangePassword = async () => {
   }
 }
 
+const admissionStatus = ref<Record<string, unknown> | null>(null)
+const admissionLoading = ref(false)
+
+const fetchAdmissionStatus = async () => {
+  admissionLoading.value = true
+  try {
+    const res = await getMyEnterpriseAdmission()
+    const list = Array.isArray(res) ? res : ((res as Record<string, unknown>)?.items as unknown[] || [])
+    admissionStatus.value = list.length > 0 ? list[0] as Record<string, unknown> : null
+  } catch {
+    admissionStatus.value = null
+  } finally {
+    admissionLoading.value = false
+  }
+}
+
+const admissionStatusType = computed(() => {
+  if (!admissionStatus.value) return 'info'
+  return admissionStatus.value.status === 1 ? 'success' : 'danger'
+})
+
+const admissionStatusText = computed(() => {
+  if (!admissionStatus.value) return t('certificateManage.notIssued')
+  return admissionStatus.value.status === 1 ? t('certificateManage.active') : t('certificateManage.revoked')
+})
+
 onMounted(() => {
   loadProfile()
+  fetchAdmissionStatus()
 })
 </script>
 
@@ -189,6 +217,23 @@ onMounted(() => {
             </div>
           </el-tab-pane>
         </el-tabs>
+      </el-card>
+
+      <el-card class="section-card" shadow="never">
+        <template #header>
+          <span>{{ t('certificateManage.myAdmission') }}</span>
+        </template>
+        <el-descriptions :column="2" border>
+          <el-descriptions-item :label="t('certificateManage.certStatus')">
+            <el-tag :type="admissionStatusType">{{ admissionStatusText }}</el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item v-if="admissionStatus" :label="t('certificateManage.certNo')">
+            {{ admissionStatus.certificateNo }}
+          </el-descriptions-item>
+          <el-descriptions-item v-if="admissionStatus" :label="t('certificateManage.issuedDate')">
+            {{ admissionStatus.issuedDate }}
+          </el-descriptions-item>
+        </el-descriptions>
       </el-card>
     </section>
   </PageContainer>
