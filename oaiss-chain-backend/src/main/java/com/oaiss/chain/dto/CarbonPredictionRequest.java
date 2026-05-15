@@ -1,5 +1,7 @@
 package com.oaiss.chain.dto;
 
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
@@ -15,7 +17,9 @@ public class CarbonPredictionRequest {
     private Long enterpriseId;
 
     /**
-     * 预测月数（默认6）
+     * 预测月数（默认6，范围1-12）
      */
+    @Min(value = 1, message = "预测月数不能小于1")
+    @Max(value = 12, message = "预测月数不能大于12")
     private Integer predictMonths = 6;
 }

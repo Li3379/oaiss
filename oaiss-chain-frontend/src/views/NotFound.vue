@@ -43,7 +43,7 @@ function goBack() {
 .code {
   font-size: 120px;
   font-weight: 700;
-  color: #409eff;
+  color: var(--teal, #14a79a);
   margin: 0;
   line-height: 1;
 }

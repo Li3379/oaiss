@@ -51,7 +51,7 @@ public class User extends BaseEntity {
     private String realName;
 
     /**
-     * 用户类型（1-企业, 2-审核员, 3-认证机构, 4-管理员, 5-第三方监管）
+     * 用户类型（1-企业, 2-审核员, 3-第三方监管, 4-管理员）
      */
     @Column(name = "user_type", nullable = false)
     private Integer userType;
@@ -86,4 +86,16 @@ public class User extends BaseEntity {
      */
     @Column(name = "avatar", length = 500)
     private String avatar;
+
+    /**
+     * 公司名称
+     */
+    @Column(name = "company", length = 200)
+    private String company;
+
+    /**
+     * 地址
+     */
+    @Column(name = "address", length = 500)
+    private String address;
 }

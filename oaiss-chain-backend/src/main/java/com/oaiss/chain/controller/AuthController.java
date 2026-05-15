@@ -128,7 +128,7 @@ public class AuthController {
     })
     public ApiResponse<LoginResponse> refreshToken(
             @Parameter(description = "刷新令牌", required = true)
-            @RequestHeader("Refresh-Token") String refreshToken) {
+            @RequestHeader(value = "Refresh-Token", required = false) String refreshToken) {
         return ApiResponse.success(authService.refreshToken(refreshToken));
     }
 

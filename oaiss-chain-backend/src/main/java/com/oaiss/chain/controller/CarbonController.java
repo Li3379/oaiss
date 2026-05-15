@@ -1,9 +1,12 @@
 package com.oaiss.chain.controller;
 
+import com.oaiss.chain.annotation.AuditLog;
 import com.oaiss.chain.dto.*;
 import com.oaiss.chain.enums.ReportStatusEnum;
 import com.oaiss.chain.security.JwtUserDetails;
 import com.oaiss.chain.service.CarbonService;
+import com.oaiss.chain.service.PowerGenerationFormulaService;
+import com.oaiss.chain.service.PowerGridFormulaService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -30,6 +33,8 @@ import org.springframework.web.bind.annotation.*;
 public class CarbonController {
 
     private final CarbonService carbonService;
+    private final PowerGridFormulaService powerGridFormulaService;
+    private final PowerGenerationFormulaService powerGenerationFormulaService;
 
     @PostMapping("/reports")
     @Operation(
@@ -135,7 +140,7 @@ public class CarbonController {
             description = "无权限访问"
         )
     })
-    @PreAuthorize("hasAnyRole('ADMIN', 'REVIEWER', 'AUTHENTICATOR', 'THIRD_PARTY')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'REVIEWER', 'THIRD_PARTY', 'ENTERPRISE')")
     public ApiResponse<Page<CarbonReportResponse>> listReports(
             @Parameter(description = "企业ID筛选", example = "1")
             @RequestParam(required = false) Long enterpriseId,
@@ -241,5 +246,33 @@ public class CarbonController {
             @Parameter(description = "审核请求", required = true)
             @Valid @RequestBody ReviewRequest request) {
         return ApiResponse.success(carbonService.reviewReport(currentUser, request), "审核完成");
+    }
+
+    // ==================== 碳排放计算接口 ====================
+
+    @PostMapping("/calculate/power-grid")
+    @Operation(
+        summary = "电网碳排放计算",
+        description = "基于 GB/T 32150-2015 标准，9参数电网碳排放计算。仅企业用户可调用。",
+        security = @SecurityRequirement(name = "Bearer Authentication")
+    )
+    @PreAuthorize("hasRole('ENTERPRISE')")
+    @AuditLog(module = "碳核算", action = "CALCULATE_POWER_GRID_EMISSION")
+    public ApiResponse<PowerGridCalculationResponse> calculatePowerGrid(
+            @Valid @RequestBody PowerGridCalculationRequest request) {
+        return ApiResponse.success(powerGridFormulaService.calculate(request));
+    }
+
+    @PostMapping("/calculate/power-generation")
+    @Operation(
+        summary = "发电企业碳排放计算",
+        description = "基于 GB/T 32150-2015 标准，25参数发电企业碳排放计算。仅企业用户可调用。",
+        security = @SecurityRequirement(name = "Bearer Authentication")
+    )
+    @PreAuthorize("hasRole('ENTERPRISE')")
+    @AuditLog(module = "碳核算", action = "CALCULATE_POWER_GENERATION_EMISSION")
+    public ApiResponse<PowerGenerationCalculationResponse> calculatePowerGeneration(
+            @Valid @RequestBody PowerGenerationCalculationRequest request) {
+        return ApiResponse.success(powerGenerationFormulaService.calculate(request));
     }
 }

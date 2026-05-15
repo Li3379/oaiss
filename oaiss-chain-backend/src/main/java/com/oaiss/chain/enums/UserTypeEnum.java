@@ -14,8 +14,7 @@ public enum UserTypeEnum {
     ENTERPRISE(1, "企业用户"),
     REVIEWER(2, "审核员"),
     THIRD_PARTY(3, "第三方监管"),
-    ADMIN(4, "系统管理员"),
-    AUTHENTICATOR(5, "认证机构");
+    ADMIN(4, "系统管理员");
 
     private final Integer code;
     private final String description;

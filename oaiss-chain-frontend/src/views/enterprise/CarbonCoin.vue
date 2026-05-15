@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
-import { getMyAccount, getTransactions } from '../../api/carbonCoin'
+import { getMyAccount, getTransactions, transferCoins } from '../../api/carbonCoin'
 import PageContainer from '../../components/PageContainer.vue'
 
 const { t } = useI18n()
@@ -15,6 +15,22 @@ const transactionLoading = ref(false)
 const currentPage = ref(1)
 const pageSize = ref(10)
 const total = ref(0)
+
+// Transfer dialog
+const transferDialogVisible = ref(false)
+const transferFormRef = ref()
+const transferLoading = ref(false)
+
+const transferForm = reactive({
+  counterpartId: null as number | null,
+  amount: null as number | null,
+  remark: '',
+})
+
+const transferRules = {
+  counterpartId: [{ required: true, message: t('carbonCoin.selectCounterpart'), trigger: 'change' }],
+  amount: [{ required: true, message: t('carbonCoin.enterTransferAmount'), trigger: 'blur' }],
+}
 
 const loadAccount = async () => {
   try {
@@ -41,6 +57,45 @@ const loadTransactions = async () => {
     ElMessage.error(t('carbonCoin.loadRecordFailed'))
   } finally {
     transactionLoading.value = false
+  }
+}
+
+const openTransferDialog = () => {
+  transferForm.counterpartId = null
+  transferForm.amount = null
+  transferForm.remark = ''
+  transferDialogVisible.value = true
+}
+
+const handleTransfer = async () => {
+  const valid = await transferFormRef.value?.validate().catch(() => false)
+  if (!valid) return
+
+  if (!transferForm.amount || transferForm.amount <= 0) {
+    ElMessage.error(t('carbonCoin.invalidAmount'))
+    return
+  }
+
+  if (accountData.value && transferForm.amount > accountData.value.balance) {
+    ElMessage.error(t('carbonCoin.insufficientBalance'))
+    return
+  }
+
+  try {
+    transferLoading.value = true
+    await transferCoins({
+      counterpartId: transferForm.counterpartId!,
+      amount: transferForm.amount,
+      remark: transferForm.remark || undefined,
+    })
+    ElMessage.success(t('carbonCoin.transferSuccess'))
+    transferDialogVisible.value = false
+    await loadAccount()
+    await loadTransactions()
+  } catch (error) {
+    ElMessage.error(t('carbonCoin.transferFailed'))
+  } finally {
+    transferLoading.value = false
   }
 }
 
@@ -129,6 +184,9 @@ onMounted(() => {
           </div>
         </div>
         <el-empty v-else :description="t('carbonCoin.emptyText')" />
+        <div class="transfer-action">
+          <el-button type="primary" @click="openTransferDialog">{{ t('carbonCoin.transferBtn') }}</el-button>
+        </div>
       </el-card>
 
       <el-card class="section-card" shadow="never">
@@ -175,6 +233,47 @@ onMounted(() => {
         </div>
       </el-card>
     </section>
+
+    <!-- Transfer Dialog -->
+    <el-dialog
+      v-model="transferDialogVisible"
+      :title="t('carbonCoin.transferDialog')"
+      width="500px"
+      destroy-on-close
+    >
+      <el-form ref="transferFormRef" :model="transferForm" :rules="transferRules" label-width="100px">
+        <el-form-item :label="t('carbonCoin.counterpart')" prop="counterpartId">
+          <el-input-number
+            v-model="transferForm.counterpartId"
+            :min="1"
+            :precision="0"
+            :placeholder="t('carbonCoin.selectCounterpart')"
+            style="width: 100%"
+          />
+        </el-form-item>
+        <el-form-item :label="t('carbonCoin.transferAmount')" prop="amount">
+          <el-input-number
+            v-model="transferForm.amount"
+            :min="0.01"
+            :precision="2"
+            :placeholder="t('carbonCoin.enterTransferAmount')"
+            style="width: 100%"
+          />
+        </el-form-item>
+        <el-form-item :label="t('carbonCoin.transferRemark')">
+          <el-input
+            v-model="transferForm.remark"
+            :placeholder="t('carbonCoin.enterRemark')"
+            maxlength="200"
+            show-word-limit
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="transferDialogVisible = false">{{ t('common.cancel') }}</el-button>
+        <el-button type="primary" :loading="transferLoading" @click="handleTransfer">{{ t('common.confirm') }}</el-button>
+      </template>
+    </el-dialog>
   </PageContainer>
 </template>
 
@@ -257,6 +356,12 @@ onMounted(() => {
 
 .pagination-row {
   margin-top: 14px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.transfer-action {
+  margin-top: 16px;
   display: flex;
   justify-content: flex-end;
 }

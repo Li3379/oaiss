@@ -318,7 +318,7 @@ onMounted(() => {
             <el-option
               v-for="item in directionOptions"
               :key="item.value"
-              :label="item.label"
+              :label="t(item.label)"
               :value="item.value"
             />
           </el-select>

@@ -240,7 +240,7 @@ public class GlobalExceptionHandler {
         
         return ResponseEntity
                 .status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ApiResponse.error(ErrorCode.SYSTEM_ERROR, ErrorMessage.SYSTEM_ERROR));
+                .body(ApiResponse.error(ErrorCode.SYSTEM_ERROR, ErrorMessage.SYSTEM));
     }
 
     // ==================== 私有辅助方法 ====================
@@ -253,6 +253,10 @@ public class GlobalExceptionHandler {
             // 认证授权错误
             if (code == ErrorCode.PERMISSION_DENIED) {
                 return HttpStatus.FORBIDDEN;
+            }
+            // 业务规则限制（如不能禁用自己的账号）返回 400
+            if (code == ErrorCode.CANNOT_DISABLE_SELF) {
+                return HttpStatus.BAD_REQUEST;
             }
             return HttpStatus.UNAUTHORIZED;
         } else if (code >= 1000 && code < 2000) {

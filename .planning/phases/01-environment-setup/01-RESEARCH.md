@@ -418,17 +418,15 @@ AUTHENTICATOR(5) -> authenticator001
 
 **If this table is empty:** All claims in this research were verified or cited -- no user confirmation needed.
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Windows mysql/redis CLI availability**
+1. **Windows mysql/redis CLI availability** — RESOLVED
    - What we know: MySQL and Redis run inside Docker containers. Host machine may not have mysqladmin/redis-cli.
-   - What's unclear: Whether to use `docker exec` for health checks or rely on TCP/HTTP checks only.
-   - Recommendation: Use `docker exec` for MySQL/Redis health checks (more reliable than TCP port checks), fall back to `curl` for MinIO/Backend/Frontend.
+   - Resolution: Plan 01-01 uses `docker exec` for MySQL/Redis health checks (confirmed in health-check.sh action).
 
-2. **Whether V3 should use INSERT IGNORE for idempotency**
+2. **Whether V3 should use INSERT IGNORE for idempotency** — RESOLVED
    - What we know: V3 will be a Flyway migration that runs once. Flyway guarantees single execution.
-   - What's unclear: If a tester manually resets the database, V3 needs to be re-runnable.
-   - Recommendation: Use standard INSERT (Flyway manages re-running via flyway_schema_history). If manual reset needed, use `docker-compose down -v` to destroy volumes.
+   - Resolution: Plan 01-01 uses standard INSERT (Flyway manages re-running via flyway_schema_history).
 
 ## Environment Availability
 

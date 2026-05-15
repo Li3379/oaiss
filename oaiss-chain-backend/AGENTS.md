@@ -1,13 +1,39 @@
-# OAISS Chain Backend - Spring Boot 应用
+<!-- Parent: ../AGENTS.md -->
+<!-- Generated: 2026-05-11 | Updated: 2026-05-11 -->
 
-**Package:** `com.oaiss.chain`
-**Entry:** `OaissChainApplication.java`
+# OAISS Chain Backend
 
-## OVERVIEW
+## Purpose
 
-双碳链动系统后端，Spring Boot 3.2.5 分层架构，提供碳核算、碳交易、信用评分、区块链存证等 API。
+Spring Boot 3.2.5 分层架构后端，提供碳核算、碳交易、信用评分、区块链存证等 REST API。
+Package: `com.oaiss.chain` | Entry: `OaissChainApplication.java`
 
-## STRUCTURE
+---
+
+## Key Files
+
+| File | Purpose |
+|------|---------|
+| `pom.xml` | Maven 构建配置 (Spring Boot 3.2.5, Java 17, 依赖管理) |
+| `Dockerfile` | 多阶段 Docker 构建 (Maven build + JRE runtime) |
+| `../docker-compose.yml` | 全栈编排 (MySQL, Redis, MinIO, backend, frontend) |
+| `../.env.example` | 环境变量模板 (DB_PASSWORD, REDIS_PASSWORD, JWT_SECRET, MINIO_*) |
+| `API_DOCUMENT.md` | OpenAPI/Swagger API 文档 |
+
+## Subdirectories
+
+| Directory | Description | Child Guide |
+|-----------|-------------|-------------|
+| `src/` | Java 源码 (main + test) | — |
+| `docs/` | 测试报告与项目文档 | — |
+| `monitoring/` | Prometheus + Grafana + Alertmanager 配置 | — |
+| `tools/` | 诊断工具 (Arthas, JFR, profiler 脚本) | — |
+| `../.github/workflows/` | CI/CD GitHub Actions 流水线 | — |
+| `logs/` | 应用运行日志 (git-ignored) | — |
+
+---
+
+## Structure
 
 ```
 src/main/java/com/oaiss/chain/
@@ -26,7 +52,11 @@ src/main/java/com/oaiss/chain/
 └── util/           # 工具类
 ```
 
-## WHERE TO LOOK
+---
+
+## For AI Agents
+
+### Working
 
 | Task | Location |
 |------|----------|
@@ -41,7 +71,7 @@ src/main/java/com/oaiss/chain/
 | 文件上传 | `controller/FileController.java` + `service/MinioService.java` |
 | 用户管理 | `controller/UserController.java` + `service/UserService.java` |
 
-## KEY ENTITIES
+### Key Entities
 
 | Entity | Table | Purpose |
 |--------|-------|---------|
@@ -54,7 +84,7 @@ src/main/java/com/oaiss/chain/
 | `CreditScore` | credit_score | 信用评分 |
 | `RsaKeyPair` | rsa_key_pair | RSA 密钥对 |
 
-## API ENDPOINTS
+### API Endpoints
 
 ```
 /api/v1/auth/login              # 登录
@@ -69,16 +99,7 @@ src/main/java/com/oaiss/chain/
 /api/v1/admin/users            # 用户管理 (管理员)
 ```
 
-## CONVENTIONS
-
-- **Controller**: 参数校验用 `@Valid` + DTO，响应用 `ApiResponse<T>`
-- **Service**: 业务逻辑 + 事务 `@Transactional`，调用 Repository
-- **Repository**: 继承 `JpaRepository`，自定义查询用 `@Query`
-- **Entity**: `@Entity` + `@Table`，时间字段 `created_at/updated_at`
-- **DTO**: MapStruct 映射，Lombok `@Data/@Builder`
-- **异常**: `BusinessException` + 错误码枚举
-
-## TESTING
+### Testing
 
 ```bash
 mvn test                      # 单元测试 (*Test.java)
@@ -90,7 +111,18 @@ mvn test -Dtest=AuthServiceTest  # 单个测试类
 - **Coverage**: JaCoCo 90% 目标，当前 25%
 - **Pattern**: `methodName_WhenCondition_ShouldExpectedBehavior()`
 
-## CONFIGURATION
+### Patterns
+
+| Layer | Convention |
+|-------|-----------|
+| **Controller** | 参数校验用 `@Valid` + DTO，响应用 `ApiResponse<T>` |
+| **Service** | 业务逻辑 + 事务 `@Transactional`，调用 Repository |
+| **Repository** | 继承 `JpaRepository`，自定义查询用 `@Query` |
+| **Entity** | `@Entity` + `@Table`，时间字段 `created_at/updated_at` |
+| **DTO** | MapStruct 映射，Lombok `@Data/@Builder` |
+| **Exception** | `BusinessException` + 错误码枚举 |
+
+### Configuration
 
 | File | Purpose |
 |------|---------|
@@ -99,7 +131,24 @@ mvn test -Dtest=AuthServiceTest  # 单个测试类
 | `application-test.yml` | 测试环境 (H2 数据库) |
 | `logback-spring.xml` | 日志配置 (JSON + ELK) |
 
-## NOTES
+---
+
+## Dependencies
+
+| Dependency | Version | Purpose |
+|-----------|---------|---------|
+| Spring Boot | 3.2.5 | 核心框架 |
+| Spring Data JPA | (managed) | 数据访问层 |
+| Spring Security | (managed) | 认证/授权 |
+| MySQL Connector | (managed) | 数据库驱动 |
+| Lettuce (Redis) | (managed) | 缓存/分布式锁 |
+| MinIO SDK | (managed) | 对象存储 |
+| jjwt | 0.12.5 | JWT Token 生成/验证 |
+| Flyway | (managed) | 数据库迁移 |
+| SpringDoc OpenAPI | 2.5 | API 文档 |
+| JaCoCo | (plugin) | 代码覆盖率 |
+
+### Runtime Notes
 
 - JWT 过期: Access 1h, Refresh 7d
 - MinIO 最大文件: 100MB

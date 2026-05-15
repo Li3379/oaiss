@@ -3,7 +3,7 @@ package com.oaiss.chain.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.oaiss.chain.exception.BlockchainException;
 import com.oaiss.chain.security.JwtTokenProvider;
-import com.oaiss.chain.service.BlockchainService;
+import com.oaiss.chain.service.BlockchainServicePort;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -45,7 +45,7 @@ class BlockchainControllerTest {
     private ObjectMapper objectMapper;
 
     @MockBean
-    private BlockchainService blockchainService;
+    private BlockchainServicePort blockchainService;
 
     @MockBean
     private JwtTokenProvider jwtTokenProvider;

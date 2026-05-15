@@ -1,5 +1,6 @@
 package com.oaiss.chain.controller;
 
+import com.oaiss.chain.annotation.RateLimit;
 import com.oaiss.chain.dto.ApiResponse;
 import com.oaiss.chain.dto.CarbonPredictionRequest;
 import com.oaiss.chain.dto.CarbonPredictionResponse;
@@ -14,6 +15,8 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -28,6 +31,7 @@ import java.util.List;
 @RequestMapping("/emission")
 @RequiredArgsConstructor
 @Tag(name = "13. 碳排放评级管理", description = "企业碳排放评级、行业排名、AI碳排放趋势预测")
+@Validated
 public class EmissionController {
 
     private final EmissionRatingService ratingService;
@@ -74,6 +78,8 @@ public class EmissionController {
     }
 
     @PostMapping("/predict")
+    @PreAuthorize("hasAnyRole('ENTERPRISE', 'ADMIN')")
+    @RateLimit(key = "emission_predict", limit = 10, period = 60)
     @Operation(summary = "AI碳排放预测", description = "基于企业历史碳排放数据，使用AI模型预测未来碳排放趋势")
     @ApiResponses(value = {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "预测成功"),

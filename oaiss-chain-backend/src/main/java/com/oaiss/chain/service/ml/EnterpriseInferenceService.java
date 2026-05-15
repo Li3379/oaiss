@@ -120,8 +120,7 @@ public class EnterpriseInferenceService {
         log.info("Enterprise inference request built for id={}, reportCount={}, totalEmissions={}",
                 enterpriseId, reportCount, totalEmissions);
 
-        EnterpriseInferenceResponse response = mlServiceClient.post(
-                "/api/v1/predict/enterprise", mlRequest, EnterpriseInferenceResponse.class);
+        EnterpriseInferenceResponse response = mlServiceClient.inferEnterprise(mlRequest);
 
         log.info("Enterprise inference result: id={}, status={}, confidence={}, anomaly={}",
                 response.getEnterpriseId(), response.getComplianceStatus(),

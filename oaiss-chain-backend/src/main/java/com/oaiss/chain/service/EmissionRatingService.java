@@ -52,12 +52,6 @@ public class EmissionRatingService {
     public EmissionRating rateEnterprise(Long enterpriseId, String year,
                                           BigDecimal totalEmission, BigDecimal revenue,
                                           Long ratedBy) {
-        // 检查是否已存在
-        ratingRepository.findByEnterpriseIdAndRatingYear(enterpriseId, year)
-                .ifPresent(existing -> {
-                    throw new BusinessException(3001, "该企业" + year + "年评级已存在");
-                });
-
         // 计算评级
         String level = calculateLevel(totalEmission);
         int score = calculateScore(totalEmission);
@@ -65,15 +59,26 @@ public class EmissionRatingService {
                 ? totalEmission.divide(revenue, 4, RoundingMode.HALF_UP).multiply(new BigDecimal("10000"))
                 : null;
 
-        EmissionRating rating = EmissionRating.builder()
-                .enterpriseId(enterpriseId)
-                .ratingYear(year)
-                .totalEmission(totalEmission)
-                .emissionIntensity(intensity)
-                .ratingLevel(level)
-                .ratingScore(score)
-                .ratedBy(ratedBy)
-                .build();
+        // 已存在则更新，否则新建
+        EmissionRating rating = ratingRepository
+                .findByEnterpriseIdAndRatingYear(enterpriseId, year)
+                .map(existing -> {
+                    existing.setTotalEmission(totalEmission);
+                    existing.setEmissionIntensity(intensity);
+                    existing.setRatingLevel(level);
+                    existing.setRatingScore(score);
+                    existing.setRatedBy(ratedBy);
+                    return existing;
+                })
+                .orElseGet(() -> EmissionRating.builder()
+                        .enterpriseId(enterpriseId)
+                        .ratingYear(year)
+                        .totalEmission(totalEmission)
+                        .emissionIntensity(intensity)
+                        .ratingLevel(level)
+                        .ratingScore(score)
+                        .ratedBy(ratedBy)
+                        .build());
 
         return ratingRepository.save(rating);
     }

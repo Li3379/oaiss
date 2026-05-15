@@ -1,0 +1,55 @@
+﻿14:26:14,255 |-WARN in net.logstash.logback.appender.LogstashTcpSocketAppender[LOGSTASH] - Log destination localhost/<unresolved>:5000: connection failed. java.net.ConnectException: Connection refused
+	at java.net.ConnectException: Connection refused
+	at 	at java.base/sun.nio.ch.Net.pollConnect(Native Method)
+	at 	at java.base/sun.nio.ch.Net.pollConnectNow(Unknown Source)
+	at 	at java.base/sun.nio.ch.NioSocketImpl.timedFinishConnect(Unknown Source)
+	at 	at java.base/sun.nio.ch.NioSocketImpl.connect(Unknown Source)
+	at 	at java.base/java.net.SocksSocketImpl.connect(Unknown Source)
+	at 	at java.base/java.net.Socket.connect(Unknown Source)
+	at 	at net.logstash.logback.appender.AbstractLogstashTcpSocketAppender$TcpSendingEventHandler.openSocket(AbstractLogstashTcpSocketAppender.java:765)
+	at 	at net.logstash.logback.appender.AbstractLogstashTcpSocketAppender$TcpSendingEventHandler.onStart(AbstractLogstashTcpSocketAppender.java:691)
+	at 	at net.logstash.logback.appender.AsyncDisruptorAppender$EventClearingEventHandler.onStart(AsyncDisruptorAppender.java:382)
+	at 	at net.logstash.logback.encoder.com.lmax.disruptor.BatchEventProcessor.notifyStart(BatchEventProcessor.java:224)
+	at 	at net.logstash.logback.encoder.com.lmax.disruptor.BatchEventProcessor.run(BatchEventProcessor.java:120)
+	at 	at java.base/java.lang.Thread.run(Unknown Source)
+14:26:14,257 |-WARN in net.logstash.logback.appender.LogstashTcpSocketAppender[LOGSTASH] - Log destination localhost/<unresolved>:5000: Waiting 4975ms before attempting reconnection.
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+ :: Spring Boot ::                (v3.2.5)
+
+14:26:18,058 |-WARN in net.logstash.logback.appender.LogstashTcpSocketAppender[LOGSTASH] - Log destination localhost/<unresolved>:5000: connection failed. java.net.ConnectException: Connection refused
+	at java.net.ConnectException: Connection refused
+	at 	at java.base/sun.nio.ch.Net.pollConnect(Native Method)
+	at 	at java.base/sun.nio.ch.Net.pollConnectNow(Unknown Source)
+	at 	at java.base/sun.nio.ch.NioSocketImpl.timedFinishConnect(Unknown Source)
+	at 	at java.base/sun.nio.ch.NioSocketImpl.connect(Unknown Source)
+	at 	at java.base/java.net.SocksSocketImpl.connect(Unknown Source)
+	at 	at java.base/java.net.Socket.connect(Unknown Source)
+	at 	at net.logstash.logback.appender.AbstractLogstashTcpSocketAppender$TcpSendingEventHandler.openSocket(AbstractLogstashTcpSocketAppender.java:765)
+	at 	at net.logstash.logback.appender.AbstractLogstashTcpSocketAppender$TcpSendingEventHandler.onStart(AbstractLogstashTcpSocketAppender.java:691)
+	at 	at net.logstash.logback.appender.AsyncDisruptorAppender$EventClearingEventHandler.onStart(AsyncDisruptorAppender.java:382)
+	at 	at net.logstash.logback.encoder.com.lmax.disruptor.BatchEventProcessor.notifyStart(BatchEventProcessor.java:224)
+	at 	at net.logstash.logback.encoder.com.lmax.disruptor.BatchEventProcessor.run(BatchEventProcessor.java:120)
+	at 	at java.base/java.lang.Thread.run(Unknown Source)
+14:26:18,058 |-WARN in net.logstash.logback.appender.LogstashTcpSocketAppender[LOGSTASH] - Log destination localhost/<unresolved>:5000: Waiting 4999ms before attempting reconnection.
+14:26:23,058 |-WARN in net.logstash.logback.appender.LogstashTcpSocketAppender[LOGSTASH] - Log destination localhost/<unresolved>:5000: connection failed. java.net.ConnectException: Connection refused
+	at java.net.ConnectException: Connection refused
+	at 	at java.base/sun.nio.ch.Net.pollConnect(Native Method)
+	at 	at java.base/sun.nio.ch.Net.pollConnectNow(Unknown Source)
+	at 	at java.base/sun.nio.ch.NioSocketImpl.timedFinishConnect(Unknown Source)
+	at 	at java.base/sun.nio.ch.NioSocketImpl.connect(Unknown Source)
+	at 	at java.base/java.net.SocksSocketImpl.connect(Unknown Source)
+	at 	at java.base/java.net.Socket.connect(Unknown Source)
+	at 	at net.logstash.logback.appender.AbstractLogstashTcpSocketAppender$TcpSendingEventHandler.openSocket(AbstractLogstashTcpSocketAppender.java:765)
+	at 	at net.logstash.logback.appender.AbstractLogstashTcpSocketAppender$TcpSendingEventHandler.onStart(AbstractLogstashTcpSocketAppender.java:691)
+	at 	at net.logstash.logback.appender.AsyncDisruptorAppender$EventClearingEventHandler.onStart(AsyncDisruptorAppender.java:382)
+	at 	at net.logstash.logback.encoder.com.lmax.disruptor.BatchEventProcessor.notifyStart(BatchEventProcessor.java:224)
+	at 	at net.logstash.logback.encoder.com.lmax.disruptor.BatchEventProcessor.run(BatchEventProcessor.java:120)
+	at 	at java.base/java.lang.Thread.run(Unknown Source)
+14:26:23,059 |-WARN in net.logstash.logback.appender.LogstashTcpSocketAppender[LOGSTASH] - Log destination localhost/<unresolved>:5000: Waiting 4999ms before attempting reconnection.
+14:26:25,272 |-WARN in ch.qos.logback.classic.AsyncAppender[ASYNC_LOGSTASH] - Max queue flush timeout (1000 ms) exceeded. Approximately 0 queued events were possibly discarded.

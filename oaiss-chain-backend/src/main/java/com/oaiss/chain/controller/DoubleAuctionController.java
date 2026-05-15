@@ -87,7 +87,7 @@ public class DoubleAuctionController {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未授权访问")
     })
     @SecurityRequirement(name = "Bearer Authentication")
-    @PreAuthorize("hasAnyRole('ADMIN', 'REVIEWER', 'THIRD_PARTY')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'ENTERPRISE', 'REVIEWER', 'THIRD_PARTY')")
     public ApiResponse<Page<AuctionOrderResponse>> listOrders(
             @Parameter(description = "挂单方向：1-买入, 2-卖出", example = "1") @RequestParam(required = false) Integer direction,
             @Parameter(description = "挂单状态：0-待撮合, 1-已撮合, 2-已取消", example = "0") @RequestParam(required = false) Integer status,

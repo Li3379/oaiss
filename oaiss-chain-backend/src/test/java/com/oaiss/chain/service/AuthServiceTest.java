@@ -635,22 +635,6 @@ class AuthServiceTest {
         assertDoesNotThrow(() -> authService.register(registerRequest));
     }
 
-    @Test
-    @DisplayName("注册成功-认证机构类型(5)应允许")
-    void testRegisterSuccessAuthenticatorTypeAllowed() {
-        // Given
-        registerRequest.setUserType(UserTypeEnum.AUTHENTICATOR.getCode()); // 5
-        when(userRepository.existsByUsername("newuser")).thenReturn(false);
-        when(passwordEncoder.encode("password123")).thenReturn("encodedPassword");
-        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        when(jwtTokenProvider.generateAccessToken(any(), any(), anyList(), any(), any())).thenReturn("access-token");
-        when(jwtTokenProvider.generateRefreshToken(any(), any())).thenReturn("refresh-token");
-        when(jwtTokenProvider.getAccessTokenExpiration()).thenReturn(3600000L);
-
-        // When & Then
-        assertDoesNotThrow(() -> authService.register(registerRequest));
-    }
-
     // ==================== H4: Login Rate Limiting ====================
 
     @Test

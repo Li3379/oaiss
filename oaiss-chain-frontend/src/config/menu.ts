@@ -1,7 +1,6 @@
 export const ROLE = {
   ENTERPRISE: 'ENTERPRISE',
   REVIEWER: 'REVIEWER',
-  AUTHENTICATOR: 'AUTHENTICATOR',
   THIRD_PARTY: 'THIRD_PARTY',
   ADMIN: 'ADMIN',
 } as const
@@ -10,7 +9,6 @@ export type RoleType = (typeof ROLE)[keyof typeof ROLE]
 export const ROLE_LABEL: Record<RoleType, string> = {
   [ROLE.ENTERPRISE]: 'menu.enterprise',
   [ROLE.REVIEWER]: 'menu.reviewer',
-  [ROLE.AUTHENTICATOR]: 'menu.authenticator',
   [ROLE.THIRD_PARTY]: 'menu.thirdParty',
   [ROLE.ADMIN]: 'menu.admin',
 }
@@ -18,7 +16,6 @@ export const ROLE_LABEL: Record<RoleType, string> = {
 export const ROLE_HOME: Record<RoleType, string> = {
   [ROLE.ENTERPRISE]: '/enterprise/carbon/upload',
   [ROLE.REVIEWER]: '/auditor/audit/list',
-  [ROLE.AUTHENTICATOR]: '/authenticator/verify/list',
   [ROLE.THIRD_PARTY]: '/third-party/monitor',
   [ROLE.ADMIN]: '/admin/system/users',
 }
@@ -47,6 +44,11 @@ export const MENU_BY_ROLE: Record<RoleType, MenuItem[]> = {
         { label: 'menu.carbonNeutral', children: [
           { label: 'menu.carbonNeutralProject', path: '/enterprise/carbon-neutral/projects' },
           { label: 'menu.emissionData', path: '/enterprise/emission/data' },
+          { label: 'menu.carbonFormula', path: '/enterprise/carbon-formula' },
+        ] },
+        { label: 'menu.aiPrediction', children: [
+          { label: 'menu.marketPrediction', path: '/enterprise/market-prediction' },
+          { label: 'menu.enterpriseInference', path: '/enterprise/enterprise-inference' },
         ] },
         { label: 'menu.personalCenter', children: [{ label: 'menu.accountSettings', path: '/enterprise/user/profile' }] },
       ],
@@ -57,14 +59,6 @@ export const MENU_BY_ROLE: Record<RoleType, MenuItem[]> = {
       label: 'menu.reviewer',
       children: [
         { label: 'menu.auditMaterial', children: [{ label: 'menu.carbonEmissionData', path: '/auditor/audit/list' }] },
-      ],
-    },
-  ],
-  [ROLE.AUTHENTICATOR]: [
-    {
-      label: 'menu.authenticator',
-      children: [
-        { label: 'menu.certificationManage', children: [{ label: 'menu.certificationList', path: '/authenticator/verify/list' }] },
       ],
     },
   ],
@@ -86,6 +80,7 @@ export const MENU_BY_ROLE: Record<RoleType, MenuItem[]> = {
           { label: 'menu.systemConfig', path: '/admin/system/config' },
         ] },
         { label: 'menu.dataManage', children: [{ label: 'menu.statisticsData', path: '/admin/data/statistics' }] },
+        { label: 'menu.certificationManage', children: [{ label: 'menu.certificationList', path: '/admin/verify/list' }] },
       ],
     },
   ],

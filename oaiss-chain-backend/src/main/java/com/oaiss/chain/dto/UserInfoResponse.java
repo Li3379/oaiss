@@ -22,6 +22,8 @@ public class UserInfoResponse {
     private String phone;
     private String email;
     private String avatar;
+    private String company;
+    private String address;
     private Integer userType;
     private String userTypeDesc;
     private Integer status;

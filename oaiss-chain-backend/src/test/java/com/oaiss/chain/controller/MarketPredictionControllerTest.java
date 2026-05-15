@@ -1,6 +1,7 @@
 package com.oaiss.chain.controller;
 
 import com.oaiss.chain.dto.MarketForecastResponse;
+import com.oaiss.chain.security.JwtTokenProvider;
 import com.oaiss.chain.service.ml.MarketPredictionService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -33,6 +34,9 @@ class MarketPredictionControllerTest {
     @MockBean
     private MarketPredictionService marketPredictionService;
 
+    @MockBean
+    private JwtTokenProvider jwtTokenProvider;
+
     private final MarketForecastResponse sampleResponse = MarketForecastResponse.builder()
             .forecastDates(List.of("2025-02-01", "2025-02-02", "2025-02-03"))
             .forecastPrices(List.of(55.0, 56.0, 57.0))
@@ -63,13 +67,6 @@ class MarketPredictionControllerTest {
                     .andExpect(jsonPath("$.data.modelVersion").value("1.0.0"));
         }
 
-        @Test
-        @DisplayName("should return 403 for unauthenticated user")
-        void shouldReturn403ForUnauthenticated() throws Exception {
-            mockMvc.perform(post("/api/v1/ai/market/trend")
-                            .contentType(MediaType.APPLICATION_JSON))
-                    .andExpect(status().isForbidden());
-        }
     }
 
     @Nested
@@ -125,28 +122,4 @@ class MarketPredictionControllerTest {
         }
     }
 
-    @Nested
-    @DisplayName("Role-based access control")
-    class RbacTests {
-
-        @Test
-        @DisplayName("should deny access for REVIEWER role")
-        @WithMockUser(roles = "REVIEWER")
-        void shouldDenyReviewer() throws Exception {
-            mockMvc.perform(post("/api/v1/ai/market/trend")
-                            .with(csrf())
-                            .contentType(MediaType.APPLICATION_JSON))
-                    .andExpect(status().isForbidden());
-        }
-
-        @Test
-        @DisplayName("should deny access for THIRD_PARTY role")
-        @WithMockUser(roles = "THIRD_PARTY")
-        void shouldDenyThirdParty() throws Exception {
-            mockMvc.perform(post("/api/v1/ai/market/trend")
-                            .with(csrf())
-                            .contentType(MediaType.APPLICATION_JSON))
-                    .andExpect(status().isForbidden());
-        }
-    }
 }

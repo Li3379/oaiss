@@ -92,9 +92,11 @@ const handleStatusToggle = async (row) => {
     ElMessage.success(newStatus === 1 ? t('systemUsers.enableSuccess') : t('systemUsers.disableSuccess'))
     fetchData()
   } catch (error) {
-    if (error !== 'cancel') {
-      ElMessage.error(newStatus === 1 ? t('systemUsers.enableFailed') : t('systemUsers.disableFailed'))
+    // 错误消息已由 axios 拦截器统一处理，此处仅处理取消确认的情况
+    if (error === 'cancel') {
+      // 用户取消确认，不显示错误消息
     }
+    // 其他错误由 request.ts 拦截器处理，不再重复显示
   }
 }
 

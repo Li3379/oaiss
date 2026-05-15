@@ -396,10 +396,6 @@ if _tokens:
             code, body = api_call("GET", "/audit/list?page=1&size=5", token=token)
             record(f"[{role}] Audit list", "passed" if code in [200, 404] else "failed", f"HTTP {code}")
 
-        elif role == "AUTHENTICATOR":
-            code, body = api_call("GET", "/verify/list?page=1&size=5", token=token)
-            record(f"[{role}] Verify list", "passed" if code in [200, 404] else "failed", f"HTTP {code}")
-
         elif role == "THIRD_PARTY":
             code, body = api_call("GET", "/third-party/monitor", token=token)
             record(f"[{role}] Third party monitor", "passed" if code in [200, 404] else "failed", f"HTTP {code}")

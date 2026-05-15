@@ -46,7 +46,7 @@ public class RegisterRequest {
     private String realName;
 
     /**
-     * 用户类型（1-企业, 2-审核员, 3-认证机构, 5-第三方监管）
+     * 用户类型（1-企业, 2-审核员, 3-第三方监管）
      */
     @NotNull(message = "用户类型不能为空")
     private Integer userType;
@@ -67,12 +67,12 @@ public class RegisterRequest {
     private String qualificationNo;
 
     /**
-     * 机构编码（认证机构/第三方机构必填）
+     * 机构编码（第三方机构必填）
      */
     private String orgCode;
 
     /**
-     * 机构名称（认证机构/第三方机构必填）
+     * 机构名称（第三方机构必填）
      */
     private String orgName;
 }

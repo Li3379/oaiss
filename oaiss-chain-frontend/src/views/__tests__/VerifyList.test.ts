@@ -27,7 +27,7 @@ vi.mock('../../components/PageContainer.vue', () => ({
   },
 }))
 
-import VerifyList from '../authenticator/VerifyList.vue'
+import VerifyList from '../admin/VerifyList.vue'
 import { getReportList, reviewReport } from '../../api/carbon'
 import { getStatus } from '../../api/blockchain'
 import { ElMessage } from 'element-plus'

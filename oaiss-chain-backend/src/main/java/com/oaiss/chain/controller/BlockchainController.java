@@ -1,7 +1,7 @@
 package com.oaiss.chain.controller;
 
 import com.oaiss.chain.dto.ApiResponse;
-import com.oaiss.chain.service.BlockchainService;
+import com.oaiss.chain.service.BlockchainServicePort;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -26,7 +26,7 @@ import java.util.Map;
 @Tag(name = "09. 区块链管理", description = "区块链状态查询、区块信息查询、链上交易记录查询")
 public class BlockchainController {
 
-    private final BlockchainService blockchainService;
+    private final BlockchainServicePort blockchainService;
 
     @GetMapping("/status")
     @Operation(summary = "检查区块链连接状态", description = "检查与Hyperledger Fabric区块链网络的连接状态，返回网络名称、通道数量、节点状态等信息")
@@ -37,7 +37,7 @@ public class BlockchainController {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "区块链连接异常")
     })
     @SecurityRequirement(name = "Bearer Authentication")
-    @PreAuthorize("hasAnyRole('ADMIN', 'AUTHENTICATOR')")
+    @PreAuthorize("hasRole('ADMIN')")
     public ApiResponse<Map<String, Object>> checkStatus() {
         return ApiResponse.success(blockchainService.checkConnection());
     }
@@ -53,7 +53,7 @@ public class BlockchainController {
     })
     @SecurityRequirement(name = "Bearer Authentication")
     @Parameter(name = "blockNumber", description = "区块高度/区块号", required = true, example = "1000")
-    @PreAuthorize("hasAnyRole('ADMIN', 'AUTHENTICATOR', 'THIRD_PARTY')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'THIRD_PARTY')")
     public ApiResponse<String> queryBlock(@PathVariable Long blockNumber) {
         return ApiResponse.success(blockchainService.queryBlock(blockNumber));
     }

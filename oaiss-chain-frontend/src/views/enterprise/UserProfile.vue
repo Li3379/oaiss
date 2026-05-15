@@ -106,6 +106,7 @@ const onChangePassword = async () => {
     await changePassword({
       oldPassword: pwdForm.value.oldPassword,
       newPassword: pwdForm.value.newPassword,
+      confirmPassword: pwdForm.value.confirmPassword,
     })
     ElMessage.success(t('userProfile.passwordChangeSuccess'))
     pwdForm.value = { oldPassword: '', newPassword: '', confirmPassword: '' }
@@ -139,7 +140,7 @@ onMounted(() => {
                   <el-input :model-value="profile?.username" disabled />
                 </el-form-item>
                 <el-form-item :label="t('userProfile.role')">
-                  <el-input :model-value="profile?.roleName || profile?.role" disabled />
+                  <el-input :model-value="profile?.userTypeDesc" disabled />
                 </el-form-item>
                 <el-form-item :label="t('userProfile.realName')" prop="realName">
                   <el-input v-model="editForm.realName" :placeholder="t('userProfile.enterRealName')" />

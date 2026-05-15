@@ -15,7 +15,7 @@ import {
   User,
   CircleCheck,
 } from '@element-plus/icons-vue'
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
@@ -24,6 +24,8 @@ import { HERO_BG, INTRO_BG, GALLERY_IMAGES } from '../config/images'
 const { t } = useI18n()
 
 const router = useRouter()
+
+const mobileMenuOpen = ref(false)
 
 const navItems = computed(() => [
   { key: 'hero', label: 'OAISS' },
@@ -106,6 +108,7 @@ const onNavClick = (key) => {
   if (el) {
     el.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
+  mobileMenuOpen.value = false
 }
 
 const jumpToRoute = (path) => {
@@ -132,6 +135,24 @@ const onSocialClick = () => {
           {{ item.label }}
         </button>
       </nav>
+      <button class="hamburger-btn" type="button" @click="mobileMenuOpen = !mobileMenuOpen">
+        <span class="hamburger-line" />
+        <span class="hamburger-line" />
+        <span class="hamburger-line" />
+      </button>
+      <div v-if="mobileMenuOpen" class="mobile-menu-overlay" @click="mobileMenuOpen = false">
+        <div class="mobile-menu-panel" @click.stop>
+          <button
+            v-for="item in navItems"
+            :key="item.key"
+            class="mobile-menu-item"
+            type="button"
+            @click="onNavClick(item.key)"
+          >
+            {{ item.label }}
+          </button>
+        </div>
+      </div>
       <div class="social-links">
         <button type="button" class="social-btn" @click="onSocialClick"><el-icon><Message /></el-icon></button>
         <button type="button" class="social-btn" @click="onSocialClick"><el-icon><Share /></el-icon></button>
@@ -152,7 +173,7 @@ const onSocialClick = () => {
     <section id="build" class="section-wrap">
       <div class="section-title-wrap">
         <h2 class="section-title">{{ t('officialHome.sectionCoreFeatures') }}</h2>
-        <p class="section-subtitle">{{ t('officialHome.heroSubtitle') }}</p>
+        <p class="section-subtitle">{{ t('officialHome.sectionCoreFeaturesSub') }}</p>
       </div>
       <div class="feature-grid">
         <article v-for="item in featureCards" :key="item.title" class="feature-card">
@@ -168,7 +189,7 @@ const onSocialClick = () => {
       <div class="intro-left">
         <h2 class="section-title">{{ t('officialHome.sectionSystemIntro') }}</h2>
         <p class="intro-text">
-          {{ t('officialHome.heroSubtitle') }}
+          {{ t('officialHome.sectionSystemIntroSub') }}
         </p>
         <div class="metrics-grid">
           <div v-for="item in metricItems" :key="item.label" class="metric-card">
@@ -183,7 +204,7 @@ const onSocialClick = () => {
     <section id="platform" class="section-wrap">
       <div class="section-title-wrap">
         <h2 class="section-title">{{ t('officialHome.sectionUserRoles') }}</h2>
-        <p class="section-subtitle">{{ t('officialHome.heroSubtitle') }}</p>
+        <p class="section-subtitle">{{ t('officialHome.sectionUserRolesSub') }}</p>
       </div>
       <div class="roles-grid">
         <article v-for="role in roleCards" :key="role.title" class="role-card">
@@ -198,7 +219,7 @@ const onSocialClick = () => {
     <section id="country" class="section-wrap">
       <div class="section-title-wrap">
         <h2 class="section-title">{{ t('officialHome.sectionEcosystem') }}</h2>
-        <p class="section-subtitle">{{ t('officialHome.heroSubtitle') }}</p>
+        <p class="section-subtitle">{{ t('officialHome.sectionEcosystemSub') }}</p>
       </div>
       <div class="gallery-grid">
         <img v-for="url in galleryImages" :key="url" :src="url" :alt="t('officialHome.altEcosystem')" />
@@ -215,21 +236,21 @@ const onSocialClick = () => {
       <div class="footer-columns">
         <div>
           <h4>{{ t('officialHome.footerMoreLinks') }}</h4>
-          <a href="javascript:void(0)">{{ t('officialHome.footerWhitepaper') }}</a>
-          <a href="javascript:void(0)">{{ t('officialHome.footerDevDocs') }}</a>
-          <a href="javascript:void(0)">{{ t('officialHome.footerGovernance') }}</a>
+          <router-link to="/official-home#build">{{ t('officialHome.footerWhitepaper') }}</router-link>
+          <router-link to="/official-home#research">{{ t('officialHome.footerDevDocs') }}</router-link>
+          <router-link to="/official-home#platform">{{ t('officialHome.footerGovernance') }}</router-link>
         </div>
         <div>
           <h4>{{ t('officialHome.footerInfoLinks') }}</h4>
-          <a href="javascript:void(0)">{{ t('officialHome.footerNews') }}</a>
-          <a href="javascript:void(0)">{{ t('officialHome.footerAnnouncement') }}</a>
-          <a href="javascript:void(0)">{{ t('officialHome.footerPrivacy') }}</a>
+          <router-link to="/official-home#hero">{{ t('officialHome.footerNews') }}</router-link>
+          <router-link to="/official-home#build">{{ t('officialHome.footerAnnouncement') }}</router-link>
+          <router-link to="/official-home#about">{{ t('officialHome.footerPrivacy') }}</router-link>
         </div>
         <div>
           <h4>{{ t('officialHome.footerFollowUs') }}</h4>
-          <a href="javascript:void(0)">{{ t('officialHome.footerWechat') }}</a>
-          <a href="javascript:void(0)">{{ t('officialHome.footerVideo') }}</a>
-          <a href="javascript:void(0)">{{ t('officialHome.footerCommunity') }}</a>
+          <router-link to="/official-home#about">{{ t('officialHome.footerWechat') }}</router-link>
+          <router-link to="/official-home#about">{{ t('officialHome.footerVideo') }}</router-link>
+          <router-link to="/official-home#about">{{ t('officialHome.footerCommunity') }}</router-link>
         </div>
       </div>
       <div class="copyright">© 2026 OAISS. All rights reserved.</div>
@@ -295,6 +316,64 @@ const onSocialClick = () => {
   height: 34px;
   border-radius: 8px;
   cursor: pointer;
+}
+
+.hamburger-btn {
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  width: 34px;
+  height: 34px;
+  border: 1px solid rgba(189, 243, 230, 0.32);
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  cursor: pointer;
+  padding: 6px;
+}
+
+.hamburger-line {
+  display: block;
+  width: 100%;
+  height: 2px;
+  background: #d7f9f2;
+  border-radius: 1px;
+}
+
+.mobile-menu-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.mobile-menu-panel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 240px;
+  height: 100%;
+  background: #0d2f33;
+  padding: 68px 0 20px;
+  display: flex;
+  flex-direction: column;
+}
+
+.mobile-menu-item {
+  display: block;
+  width: 100%;
+  padding: 14px 24px;
+  border: none;
+  background: transparent;
+  color: #def8f1;
+  font-size: 15px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.mobile-menu-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #83f2d5;
 }
 
 .hero {
@@ -524,6 +603,10 @@ const onSocialClick = () => {
 @media (max-width: 1024px) {
   .nav-menu {
     display: none;
+  }
+
+  .hamburger-btn {
+    display: flex;
   }
 
   .feature-grid,

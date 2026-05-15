@@ -184,7 +184,10 @@ public class AuthService {
      * 刷新Token
      */
     public LoginResponse refreshToken(String refreshToken) {
-        if (!jwtTokenProvider.validateToken(refreshToken) 
+        if (refreshToken == null || refreshToken.isEmpty()) {
+            throw AuthenticationException.tokenInvalid();
+        }
+        if (!jwtTokenProvider.validateToken(refreshToken)
                 || !jwtTokenProvider.isRefreshToken(refreshToken)) {
             throw AuthenticationException.tokenInvalid();
         }
@@ -310,8 +313,7 @@ public class AuthService {
      */
     private static final Set<Integer> ALLOWED_REGISTRATION_TYPES = Set.of(
             UserTypeEnum.ENTERPRISE.getCode(),      // 1 - 企业用户
-            UserTypeEnum.THIRD_PARTY.getCode(),     // 3 - 第三方监管
-            UserTypeEnum.AUTHENTICATOR.getCode()    // 5 - 认证机构
+            UserTypeEnum.THIRD_PARTY.getCode()      // 3 - 第三方监管
     );
 
     /**
@@ -378,8 +380,17 @@ public class AuthService {
     }
 
     private void validateCaptcha(String captchaKey, String captcha) {
-        if (!captchaService.verifyCaptcha(captchaKey, captcha)) {
-            throw AuthenticationException.captchaExpired();
+        CaptchaVerifyResult result = captchaService.verifyCaptchaDetailed(captchaKey, captcha);
+        switch (result) {
+            case SUCCESS:
+                return;
+            case NOT_FOUND:
+            case EXPIRED:
+                throw AuthenticationException.captchaExpired();
+            case WRONG_CODE:
+                throw AuthenticationException.captchaError();
+            default:
+                throw AuthenticationException.captchaExpired();
         }
     }
 

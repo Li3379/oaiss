@@ -100,6 +100,27 @@ public class CarbonNeutralProjectController {
         return ApiResponse.success(projectService.searchProjects(projectType, status, keyword, page, size));
     }
 
+    @GetMapping("/projects")
+    @Operation(summary = "获取项目列表", description = "获取碳中和项目列表（别名端点），支持分页")
+    @ApiResponses(value = {
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "查询成功"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "参数无效")
+    })
+    @SecurityRequirement(name = "Bearer Authentication")
+    public ApiResponse<Page<CarbonNeutralProjectResponse>> listProjects(
+            @Parameter(description = "项目类型", example = "1")
+            @RequestParam(required = false) Integer projectType,
+            @Parameter(description = "项目状态", example = "3")
+            @RequestParam(required = false) Integer status,
+            @Parameter(description = "搜索关键字", example = "林业碳汇")
+            @RequestParam(required = false) String keyword,
+            @Parameter(description = "页码（从1开始）", example = "1")
+            @RequestParam(defaultValue = "1") Integer page,
+            @Parameter(description = "每页大小", example = "20")
+            @RequestParam(defaultValue = "20") Integer size) {
+        return ApiResponse.success(projectService.searchProjects(projectType, status, keyword, page, size));
+    }
+
     @GetMapping("/my")
     @Operation(summary = "我的项目", description = "获取当前用户企业的所有碳中和项目列表")
     @ApiResponses(value = {
@@ -190,7 +211,7 @@ public class CarbonNeutralProjectController {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "项目不存在")
     })
     @SecurityRequirement(name = "Bearer Authentication")
-    @PreAuthorize("hasRole('VERIFIER') or hasRole('ADMIN')")
+    @PreAuthorize("hasRole('REVIEWER') or hasRole('ADMIN')")
     public ApiResponse<CarbonNeutralProjectResponse> verify(
             @AuthenticationPrincipal JwtUserDetails verifier,
             @Valid @RequestBody ProjectVerificationRequest request) {
@@ -254,7 +275,7 @@ public class CarbonNeutralProjectController {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "项目不存在")
     })
     @SecurityRequirement(name = "Bearer Authentication")
-    @PreAuthorize("hasRole('CERTIFIER') or hasRole('ADMIN')")
+    @PreAuthorize("hasRole('REVIEWER') or hasRole('ADMIN')")
     public ApiResponse<CarbonNeutralProjectResponse> completeCertification(
             @Parameter(description = "项目ID", required = true, example = "1") @PathVariable Long id,
             @RequestBody Map<String, String> body) {
@@ -286,7 +307,7 @@ public class CarbonNeutralProjectController {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "无权限")
     })
     @SecurityRequirement(name = "Bearer Authentication")
-    @PreAuthorize("hasRole('VERIFIER') or hasRole('ADMIN')")
+    @PreAuthorize("hasRole('REVIEWER') or hasRole('ADMIN')")
     public ApiResponse<Page<CarbonNeutralProjectResponse>> getPendingVerification(
             @AuthenticationPrincipal JwtUserDetails verifier,
             @Parameter(description = "页码（从1开始）", example = "1") @RequestParam(defaultValue = "1") Integer page,
