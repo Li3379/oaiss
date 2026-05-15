@@ -4,11 +4,13 @@ import com.oaiss.chain.constant.ErrorCode;
 import com.oaiss.chain.constant.ErrorMessage;
 import com.oaiss.chain.dto.ApiResponse;
 import com.oaiss.chain.entity.AccountPermissionList;
+import com.oaiss.chain.entity.EnterpriseAdmission;
 import com.oaiss.chain.entity.User;
 import com.oaiss.chain.exception.BusinessException;
 import com.oaiss.chain.repository.AccountPermissionListRepository;
 import com.oaiss.chain.repository.UserRepository;
 import com.oaiss.chain.security.JwtUserDetails;
+import com.oaiss.chain.service.EnterpriseAdmissionService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -39,6 +41,7 @@ public class AdminController {
 
     private final UserRepository userRepository;
     private final AccountPermissionListRepository permissionRepository;
+    private final EnterpriseAdmissionService enterpriseAdmissionService;
 
     @GetMapping("/users")
     @Operation(
@@ -203,5 +206,86 @@ public class AdminController {
     public ApiResponse<java.util.List<AccountPermissionList>> getPermissions() {
         java.util.List<AccountPermissionList> permissions = permissionRepository.findByDeletedFalseOrderBySortOrderAsc();
         return ApiResponse.success(permissions);
+    }
+
+    // ==================== 企业准入证书管理 ====================
+
+    @PostMapping("/enterprise-admission/{enterpriseId}/issue")
+    @Operation(
+        summary = "签发企业准入证书",
+        description = "为指定企业签发准入证书。同一企业已有有效证书时拒绝重复签发。",
+        security = @SecurityRequirement(name = "Bearer Authentication")
+    )
+    @ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "签发成功"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "无权限"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "企业不存在"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "已有有效证书")
+    })
+    public ApiResponse<EnterpriseAdmission> issueAdmission(
+            @Parameter(description = "企业ID", required = true, example = "1")
+            @PathVariable Long enterpriseId) {
+        EnterpriseAdmission admission = enterpriseAdmissionService.issueCertificate(enterpriseId);
+        return ApiResponse.success(admission);
+    }
+
+    @DeleteMapping("/enterprise-admission/{enterpriseId}")
+    @Operation(
+        summary = "吊销企业准入证书",
+        description = "吊销指定企业的有效准入证书。",
+        security = @SecurityRequirement(name = "Bearer Authentication")
+    )
+    @ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "吊销成功"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "无权限"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "无有效证书")
+    })
+    public ApiResponse<Void> revokeAdmission(
+            @Parameter(description = "企业ID", required = true, example = "1")
+            @PathVariable Long enterpriseId) {
+        enterpriseAdmissionService.revokeCertificate(enterpriseId);
+        return ApiResponse.success();
+    }
+
+    @GetMapping("/enterprise-admission")
+    @Operation(
+        summary = "查询准入证书列表",
+        description = "分页查询企业准入证书列表。支持按状态筛选。",
+        security = @SecurityRequirement(name = "Bearer Authentication")
+    )
+    @ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "查询成功"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "无权限")
+    })
+    public ApiResponse<Page<EnterpriseAdmission>> listAdmissions(
+            @Parameter(description = "状态筛选 (1-有效, 2-已吊销)", example = "1")
+            @RequestParam(required = false) Integer status,
+            @Parameter(description = "页码，从1开始", example = "1")
+            @RequestParam(defaultValue = "1") Integer page,
+            @Parameter(description = "每页数量", example = "10")
+            @RequestParam(defaultValue = "10") Integer size) {
+        Page<EnterpriseAdmission> admissions = enterpriseAdmissionService.listCertificates(status, page, size);
+        return ApiResponse.success(admissions);
+    }
+
+    @GetMapping("/enterprise-admission/my")
+    @PreAuthorize("hasRole('ENTERPRISE')")
+    @Operation(
+        summary = "查看自身准入证书",
+        description = "企业用户查看自身的准入证书列表。",
+        security = @SecurityRequirement(name = "Bearer Authentication")
+    )
+    @ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "查询成功"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "无权限，仅企业用户可访问")
+    })
+    public ApiResponse<java.util.List<EnterpriseAdmission>> getMyAdmission(
+            @AuthenticationPrincipal JwtUserDetails currentUser) {
+        Long enterpriseId = currentUser.getEnterpriseId();
+        if (enterpriseId == null) {
+            throw BusinessException.of(ErrorCode.PARAM_ERROR, "error.user.notEnterprise");
+        }
+        java.util.List<EnterpriseAdmission> admissions = enterpriseAdmissionService.getMyCertificate(enterpriseId);
+        return ApiResponse.success(admissions);
     }
 }
