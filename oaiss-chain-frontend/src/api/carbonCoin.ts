@@ -12,3 +12,9 @@ export function getTransactions(params?: PageRequest): Promise<CarbonCoinTransac
 export function transferCoins(data: CarbonCoinTransferRequest): Promise<CarbonCoinAccountResponse> {
   return request.post('/carbon-coin/transfer', data)
 }
+
+export function recharge(data: { enterpriseId: number; amount: number }): Promise<unknown> {
+  if (!data?.enterpriseId) return Promise.reject(new Error('企业ID不能为空'))
+  if (!data?.amount || data.amount <= 0) return Promise.reject(new Error('充值金额必须大于0'))
+  return request.post('/carbon-coin/recharge', data)
+}
