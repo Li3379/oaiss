@@ -2,7 +2,8 @@
 import { reactive, ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useI18n } from 'vue-i18n'
-import { getMyReports, createReport, deleteReport, submitReport } from '../../api/carbon'
+import { getMyReports, createReport, deleteReport, submitReport, getReport } from '../../api/carbon'
+import { formatDateTime } from '../../utils/format'
 
 const { t } = useI18n()
 
@@ -15,6 +16,9 @@ const total = ref(0)
 
 const dialogVisible = ref(false)
 const formRef = ref()
+const detailDialogVisible = ref(false)
+const detailData = ref<Record<string, unknown> | null>(null)
+const detailLoading = ref(false)
 const formModel = reactive({
   accountingPeriod: '',
   title: '',
@@ -115,6 +119,20 @@ const onDeleteReport = async (row) => {
   }
 }
 
+const viewDetail = async (row) => {
+  detailLoading.value = true
+  detailDialogVisible.value = true
+  try {
+    const data = await getReport(row.id)
+    detailData.value = data
+  } catch {
+    ElMessage.error(t('carbonUpload.loadDetailFailed'))
+    detailDialogVisible.value = false
+  } finally {
+    detailLoading.value = false
+  }
+}
+
 onMounted(() => fetchData())
 </script>
 
@@ -154,9 +172,12 @@ onMounted(() => fetchData())
           </template>
         </el-table-column>
         <el-table-column prop="reviewerName" :label="t('carbonUpload.colReviewer')" min-width="120" />
-        <el-table-column prop="createdAt" :label="t('common.createTime')" min-width="180" />
+        <el-table-column prop="createdAt" :label="t('common.createTime')" min-width="180">
+          <template #default="{ row }">{{ formatDateTime(row.createdAt) }}</template>
+        </el-table-column>
         <el-table-column :label="t('common.operation')" width="200" fixed="right">
           <template #default="{ row }">
+            <el-button link type="primary" @click="viewDetail(row)">{{ t('carbonUpload.viewDetail') }}</el-button>
             <el-button v-if="row.status === 0" link type="primary" @click="onSubmitReport(row)">{{ t('common.submit') }}</el-button>
             <el-button v-if="row.status === 0" link type="danger" @click="onDeleteReport(row)">{{ t('common.delete') }}</el-button>
           </template>
@@ -203,6 +224,30 @@ onMounted(() => fetchData())
       <template #footer>
         <el-button @click="dialogVisible = false">{{ t('common.cancel') }}</el-button>
         <el-button type="primary" @click="onSubmitForm">{{ t('common.create') }}</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="detailDialogVisible" :title="t('carbonUpload.detailTitle')" width="700px" destroy-on-close>
+      <div v-loading="detailLoading">
+        <el-descriptions v-if="detailData" :column="2" border>
+          <el-descriptions-item :label="t('carbonUpload.colReportNo')">{{ detailData.reportNo }}</el-descriptions-item>
+          <el-descriptions-item :label="t('carbonUpload.colReportTitle')">{{ detailData.title }}</el-descriptions-item>
+          <el-descriptions-item :label="t('carbonUpload.colAccountingPeriod')">{{ detailData.accountingPeriod }}</el-descriptions-item>
+          <el-descriptions-item :label="t('carbonUpload.colReportType')">{{ detailData.reportType }}</el-descriptions-item>
+          <el-descriptions-item :label="t('carbonUpload.colTotalEmission')">{{ detailData.totalEmission }} tCO2e</el-descriptions-item>
+          <el-descriptions-item :label="t('common.status')">{{ detailData.statusText }}</el-descriptions-item>
+          <el-descriptions-item :label="t('carbonUpload.detailEmissionData')" :span="2">
+            <pre style="white-space: pre-wrap;">{{ detailData.emissionData }}</pre>
+          </el-descriptions-item>
+          <el-descriptions-item :label="t('carbonUpload.detailMethod')" :span="2">{{ detailData.calculationMethod || '-' }}</el-descriptions-item>
+          <el-descriptions-item :label="t('carbonUpload.colReviewer')">{{ detailData.reviewerName || '-' }}</el-descriptions-item>
+          <el-descriptions-item :label="t('carbonUpload.detailReviewComment')">{{ detailData.reviewComment || '-' }}</el-descriptions-item>
+          <el-descriptions-item :label="t('common.createTime')">{{ formatDateTime(detailData.createdAt) }}</el-descriptions-item>
+          <el-descriptions-item :label="t('carbonUpload.detailUpdateTime')">{{ formatDateTime(detailData.updatedAt) }}</el-descriptions-item>
+        </el-descriptions>
+      </div>
+      <template #footer>
+        <el-button @click="detailDialogVisible = false">{{ t('common.close') }}</el-button>
       </template>
     </el-dialog>
   </section>
