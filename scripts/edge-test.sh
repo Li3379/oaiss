@@ -92,7 +92,7 @@ RESP=$(curl -s -X GET "$BASE_URL/admin/users?pageNum=1&pageSize=10" \
     -H "Authorization: Bearer $TOKEN_REV")
 assert_contains "Reviewer cannot list users (code 2004)" "$RESP" '"code":2004'
 
-# 10. Unauthenticated -> admin users list
+# 9. Unauthenticated -> admin users list
 RESP=$(curl -s -X GET "$BASE_URL/admin/users?pageNum=1&pageSize=10")
 assert_contains "Unauthenticated gets code 2000" "$RESP" '"code":2000'
 
