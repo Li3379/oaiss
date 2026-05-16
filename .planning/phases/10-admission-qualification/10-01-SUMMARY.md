@@ -92,6 +92,13 @@ EnterpriseAdmission entity, repository, service, and AdminController endpoints f
 - **Files modified:** AdminControllerAdmissionTest.java
 - **Commit:** `9e3e0e0`
 
+**4. [Rule 1 - Bug] Fixed missing MockBean dependencies in AdminControllerAdmissionTest**
+- **Found during:** Verification re-run after plan 10-02 added ReviewerQualification endpoints to AdminController
+- **Issue:** AdminController gained ReviewerQualificationService and ReviewerRepository constructor dependencies from plan 10-02, but AdminControllerAdmissionTest did not have @MockBean declarations for them, causing ApplicationContext load failure (UnsatisfiedDependencyException)
+- **Fix:** Added @MockBean ReviewerQualificationService and @MockBean ReviewerRepository to AdminControllerAdmissionTest
+- **Files modified:** AdminControllerAdmissionTest.java
+- **Commit:** `446d9b1`
+
 ## Threat Flags
 
 | Flag | File | Description |
