@@ -193,8 +193,7 @@ fi
 
 # Step 2: Recompile
 echo "  Recompiling..."
-(cd "$WORK_DIR/oaiss-chain-backend" && mvn compile -q)
-if [ $? -eq 0 ]; then
+if (cd "$WORK_DIR/oaiss-chain-backend" && mvn compile -q); then
     echo "  Compile successful"
 else
     echo "  ERROR: Compilation failed"
@@ -290,8 +289,7 @@ fi
 
 # Step 2: Recompile
 echo "  Recompiling..."
-(cd "$WORK_DIR/oaiss-chain-backend" && mvn compile -q)
-if [ $? -eq 0 ]; then
+if (cd "$WORK_DIR/oaiss-chain-backend" && mvn compile -q); then
     echo "  Compile successful"
 else
     echo "  ERROR: Compilation failed"
@@ -400,8 +398,7 @@ fi
 
 # Step 3: Recompile
 echo "  Recompiling..."
-(cd "$WORK_DIR/oaiss-chain-backend" && mvn compile -q)
-if [ $? -eq 0 ]; then
+if (cd "$WORK_DIR/oaiss-chain-backend" && mvn compile -q); then
     echo "  Compile successful"
 else
     echo "  ERROR: Compilation failed"
