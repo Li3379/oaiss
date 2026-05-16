@@ -2,7 +2,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getProjects, createProject } from '../../api/carbonNeutral'
+import { getMyProjects, createProject, submitProject, startProject, applyCertification, terminateProject } from '../../api/carbonNeutral'
 import PageContainer from '../../components/PageContainer.vue'
 
 const { t } = useI18n()
@@ -47,7 +47,7 @@ const createFormRules = {
 const loadProjects = async () => {
   try {
     loading.value = true
-    const result = await getProjects({
+    const result = await getMyProjects({
       pageNum: currentPage.value,
       pageSize: pageSize.value,
     })
@@ -139,6 +139,50 @@ const handleCreate = async () => {
   }
 }
 
+const onSubmitProject = async (row) => {
+  try {
+    await ElMessageBox.confirm(t('carbonNeutral.confirmSubmitProject'), t('common.confirm'), { type: 'warning' })
+    await submitProject(row.id)
+    ElMessage.success(t('carbonNeutral.submitSuccess'))
+    loadProjects()
+  } catch (e) {
+    if (e !== 'cancel') ElMessage.error(t('carbonNeutral.submitFailed'))
+  }
+}
+
+const onStartProject = async (row) => {
+  try {
+    await ElMessageBox.confirm(t('carbonNeutral.confirmStartProject'), t('common.confirm'), { type: 'warning' })
+    await startProject(row.id)
+    ElMessage.success(t('carbonNeutral.startSuccess'))
+    loadProjects()
+  } catch (e) {
+    if (e !== 'cancel') ElMessage.error(t('carbonNeutral.startFailed'))
+  }
+}
+
+const onApplyCertification = async (row) => {
+  try {
+    await ElMessageBox.confirm(t('carbonNeutral.confirmCertification'), t('common.confirm'), { type: 'warning' })
+    await applyCertification(row.id)
+    ElMessage.success(t('carbonNeutral.certificationApplied'))
+    loadProjects()
+  } catch (e) {
+    if (e !== 'cancel') ElMessage.error(t('carbonNeutral.certificationFailed'))
+  }
+}
+
+const onTerminateProject = async (row) => {
+  try {
+    await ElMessageBox.confirm(t('carbonNeutral.confirmTerminate'), t('common.confirm'), { type: 'warning' })
+    await terminateProject(row.id, { reason: t('carbonNeutral.terminateReason') })
+    ElMessage.success(t('carbonNeutral.terminateSuccess'))
+    loadProjects()
+  } catch (e) {
+    if (e !== 'cancel') ElMessage.error(t('carbonNeutral.terminateFailed'))
+  }
+}
+
 onMounted(() => {
   loadProjects()
 })
@@ -176,6 +220,17 @@ onMounted(() => {
           <el-table-column prop="startDate" :label="t('carbonNeutral.colStartDate')" min-width="120" />
           <el-table-column prop="endDate" :label="t('carbonNeutral.colEndDate')" min-width="120" />
           <el-table-column prop="createdAt" :label="t('carbonNeutral.colCreateTime')" min-width="170" />
+          <el-table-column :label="t('common.operation')" width="280" fixed="right">
+            <template #default="{ row }">
+              <el-button v-if="row.status === 'DRAFT'" link type="primary" @click="onSubmitProject(row)">{{ t('carbonNeutral.submit') }}</el-button>
+              <el-button v-if="row.status === 'APPROVED'" link type="primary" @click="onStartProject(row)">{{ t('carbonNeutral.start') }}</el-button>
+              <el-button v-if="row.status === 'IN_PROGRESS'" link type="success" @click="onApplyCertification(row)">{{ t('carbonNeutral.applyCert') }}</el-button>
+              <el-button v-if="['DRAFT', 'APPROVED', 'IN_PROGRESS'].includes(row.status)" link type="danger" @click="onTerminateProject(row)">{{ t('carbonNeutral.terminate') }}</el-button>
+              <router-link :to="`/enterprise/carbon-neutral/projects/${row.id}`">
+                <el-button link type="primary">{{ t('carbonNeutral.viewDetail') }}</el-button>
+              </router-link>
+            </template>
+          </el-table-column>
         </el-table>
 
         <div class="pagination-row">

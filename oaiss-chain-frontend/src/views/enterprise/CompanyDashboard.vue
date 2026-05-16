@@ -6,6 +6,7 @@ import echarts from '../../utils/echarts'
 import { getMyReports } from '../../api/carbon'
 import { getMyTrades } from '../../api/trade'
 import { getMyScore } from '../../api/credit'
+import { getMyEnterpriseAdmission } from '../../api/admin'
 
 const { t } = useI18n()
 
@@ -28,6 +29,7 @@ const assetPool = ref([])
 const userProfile = ref(null)
 const tradeData = ref([])
 const carbonReports = ref([])
+const admissionStatus = ref<Record<string, unknown> | null>(null)
 
 const chartTradeBarRef = ref(null)
 const chartTrendLineRef = ref(null)
@@ -285,6 +287,16 @@ const fetchCarbonReports = async () => {
   }
 }
 
+const fetchAdmissionStatus = async () => {
+  try {
+    const res = await getMyEnterpriseAdmission()
+    const list = Array.isArray(res) ? res : ((res as Record<string, unknown>)?.items as unknown[] || [])
+    admissionStatus.value = list.length > 0 ? list[0] as Record<string, unknown> : null
+  } catch {
+    admissionStatus.value = null
+  }
+}
+
 const loadDashboardData = async () => {
   loading.value = true
   try {
@@ -292,6 +304,7 @@ const loadDashboardData = async () => {
       fetchUserProfile(),
       fetchTradeData(),
       fetchCarbonReports(),
+      fetchAdmissionStatus(),
     ])
     await renderCharts()
   } finally {
@@ -379,6 +392,18 @@ onBeforeUnmount(() => {
         <div class="metric-value">{{ item.value }}</div>
       </el-card>
     </div>
+
+    <el-card v-if="admissionStatus !== null" class="section-card" shadow="never">
+      <el-space>
+        <span>{{ t('companyDashboard.admissionStatus') }}:</span>
+        <el-tag :type="admissionStatus.status === 1 ? 'success' : 'danger'">
+          {{ admissionStatus.status === 1 ? t('certificateManage.active') : t('certificateManage.revoked') }}
+        </el-tag>
+        <span v-if="admissionStatus.certificateNo" style="color: #999; font-size: 13px;">
+          {{ admissionStatus.certificateNo }}
+        </span>
+      </el-space>
+    </el-card>
 
     <div v-if="!loading" class="chart-grid">
       <el-card class="chart-card" shadow="never"><div ref="chartTradeBarRef" class="chart-box" /></el-card>
