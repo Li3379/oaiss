@@ -345,7 +345,7 @@ RESP=$(curl -s "$BASE_URL/auction/orders?page=1&size=1" \
 assert_contains "Auction orders pagination works" "$RESP" '"code":200'
 
 # Test admin users pagination
-RESP=$(curl -s "$BASE_URL/admin/users?pageNum=1&pageSize=1" \
+RESP=$(curl -s "$BASE_URL/admin/users?page=1&size=1" \
     -H "Authorization: Bearer $TOKEN_ADMIN")
 assert_contains "Admin users pagination works" "$RESP" '"code":200'
 
