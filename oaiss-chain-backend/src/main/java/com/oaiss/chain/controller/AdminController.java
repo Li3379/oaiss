@@ -5,12 +5,10 @@ import com.oaiss.chain.constant.ErrorMessage;
 import com.oaiss.chain.dto.ApiResponse;
 import com.oaiss.chain.entity.AccountPermissionList;
 import com.oaiss.chain.entity.EnterpriseAdmission;
-import com.oaiss.chain.entity.Reviewer;
 import com.oaiss.chain.entity.ReviewerQualification;
 import com.oaiss.chain.entity.User;
 import com.oaiss.chain.exception.BusinessException;
 import com.oaiss.chain.repository.AccountPermissionListRepository;
-import com.oaiss.chain.repository.ReviewerRepository;
 import com.oaiss.chain.repository.UserRepository;
 import com.oaiss.chain.security.JwtUserDetails;
 import com.oaiss.chain.service.EnterpriseAdmissionService;
@@ -39,7 +37,7 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/admin")
 @RequiredArgsConstructor
-@Tag(name = "08. 管理后台", description = "管理员后台管理接口，包括用户管理、系统监控、数据统计等")
+@Tag(name = "16. 管理后台", description = "管理员后台管理接口，包括用户管理、系统监控、数据统计等")
 @PreAuthorize("hasRole('ADMIN')")
 public class AdminController {
 
@@ -47,7 +45,6 @@ public class AdminController {
     private final AccountPermissionListRepository permissionRepository;
     private final EnterpriseAdmissionService enterpriseAdmissionService;
     private final ReviewerQualificationService reviewerQualificationService;
-    private final ReviewerRepository reviewerRepository;
 
     @GetMapping("/users")
     @Operation(
@@ -274,27 +271,6 @@ public class AdminController {
         return ApiResponse.success(admissions);
     }
 
-    @GetMapping("/enterprise-admission/my")
-    @PreAuthorize("hasRole('ENTERPRISE')")
-    @Operation(
-        summary = "查看自身准入证书",
-        description = "企业用户查看自身的准入证书列表。",
-        security = @SecurityRequirement(name = "Bearer Authentication")
-    )
-    @ApiResponses(value = {
-        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "查询成功"),
-        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "无权限，仅企业用户可访问")
-    })
-    public ApiResponse<java.util.List<EnterpriseAdmission>> getMyAdmission(
-            @AuthenticationPrincipal JwtUserDetails currentUser) {
-        Long enterpriseId = currentUser.getEnterpriseId();
-        if (enterpriseId == null) {
-            throw BusinessException.of(ErrorCode.PARAM_ERROR, "error.user.notEnterprise");
-        }
-        java.util.List<EnterpriseAdmission> admissions = enterpriseAdmissionService.getMyCertificate(enterpriseId);
-        return ApiResponse.success(admissions);
-    }
-
     // ==================== 审核员资格证管理 ====================
 
     @PostMapping("/reviewer-qualification/{reviewerId}/issue")
@@ -351,25 +327,6 @@ public class AdminController {
             @Parameter(description = "每页数量", example = "10")
             @RequestParam(defaultValue = "10") Integer size) {
         Page<ReviewerQualification> qualifications = reviewerQualificationService.listCertificates(status, page, size);
-        return ApiResponse.success(qualifications);
-    }
-
-    @GetMapping("/reviewer-qualification/my")
-    @PreAuthorize("hasRole('REVIEWER')")
-    @Operation(
-        summary = "查看自身资格证",
-        description = "审核员用户查看自身的资格证列表。",
-        security = @SecurityRequirement(name = "Bearer Authentication")
-    )
-    @ApiResponses(value = {
-        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "查询成功"),
-        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "无权限，仅审核员可访问")
-    })
-    public ApiResponse<java.util.List<ReviewerQualification>> getMyQualification(
-            @AuthenticationPrincipal JwtUserDetails currentUser) {
-        Reviewer reviewer = reviewerRepository.findByUserId(currentUser.getUserId())
-                .orElseThrow(() -> BusinessException.notFound("error.reviewer.notFound"));
-        java.util.List<ReviewerQualification> qualifications = reviewerQualificationService.getMyCertificate(reviewer.getId());
         return ApiResponse.success(qualifications);
     }
 }

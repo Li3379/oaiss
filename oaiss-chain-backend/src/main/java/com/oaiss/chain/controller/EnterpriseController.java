@@ -2,7 +2,11 @@ package com.oaiss.chain.controller;
 
 import com.oaiss.chain.dto.ApiResponse;
 import com.oaiss.chain.entity.Enterprise;
+import com.oaiss.chain.entity.EnterpriseAdmission;
+import com.oaiss.chain.exception.BusinessException;
+import com.oaiss.chain.constant.ErrorCode;
 import com.oaiss.chain.security.JwtUserDetails;
+import com.oaiss.chain.service.EnterpriseAdmissionService;
 import com.oaiss.chain.service.EnterpriseService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -14,6 +18,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -25,10 +30,29 @@ import java.util.Map;
 @RestController
 @RequestMapping("/enterprise")
 @RequiredArgsConstructor
-@Tag(name = "09. 企业用户管理", description = "企业用户专属功能，包括企业信息、配额管理等")
+@Tag(name = "17. 企业用户管理", description = "企业用户专属功能，包括企业信息、配额管理等")
 public class EnterpriseController {
 
     private final EnterpriseService enterpriseService;
+    private final EnterpriseAdmissionService enterpriseAdmissionService;
+
+    @GetMapping("/admission/my")
+    @PreAuthorize("hasRole('ENTERPRISE')")
+    @Operation(summary = "查看自身准入证书", description = "企业用户查看自身的准入证书列表。")
+    @ApiResponses(value = {
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "查询成功"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "无权限，仅企业用户可访问")
+    })
+    @SecurityRequirement(name = "Bearer Authentication")
+    public ApiResponse<List<EnterpriseAdmission>> getMyAdmission(
+            @AuthenticationPrincipal JwtUserDetails currentUser) {
+        Long enterpriseId = currentUser.getEnterpriseId();
+        if (enterpriseId == null) {
+            throw BusinessException.of(ErrorCode.PARAM_ERROR, "error.user.notEnterprise");
+        }
+        List<EnterpriseAdmission> admissions = enterpriseAdmissionService.getMyCertificate(enterpriseId);
+        return ApiResponse.success(admissions);
+    }
 
     @GetMapping("/info")
     @PreAuthorize("hasRole('ENTERPRISE')")
