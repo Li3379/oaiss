@@ -85,7 +85,7 @@ public class CarbonNeutralProjectService {
     @Transactional
     public CarbonNeutralProjectResponse createProject(JwtUserDetails currentUser,
                                                        CarbonNeutralProjectRequest request) {
-        Enterprise enterprise = enterpriseRepository.findByUserId(currentUser.getUserId())
+        Enterprise enterprise = enterpriseRepository.findByUserIdAndDeletedFalse(currentUser.getUserId())
                 .orElseThrow(() -> new BusinessException(3001, "未找到关联企业信息"));
 
         CarbonNeutralProject project = CarbonNeutralProject.builder()
@@ -289,9 +289,11 @@ public class CarbonNeutralProjectService {
      * 消耗碳信用
      */
     @Transactional
-    public CarbonNeutralProjectResponse useCredits(Long projectId, BigDecimal amount) {
+    public CarbonNeutralProjectResponse useCredits(JwtUserDetails currentUser, Long projectId, BigDecimal amount) {
         CarbonNeutralProject project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new BusinessException(3002, "项目不存在"));
+
+        validateOwner(currentUser, project);
 
         BigDecimal available = project.getIssuedCredits().subtract(project.getUsedCredits());
         if (available.compareTo(amount) < 0) {
@@ -379,6 +381,10 @@ public class CarbonNeutralProjectService {
 
         validateOwner(currentUser, project);
 
+        if (project.getStatus() != STATUS_IMPLEMENTING && project.getStatus() != STATUS_APPROVED) {
+            throw new BusinessException(3003, "只有实施中或审核通过的项目可以终止");
+        }
+
         project.setStatus(STATUS_TERMINATED);
         project.setReviewComment("项目终止: " + reason);
         project = projectRepository.save(project);
@@ -401,8 +407,12 @@ public class CarbonNeutralProjectService {
      */
     public Page<CarbonNeutralProjectResponse> searchProjects(Integer projectType, Integer status,
                                                               String keyword, Integer page, Integer size) {
+        String escapedKeyword = keyword;
+        if (keyword != null) {
+            escapedKeyword = keyword.replace("%", "\\%").replace("_", "\\_");
+        }
         PageRequest pageable = PageRequest.of(page - 1, size, Sort.by(Sort.Direction.DESC, "createdAt"));
-        Page<CarbonNeutralProject> projects = projectRepository.search(projectType, status, keyword, pageable);
+        Page<CarbonNeutralProject> projects = projectRepository.search(projectType, status, escapedKeyword, pageable);
         return projects.map(this::toResponse);
     }
 
@@ -411,7 +421,7 @@ public class CarbonNeutralProjectService {
      */
     public Page<CarbonNeutralProjectResponse> getMyProjects(JwtUserDetails currentUser,
                                                              Integer status, Integer page, Integer size) {
-        Enterprise enterprise = enterpriseRepository.findByUserId(currentUser.getUserId())
+        Enterprise enterprise = enterpriseRepository.findByUserIdAndDeletedFalse(currentUser.getUserId())
                 .orElseThrow(() -> new BusinessException(3001, "未找到关联企业信息"));
 
         PageRequest pageable = PageRequest.of(page - 1, size, Sort.by(Sort.Direction.DESC, "createdAt"));
@@ -439,7 +449,7 @@ public class CarbonNeutralProjectService {
     // ==================== 私有方法 ====================
 
     private void validateOwner(JwtUserDetails currentUser, CarbonNeutralProject project) {
-        Enterprise enterprise = enterpriseRepository.findByUserId(currentUser.getUserId())
+        Enterprise enterprise = enterpriseRepository.findByUserIdAndDeletedFalse(currentUser.getUserId())
                 .orElseThrow(() -> new BusinessException(3001, "未找到关联企业信息"));
         if (!project.getOwnerId().equals(enterprise.getId())) {
             throw new BusinessException(3005, "无权操作此项目");
@@ -465,6 +475,8 @@ public class CarbonNeutralProjectService {
 
     /**
      * Entity → Response
+     * TODO: N+1 query pattern — this method makes up to 3 DB queries per project (enterprise, reviewer, verifier).
+     *       Consider using @EntityGraph or batch-loading for production scale.
      */
     private CarbonNeutralProjectResponse toResponse(CarbonNeutralProject p) {
         String ownerName = enterpriseRepository.findById(p.getOwnerId())
