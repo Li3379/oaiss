@@ -123,6 +123,18 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '碳排放数据', roles: [ROLE.REVIEWER] },
       },
       {
+        path: 'auditor/review/history',
+        name: 'AuditorReviewHistory',
+        component: () => import('../views/auditor/ReviewHistory.vue'),
+        meta: { title: '审核历史', roles: [ROLE.REVIEWER] },
+      },
+      {
+        path: 'auditor/project/review',
+        name: 'AuditorProjectReview',
+        component: () => import('../views/auditor/ProjectReview.vue'),
+        meta: { title: '项目审核', roles: [ROLE.REVIEWER] },
+      },
+      {
         path: 'admin/verify/list',
         name: 'AdminVerifyList',
         component: () => import('../views/admin/VerifyList.vue'),

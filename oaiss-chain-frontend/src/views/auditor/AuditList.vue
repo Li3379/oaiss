@@ -4,6 +4,8 @@ import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getReportList, reviewReport } from '../../api/carbon'
 import { getMyReviewerQualification } from '../../api/admin'
+import { getPendingReports, getStatistics, getReviewerInfo } from '../../api/reviewer'
+import { formatDateTime } from '../../utils/format'
 
 const { t } = useI18n()
 
@@ -12,6 +14,9 @@ const loading = ref(false)
 const currentPage = ref(1)
 const pageSize = ref(10)
 const total = ref(0)
+const activeTab = ref('pending')
+const statisticsData = ref<Record<string, unknown> | null>(null)
+const reviewerInfoData = ref<Record<string, unknown> | null>(null)
 
 const reviewDialogVisible = ref(false)
 const reviewForm = ref({
@@ -27,7 +32,9 @@ const fetchData = async () => {
       pageNum: currentPage.value,
       pageSize: pageSize.value,
     }
-    const response = await getReportList(params)
+    const response = activeTab.value === 'pending'
+      ? await getPendingReports(params)
+      : await getReportList(params)
     tableData.value = response.items || []
     total.value = response.total || 0
   } catch (error) {
@@ -96,6 +103,27 @@ const getStatusType = (status) => {
 const qualificationStatus = ref<Record<string, unknown> | null>(null)
 const qualificationLoading = ref(false)
 
+const fetchStatistics = async () => {
+  try {
+    statisticsData.value = await getStatistics() as Record<string, unknown>
+  } catch {
+    statisticsData.value = null
+  }
+}
+
+const fetchReviewerInfo = async () => {
+  try {
+    reviewerInfoData.value = await getReviewerInfo() as Record<string, unknown>
+  } catch {
+    reviewerInfoData.value = null
+  }
+}
+
+const onTabChange = () => {
+  currentPage.value = 1
+  fetchData()
+}
+
 const fetchQualificationStatus = async () => {
   qualificationLoading.value = true
   try {
@@ -122,6 +150,8 @@ const qualificationStatusText = computed(() => {
 onMounted(() => {
   fetchData()
   fetchQualificationStatus()
+  fetchStatistics()
+  fetchReviewerInfo()
 })
 </script>
 
@@ -135,6 +165,18 @@ onMounted(() => {
           {{ qualificationStatus.certificateNo }}
         </span>
       </el-space>
+      <div v-if="reviewerInfoData" style="margin-top: 10px; color: #666; font-size: 13px;">
+        <span v-if="reviewerInfoData.name">{{ t('auditList.reviewerName') }}: {{ reviewerInfoData.name }}</span>
+      </div>
+    </el-card>
+
+    <el-card v-if="statisticsData" class="section-card" shadow="never">
+      <el-space :size="30">
+        <span>{{ t('auditList.totalReviews') }}: <strong>{{ statisticsData.totalReviews ?? 0 }}</strong></span>
+        <span>{{ t('auditList.approvedCount') }}: <strong>{{ statisticsData.approvedCount ?? 0 }}</strong></span>
+        <span>{{ t('auditList.rejectedCount') }}: <strong>{{ statisticsData.rejectedCount ?? 0 }}</strong></span>
+        <span>{{ t('auditList.approvalRate') }}: <strong>{{ statisticsData.approvalRate ?? '0%' }}</strong></span>
+      </el-space>
     </el-card>
 
     <el-card class="section-card" shadow="never">
@@ -145,6 +187,10 @@ onMounted(() => {
     </el-card>
 
     <el-card class="section-card" shadow="never">
+      <el-tabs v-model="activeTab" @tab-change="onTabChange">
+        <el-tab-pane :label="t('auditList.tabPending')" name="pending" />
+        <el-tab-pane :label="t('auditList.tabAllReports')" name="all" />
+      </el-tabs>
       <el-table :data="tableData" border v-loading="loading">
         <el-table-column prop="reportNo" :label="t('auditList.colReportNo')" min-width="180" show-overflow-tooltip />
         <el-table-column prop="enterpriseName" :label="t('auditList.colEnterpriseName')" min-width="180" />
@@ -159,7 +205,9 @@ onMounted(() => {
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="createdAt" :label="t('auditList.colCreateTime')" min-width="170" />
+        <el-table-column prop="createdAt" :label="t('auditList.colCreateTime')" min-width="170">
+          <template #default="{ row }">{{ formatDateTime(row.createdAt) }}</template>
+        </el-table-column>
         <el-table-column :label="t('auditList.colOperation')" width="100" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" @click="openReviewDialog(row)">{{ t('auditList.colOperation') }}</el-button>
