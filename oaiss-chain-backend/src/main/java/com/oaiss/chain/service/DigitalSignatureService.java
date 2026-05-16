@@ -6,6 +6,7 @@ import com.oaiss.chain.entity.RsaKeyPair;
 import com.oaiss.chain.exception.BlockchainException;
 import com.oaiss.chain.repository.RsaKeyPairRepository;
 import com.oaiss.chain.util.RsaKeyUtil;
+import com.oaiss.chain.annotation.DistributedLock;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -62,6 +63,7 @@ public class DigitalSignatureService {
      * @return 密钥对响应DTO（不含私钥）
      * @throws BlockchainException 如果密钥生成失败
      */
+    @DistributedLock(key = "'keypair:generate:' + #userId", expireTime = 10)
     @Transactional
     public RsaKeyPairResponse generateKeyPair(Long userId) {
         log.info("Generating RSA key pair for user: {}", userId);
