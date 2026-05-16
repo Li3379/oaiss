@@ -4,46 +4,13 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+# Source shared test helpers (provides assert_contains, assert_not_contains,
+# login_user, run_mysql, print_summary, and test counters)
+source "$SCRIPT_DIR/test-helpers.sh"
+
 BASE_URL="http://localhost:8080/api/v1"
-PASS=0
-FAIL=0
-TEST_ID=0
-
-assert_contains() {
-    local test_name="$1" response="$2" expected="$3"
-    TEST_ID=$((TEST_ID + 1))
-    if echo "$response" | grep -q "$expected"; then
-        echo "  [PASS] Test $TEST_ID: $test_name"
-        PASS=$((PASS + 1))
-    else
-        echo "  [FAIL] Test $TEST_ID: $test_name -- expected '$expected' in response"
-        echo "    Response: $(echo "$response" | head -c 500)"
-        FAIL=$((FAIL + 1))
-    fi
-}
-
-assert_not_contains() {
-    local test_name="$1" response="$2" expected="$3"
-    TEST_ID=$((TEST_ID + 1))
-    if ! echo "$response" | grep -q "$expected"; then
-        echo "  [PASS] Test $TEST_ID: $test_name"
-        PASS=$((PASS + 1))
-    else
-        echo "  [FAIL] Test $TEST_ID: $test_name -- did NOT expect '$expected' in response"
-        echo "    Response: $(echo "$response" | head -c 500)"
-        FAIL=$((FAIL + 1))
-    fi
-}
-
-db_query() {
-    mysql -h 127.0.0.1 -P 3306 -u root -p123456 oaiss_chain -sNe "$1" 2>/dev/null
-}
-
-login_user() {
-    curl -s -X POST "$BASE_URL/auth/login" \
-        -H "Content-Type: application/json" \
-        -d "{\"username\":\"$1\",\"password\":\"admin123\"}"
-}
 
 echo "=== 06-01: Bug Fix Verification (BUG-01~03) ==="
 echo ""
@@ -73,7 +40,7 @@ echo ""
 
 # Clean up old keypairs
 echo "[BUG-01] Cleanup: Removing old keypairs for enterprise001..."
-db_query "DELETE FROM rsa_key_pair WHERE user_id=$E1_USER_ID" || true
+run_mysql "DELETE FROM rsa_key_pair WHERE user_id=$E1_USER_ID" || true
 echo ""
 
 # Generate keypair #1
@@ -93,7 +60,7 @@ assert_contains "Generate keypair #2 returns 200" "$RESP_GEN2" '"code":200'
 echo ""
 
 # DB check: confirm multiple non-deleted rows exist
-KP_COUNT=$(db_query "SELECT COUNT(*) FROM rsa_key_pair WHERE user_id=$E1_USER_ID AND is_deleted=0" 2>/dev/null || echo "0")
+KP_COUNT=$(run_mysql "SELECT COUNT(*) FROM rsa_key_pair WHERE user_id=$E1_USER_ID AND is_deleted=0" 2>/dev/null || echo "0")
 echo "  Keypair count for user (non-deleted): $KP_COUNT"
 if [ "$KP_COUNT" -ge 2 ]; then
     TEST_ID=$((TEST_ID + 1))
@@ -131,7 +98,7 @@ echo ""
 
 # Cleanup keypairs
 echo "[BUG-01] Cleanup: Removing keypairs..."
-db_query "DELETE FROM rsa_key_pair WHERE user_id=$E1_USER_ID" || true
+run_mysql "DELETE FROM rsa_key_pair WHERE user_id=$E1_USER_ID" || true
 echo ""
 
 # ======================================================================
@@ -244,10 +211,4 @@ fi
 echo ""
 
 # --- Summary ---
-echo "========================================"
-echo "Results: $PASS passed, $FAIL failed (total: $TEST_ID tests)"
-echo "========================================"
-
-if [ "$FAIL" -gt 0 ]; then
-    exit 1
-fi
+print_summary

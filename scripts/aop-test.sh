@@ -7,48 +7,14 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 WORK_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# Source shared test helpers (provides assert_contains, assert_not_contains,
+# login_user, run_mysql, print_summary, and test counters)
+source "$SCRIPT_DIR/test-helpers.sh"
+
 BASE_URL="http://localhost:8080/api/v1"
-PASS=0
-FAIL=0
-TEST_ID=0
 BACKEND_DIR="$WORK_DIR/oaiss-chain-backend/src/main/java/com/oaiss/chain"
 REDIS_CMD="docker exec oaiss-redis redis-cli"
-
-assert_contains() {
-    local test_name="$1" response="$2" expected="$3"
-    TEST_ID=$((TEST_ID + 1))
-    if echo "$response" | grep -q "$expected"; then
-        echo "  [PASS] Test $TEST_ID: $test_name"
-        PASS=$((PASS + 1))
-    else
-        echo "  [FAIL] Test $TEST_ID: $test_name — expected '$expected' in response"
-        echo "    Response: $(echo "$response" | head -c 500)"
-        FAIL=$((FAIL + 1))
-    fi
-}
-
-assert_not_contains() {
-    local test_name="$1" response="$2" expected="$3"
-    TEST_ID=$((TEST_ID + 1))
-    if ! echo "$response" | grep -q "$expected"; then
-        echo "  [PASS] Test $TEST_ID: $test_name"
-        PASS=$((PASS + 1))
-    else
-        echo "  [FAIL] Test $TEST_ID: $test_name — did NOT expect '$expected' in response"
-        echo "    Response: $(echo "$response" | head -c 500)"
-        FAIL=$((FAIL + 1))
-    fi
-}
-
-login_user() {
-    curl -s -X POST "$BASE_URL/auth/login" \
-        -H "Content-Type: application/json" \
-        -d "{\"username\":\"$1\",\"password\":\"admin123\"}"
-}
-
-db_query() {
-    mysql -h 127.0.0.1 -P 3306 -u root -p123456 oaiss_chain -sNe "$1" 2>/dev/null
-}
 
 wait_for_backend() {
     echo "  Waiting for backend startup..."
@@ -154,8 +120,8 @@ echo ""
 echo "[AOP-03] DataIsolation verification..."
 
 # Clean up keypairs
-db_query "DELETE FROM rsa_key_pair WHERE user_id=$E1_USER_ID"
-db_query "DELETE FROM rsa_key_pair WHERE user_id=$E2_USER_ID"
+run_mysql "DELETE FROM rsa_key_pair WHERE user_id=$E1_USER_ID"
+run_mysql "DELETE FROM rsa_key_pair WHERE user_id=$E2_USER_ID"
 
 # Generate keypair for enterprise001
 RESP_KP1=$(curl -s -X POST "$BASE_URL/signature/keypair/generate" \
@@ -187,8 +153,8 @@ RESP_ADMIN_SIGN=$(curl -s -X POST "$BASE_URL/signature/sign" \
 assert_contains "AOP-03: Admin blocked from sign (code 2004)" "$RESP_ADMIN_SIGN" '"code":2004'
 
 # Cleanup keypairs
-db_query "DELETE FROM rsa_key_pair WHERE user_id=$E1_USER_ID"
-db_query "DELETE FROM rsa_key_pair WHERE user_id=$E2_USER_ID"
+run_mysql "DELETE FROM rsa_key_pair WHERE user_id=$E1_USER_ID"
+run_mysql "DELETE FROM rsa_key_pair WHERE user_id=$E2_USER_ID"
 
 echo ""
 
@@ -198,7 +164,7 @@ echo ""
 echo "[AOP-01] AuditLog verification..."
 
 # Record before count
-BEFORE_COUNT=$(db_query "SELECT COUNT(*) FROM operation_log WHERE module='test' AND action='createReport'")
+BEFORE_COUNT=$(run_mysql "SELECT COUNT(*) FROM operation_log WHERE module='test' AND action='createReport'")
 echo "  operation_log count before: $BEFORE_COUNT"
 
 # Step 1: Add @AuditLog annotation to CarbonController.createReport
@@ -259,7 +225,7 @@ assert_contains "AOP-01: Create report returns success" "$RESP_CREATE" '"code":2
 
 # Step 6: Verify operation_log
 sleep 1
-AFTER_COUNT=$(db_query "SELECT COUNT(*) FROM operation_log WHERE module='test' AND action='createReport' AND user_id=$E1_USER_ID")
+AFTER_COUNT=$(run_mysql "SELECT COUNT(*) FROM operation_log WHERE module='test' AND action='createReport' AND user_id=$E1_USER_ID")
 echo "  operation_log count after: $AFTER_COUNT"
 
 TEST_ID=$((TEST_ID + 1))
@@ -272,7 +238,7 @@ else
 fi
 
 # Verify log details
-LOG_DETAILS=$(db_query "SELECT CONCAT(module, '|', action, '|', user_id, '|', http_method, '|', status) FROM operation_log WHERE module='test' AND action='createReport' ORDER BY id DESC LIMIT 1")
+LOG_DETAILS=$(run_mysql "SELECT CONCAT(module, '|', action, '|', user_id, '|', http_method, '|', status) FROM operation_log WHERE module='test' AND action='createReport' ORDER BY id DESC LIMIT 1")
 echo "  Log details: $LOG_DETAILS"
 
 assert_not_contains "AOP-01: Log has no null module" "$LOG_DETAILS" "null"
@@ -521,10 +487,4 @@ fi
 echo ""
 
 # --- Summary ---
-echo "========================================"
-echo "Results: $PASS passed, $FAIL failed (total: $TEST_ID tests)"
-echo "========================================"
-
-if [ "$FAIL" -gt 0 ]; then
-    exit 1
-fi
+print_summary
