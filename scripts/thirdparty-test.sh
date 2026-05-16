@@ -1,41 +1,23 @@
 #!/bin/bash
 # 05-06: Third-Party Monitoring - OrgInfo/Statistics/CarbonReports/Contact
 # Requirements: TP-01, TP-02 (partial)
+#
+# Required seed data:
+#   - Users: thirdparty001 (password from TEST_PASSWORD env, default: admin123)
+#   - Backend running at BASE_URL (default: http://localhost:8080/api/v1)
 
-set -euo pipefail
+source "$(dirname "$0")/test-helpers.sh"
 
-BASE_URL="http://localhost:8080/api/v1"
-PASS=0
-FAIL=0
-TEST_ID=0
-
-assert_contains() {
-    local test_name="$1" response="$2" expected="$3"
-    TEST_ID=$((TEST_ID + 1))
-    if echo "$response" | grep -q "$expected"; then
-        echo "  [PASS] Test $TEST_ID: $test_name"
-        PASS=$((PASS + 1))
-    else
-        echo "  [FAIL] Test $TEST_ID: $test_name — expected '$expected' in response"
-        echo "    Response: $(echo "$response" | head -c 500)"
-        FAIL=$((FAIL + 1))
-    fi
-}
+check_dependencies
 
 echo "=== 05-06: Third-Party Monitoring (TP-01~02) ==="
 echo ""
 
-# --- Authentication ---
+# --- Authentication (WR-01: validate tokens) ---
 echo "[1/6] Authenticating..."
 
-login_user() {
-    curl -s -X POST "$BASE_URL/auth/login" \
-        -H "Content-Type: application/json" \
-        -d "{\"username\":\"$1\",\"password\":\"admin123\"}"
-}
-
 RESP_TP=$(login_user "thirdparty001")
-TOKEN_TP=$(echo "$RESP_TP" | grep -o '"accessToken":"[^"]*"' | head -1 | cut -d'"' -f4)
+TOKEN_TP=$(extract_token "$RESP_TP" "thirdparty001")
 echo "  thirdparty001 token: ${TOKEN_TP:0:20}..."
 echo ""
 
@@ -46,7 +28,7 @@ RESP_ORG=$(curl -s "$BASE_URL/third-party/org-info" \
     -H "Authorization: Bearer $TOKEN_TP")
 echo "  Org info response: $(echo "$RESP_ORG" | head -c 400)"
 
-assert_contains "Org info returns 200" "$RESP_ORG" '"code":200'
+assert_code_200 "Org info returns 200" "$RESP_ORG"
 assert_contains "Org info has data" "$RESP_ORG" '"data":'
 echo ""
 
@@ -57,7 +39,7 @@ RESP_STATS=$(curl -s "$BASE_URL/third-party/statistics" \
     -H "Authorization: Bearer $TOKEN_TP")
 echo "  Statistics response: $(echo "$RESP_STATS" | head -c 400)"
 
-assert_contains "Statistics returns 200" "$RESP_STATS" '"code":200'
+assert_code_200 "Statistics returns 200" "$RESP_STATS"
 assert_contains "Statistics has data" "$RESP_STATS" '"data":'
 echo ""
 
@@ -68,7 +50,7 @@ RESP_REPORTS=$(curl -s "$BASE_URL/third-party/carbon-reports?page=1&size=10" \
     -H "Authorization: Bearer $TOKEN_TP")
 echo "  Reports response: $(echo "$RESP_REPORTS" | head -c 400)"
 
-assert_contains "Carbon reports returns 200" "$RESP_REPORTS" '"code":200'
+assert_code_200 "Carbon reports returns 200" "$RESP_REPORTS"
 echo ""
 
 # --- Filter by status ---
@@ -78,7 +60,7 @@ RESP_FILTERED=$(curl -s "$BASE_URL/third-party/carbon-reports?status=2&page=1&si
     -H "Authorization: Bearer $TOKEN_TP")
 echo "  Filtered response: $(echo "$RESP_FILTERED" | head -c 400)"
 
-assert_contains "Filtered reports returns 200" "$RESP_FILTERED" '"code":200'
+assert_code_200 "Filtered reports returns 200" "$RESP_FILTERED"
 echo ""
 
 # --- Update contact ---
@@ -88,7 +70,7 @@ RESP_CONTACT=$(curl -s -X PUT "$BASE_URL/third-party/contact?contactPerson=test_
     -H "Authorization: Bearer $TOKEN_TP")
 echo "  Contact update response: $(echo "$RESP_CONTACT" | head -c 300)"
 
-assert_contains "Update contact returns 200" "$RESP_CONTACT" '"code":200'
+assert_code_200 "Update contact returns 200" "$RESP_CONTACT"
 echo ""
 
 # --- Gap notice ---
@@ -99,10 +81,4 @@ echo "  - No dedicated trade audit endpoint exists"
 echo "========================================"
 
 # --- Summary ---
-echo "========================================"
-echo "Results: $PASS passed, $FAIL failed (total: $TEST_ID tests)"
-echo "========================================"
-
-if [ "$FAIL" -gt 0 ]; then
-    exit 1
-fi
+print_summary
