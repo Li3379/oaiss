@@ -37,7 +37,10 @@ export const MENU_BY_ROLE: Record<RoleType, MenuItem[]> = {
           { label: 'menu.doubleAuction', path: '/enterprise/trading/market' },
           { label: 'menu.p2pTrading', path: '/enterprise/trading/p2p' },
         ] },
-        { label: 'menu.companyInfo', children: [{ label: 'menu.dataVisualization', path: '/enterprise/company/dashboard' }] },
+        { label: 'menu.companyInfo', children: [
+          { label: 'menu.dataVisualization', path: '/enterprise/company/dashboard' },
+          { label: 'menu.enterpriseInfo', path: '/enterprise/info' },
+        ] },
         { label: 'menu.creditScore', children: [{ label: 'menu.myScore', path: '/enterprise/credit/score' }] },
         { label: 'menu.carbonCoinAccount', children: [{ label: 'menu.accountManage', path: '/enterprise/carbon-coin/account' }] },
         { label: 'menu.blockchain', children: [{ label: 'menu.blockchainBrowser', path: '/enterprise/blockchain/browser' }] },
