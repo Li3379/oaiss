@@ -10,21 +10,28 @@ ok()   { echo -e "${GREEN}[OK]${NC} $1"; }
 fail() { echo -e "${RED}[FAIL]${NC} $1"; }
 info() { echo -e "${YELLOW}[..]${NC} $1"; }
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DB_PORT=3306 source "$SCRIPT_DIR/db-config.sh"
+
 API="http://localhost:8080/api/v1"
+API_PASSWORD="${API_PASSWORD:-admin123}"
 
 TOTAL=0
 PASSED=0
 FAILED=0
 
-# --- Helper: extract JSON field value via grep ---
+# --- Helper: extract JSON field value (jq preferred, grep fallback) ---
 extract_field() {
   local json="$1" field="$2"
+  if command -v jq &>/dev/null; then
+    echo "$json" | jq -r ".$field // empty" 2>/dev/null && return
+  fi
   echo "$json" | { grep -o "\"$field\":[^,}]*" || true; } | head -1 | sed "s/\"$field\"://" | tr -d '"'
 }
 
 # --- Verify backend is up ---
 info "Checking backend availability..."
-curl -sf "$API/auth/login" -o /dev/null -X POST -H "Content-Type: application/json" -d '{"username":"admin","password":"admin123"}' || { fail "Backend not running. Start it first: cd oaiss-chain-backend && mvn spring-boot:run"; exit 1; }
+curl -sf "$API/auth/login" -o /dev/null -X POST -H "Content-Type: application/json" -d "{\"username\":\"admin\",\"password\":\"$API_PASSWORD\"}" || { fail "Backend not running. Start it first: cd oaiss-chain-backend && mvn spring-boot:run"; exit 1; }
 ok "Backend is reachable"
 
 # --- Login helper ---
@@ -32,7 +39,7 @@ login() {
   local username="$1"
   local resp=$(curl -s -X POST "$API/auth/login" \
     -H "Content-Type: application/json" \
-    -d "{\"username\":\"$username\",\"password\":\"admin123\"}")
+    -d "{\"username\":\"$username\",\"password\":\"$API_PASSWORD\"}")
 
   local code=$(extract_field "$resp" "code")
   if [[ "$code" != "200" ]]; then
@@ -62,15 +69,24 @@ info "Logging in as admin..."
 TOKEN_ADMIN=$(login "admin") || { fail "Cannot proceed without admin token"; exit 1; }
 ok "admin logged in"
 
+# --- Reset P2P trade state (WR-03) ---
+info "Resetting P2P trade state..."
+mysql $MYSQL_CONN -e "DELETE FROM transaction WHERE trade_type=2" 2>/dev/null || true
+mysql $MYSQL_CONN -e \
+  "UPDATE enterprise SET carbon_tradable=38000, carbon_quota=50000, carbon_used=12000 WHERE user_id=2" 2>/dev/null
+mysql $MYSQL_CONN -e \
+  "UPDATE enterprise SET carbon_tradable=55000, carbon_quota=55000, carbon_used=0 WHERE user_id=3" 2>/dev/null
+ok "P2P trade state reset, quotas restored to seed values"
+
 # --- Pre-condition: Record seller and buyer quotas before P2P trade (for TRADE-10) ---
 info "Recording enterprise quotas before P2P trade..."
 
-SELLER_QUOTA_BEFORE=$(mysql -u root -p123456 -h 127.0.0.1 -P 3306 oaiss_chain -N -e \
+SELLER_QUOTA_BEFORE=$(mysql $MYSQL_CONN -N -e \
   "SELECT carbon_tradable FROM enterprise WHERE user_id=2" | tr -d '[:space:]' | cut -d. -f1)
 
-BUYER_TRADABLE_BEFORE=$(mysql -u root -p123456 -h 127.0.0.1 -P 3306 oaiss_chain -N -e \
+BUYER_TRADABLE_BEFORE=$(mysql $MYSQL_CONN -N -e \
   "SELECT carbon_tradable FROM enterprise WHERE user_id=3" | tr -d '[:space:]' | cut -d. -f1)
-BUYER_CARBON_QUOTA_BEFORE=$(mysql -u root -p123456 -h 127.0.0.1 -P 3306 oaiss_chain -N -e \
+BUYER_CARBON_QUOTA_BEFORE=$(mysql $MYSQL_CONN -N -e \
   "SELECT carbon_quota FROM enterprise WHERE user_id=3" | tr -d '[:space:]' | cut -d. -f1)
 
 info "Before P2P trade:"
@@ -127,12 +143,12 @@ fi
 # --- TRADE-10: Verify settlement after confirmation (direct DB quota verification) ---
 info "[TRADE-10] Verifying settlement via direct DB query..."
 
-SELLER_QUOTA_AFTER=$(mysql -u root -p123456 -h 127.0.0.1 -P 3306 oaiss_chain -N -e \
+SELLER_QUOTA_AFTER=$(mysql $MYSQL_CONN -N -e \
   "SELECT carbon_tradable FROM enterprise WHERE user_id=2" | tr -d '[:space:]' | cut -d. -f1)
 
-BUYER_TRADABLE_AFTER=$(mysql -u root -p123456 -h 127.0.0.1 -P 3306 oaiss_chain -N -e \
+BUYER_TRADABLE_AFTER=$(mysql $MYSQL_CONN -N -e \
   "SELECT carbon_tradable FROM enterprise WHERE user_id=3" | tr -d '[:space:]' | cut -d. -f1)
-BUYER_CARBON_QUOTA_AFTER=$(mysql -u root -p123456 -h 127.0.0.1 -P 3306 oaiss_chain -N -e \
+BUYER_CARBON_QUOTA_AFTER=$(mysql $MYSQL_CONN -N -e \
   "SELECT carbon_quota FROM enterprise WHERE user_id=3" | tr -d '[:space:]' | cut -d. -f1)
 
 info "After P2P confirmation:"
@@ -207,25 +223,20 @@ else
 fi
 
 # --- TRADE-11: Document TradeController vs DoubleAuctionController relationship ---
-info "[TRADE-11] Controller Relationship Documentation..."
-TOTAL=$((TOTAL + 1))
-echo ""
-echo "  === TRADE-11: Controller Relationship Documentation ==="
-echo "  TradeController: handles P2P trades (trade_type=2) and simple auction listings (trade_type=1)"
-echo "    - Uses 'transaction' table for trade records"
-echo "    - Endpoints: POST /trade/p2p, POST /trade/{id}/confirm, POST /trade/{id}/cancel"
-echo "  DoubleAuctionController: handles double auction buy/sell orders with matching engine"
-echo "    - Uses 'auction_order' table for orders, 'matching_result' table for matches"
-echo "    - Endpoints: POST /auction/buy, POST /auction/sell, POST /auction/match"
-echo "  These are SEPARATE, INDEPENDENT subsystems -- no shared matching engine."
-echo ""
-ok "TRADE-11: Controller relationship documented"
-PASSED=$((PASSED + 1))
+# NOTE: This is documentation only -- not a runtime assertion.
+# TradeController: handles P2P trades (trade_type=2) and simple auction listings (trade_type=1)
+#   - Uses 'transaction' table for trade records
+#   - Endpoints: POST /trade/p2p, POST /trade/{id}/confirm, POST /trade/{id}/cancel
+# DoubleAuctionController: handles double auction buy/sell orders with matching engine
+#   - Uses 'auction_order' table for orders, 'matching_result' table for matches
+#   - Endpoints: POST /auction/buy, POST /auction/sell, POST /auction/match
+# These are SEPARATE, INDEPENDENT subsystems -- no shared matching engine.
+info "[TRADE-11] Controller relationship documented (comment only, no test count)"
 
 # --- Summary ---
 echo ""
 echo -e "========================================"
-echo -e " P2P Trade Test Results (TRADE-07..11)"
+echo -e " P2P Trade Test Results (TRADE-07..10)"
 echo -e "========================================"
 echo -e " Total:  $TOTAL"
 echo -e " Passed: ${GREEN}$PASSED${NC}"
