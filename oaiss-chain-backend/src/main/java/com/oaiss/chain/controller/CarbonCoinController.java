@@ -28,7 +28,7 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/carbon-coin")
 @RequiredArgsConstructor
-@Tag(name = "10. 碳币交易管理", description = "碳币账户管理、充值、转账、交易流水查询、碳配额购买/出售")
+@Tag(name = "18. 碳币交易管理", description = "碳币账户管理、充值、转账、交易流水查询、碳配额购买/出售")
 public class CarbonCoinController {
 
     private final CarbonCoinService carbonCoinService;
