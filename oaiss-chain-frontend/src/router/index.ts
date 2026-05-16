@@ -111,6 +111,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '碳核算公式', roles: [ROLE.ENTERPRISE] },
       },
       {
+        path: 'enterprise/info',
+        name: 'EnterpriseInfo',
+        component: () => import('../views/enterprise/EnterpriseInfo.vue'),
+        meta: { title: '企业信息', roles: [ROLE.ENTERPRISE] },
+      },
+      {
         path: 'auditor/audit/list',
         name: 'AuditorAuditList',
         component: () => import('../views/auditor/AuditList.vue'),
