@@ -12,6 +12,10 @@ source "$SCRIPT_DIR/test-helpers.sh"
 
 BASE_URL="http://localhost:8080/api/v1"
 
+# Cleanup temp files on exit
+cleanup() { rm -f /tmp/swagger_resp_body.json /tmp/swagger_auth_resp_body.json; }
+trap cleanup EXIT
+
 echo "=== 06-01: Bug Fix Verification (BUG-01~03) ==="
 echo ""
 
