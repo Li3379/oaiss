@@ -211,8 +211,11 @@ if ! grep -q "import com.oaiss.chain.annotation.AuditLog" "$CARBON_FILE"; then
     sed -i 's/^import com.oaiss.chain.dto.\*;/import com.oaiss.chain.annotation.AuditLog;\nimport com.oaiss.chain.dto.*;/' "$CARBON_FILE"
 fi
 
-# Add @AuditLog before the createReport method
-sed -i '/public ApiResponse<CarbonReportResponse> createReport/i\    @AuditLog(module = "test", action = "createReport")' "$CARBON_FILE"
+# Add @AuditLog before the createReport method (line-number-based to avoid matching similar names)
+METHOD_LINE=$(grep -n "public ApiResponse<CarbonReportResponse> createReport(" "$CARBON_FILE" | head -1 | cut -d: -f1)
+if [ -n "$METHOD_LINE" ]; then
+    sed -i "${METHOD_LINE}i\\    @AuditLog(module = \"test\", action = \"createReport\")" "$CARBON_FILE"
+fi
 
 # Verify annotation was added
 if grep -q "@AuditLog" "$CARBON_FILE"; then
@@ -305,8 +308,11 @@ if ! grep -q "import com.oaiss.chain.annotation.RateLimit" "$AUTH_FILE"; then
     sed -i 's/^import com.oaiss.chain.dto.\*;/import com.oaiss.chain.annotation.RateLimit;\nimport com.oaiss.chain.dto.*;/' "$AUTH_FILE"
 fi
 
-# Add @RateLimit before the login method
-sed -i '/public ApiResponse<LoginResponse> login(/i\    @RateLimit(key = "test", limit = 3, period = 60)' "$AUTH_FILE"
+# Add @RateLimit before the login method (line-number-based to avoid matching similar names)
+METHOD_LINE=$(grep -n "public ApiResponse<LoginResponse> login(" "$AUTH_FILE" | head -1 | cut -d: -f1)
+if [ -n "$METHOD_LINE" ]; then
+    sed -i "${METHOD_LINE}i\\    @RateLimit(key = \"test\", limit = 3, period = 60)" "$AUTH_FILE"
+fi
 
 # Verify annotation was added
 if grep -q "@RateLimit" "$AUTH_FILE"; then
@@ -412,8 +418,11 @@ if ! grep -q "import com.oaiss.chain.annotation.DistributedLock" "$AUCTION_FILE"
     sed -i 's/^import com.oaiss.chain.dto.AuctionOrderRequest;/import com.oaiss.chain.annotation.DistributedLock;\nimport com.oaiss.chain.dto.AuctionOrderRequest;/' "$AUCTION_FILE"
 fi
 
-# Add @DistributedLock before executeMatching method
-sed -i '/public ApiResponse<List<MatchingResultResponse>> executeMatching/i\    @DistributedLock(key = "auction:matching", expireTime = 10)' "$AUCTION_FILE"
+# Add @DistributedLock before executeMatching method (line-number-based to avoid matching similar names)
+METHOD_LINE=$(grep -n "public ApiResponse<List<MatchingResultResponse>> executeMatching(" "$AUCTION_FILE" | head -1 | cut -d: -f1)
+if [ -n "$METHOD_LINE" ]; then
+    sed -i "${METHOD_LINE}i\\    @DistributedLock(key = \"auction:matching\", expireTime = 10)" "$AUCTION_FILE"
+fi
 
 # Verify annotation was added
 if grep -q "@DistributedLock" "$AUCTION_FILE"; then
