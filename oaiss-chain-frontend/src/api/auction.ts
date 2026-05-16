@@ -20,3 +20,7 @@ export function getMyOrders(params?: PageRequest): Promise<unknown> {
 export function getMatchResults(params?: PageRequest): Promise<MatchingResultResponse[]> {
   return request.get('/auction/results', { params })
 }
+
+export function executeMatching(): Promise<unknown> {
+  return request.post('/auction/match')
+}

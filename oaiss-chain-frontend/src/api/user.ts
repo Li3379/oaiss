@@ -15,3 +15,18 @@ export function changePassword(data: PasswordChangeRequest): Promise<void> {
   if (!data?.newPassword || data.newPassword.length < 6) return Promise.reject(new Error('新密码至少6位'))
   return request.put('/user/password', data)
 }
+
+export function getUserById(userId: number): Promise<unknown> {
+  if (!userId) return Promise.reject(new Error('用户ID不能为空'))
+  return request.get(`/user/${userId}`)
+}
+
+export function checkUsername(username: string): Promise<unknown> {
+  if (!username) return Promise.reject(new Error('用户名不能为空'))
+  return request.get('/user/check-username', { params: { username } })
+}
+
+export function checkEmail(email: string): Promise<unknown> {
+  if (!email) return Promise.reject(new Error('邮箱不能为空'))
+  return request.get('/user/check-email', { params: { email } })
+}
