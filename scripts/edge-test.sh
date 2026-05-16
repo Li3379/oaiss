@@ -381,31 +381,54 @@ else
     FAIL=$((FAIL + 1))
 fi
 
-# 5. XSS in report title
+# 5. XSS in report title — verify payload is rejected or not reflected
 XSS_ESCAPED=$(echo '{"scope1":[{"name":"gas","activity_data":1000,"emission_factor":2.0}]}' | sed 's/"/\\"/g')
 RESP=$(curl -s -X POST "$BASE_URL/carbon/reports" \
     -H "Authorization: Bearer $TOKEN_E1" \
     -H "Content-Type: application/json" \
     -d "{\"title\":\"<script>alert(1)</script>\",\"accountingPeriod\":\"2024-Q1\",\"reportType\":1,\"emissionData\":\"${XSS_ESCAPED}\"}")
-# Either rejected or sanitized — just ensure no server crash
 TEST_ID=$((TEST_ID + 1))
 if echo "$RESP" | grep -q '"code"'; then
-    echo "  [PASS] Test $TEST_ID: XSS input handled (returns valid response)"
-    PASS=$((PASS + 1))
+    # Verify XSS payload is either rejected (non-200) or not reflected verbatim
+    if echo "$RESP" | grep -qE '"code"\s*:\s*200[^0-9]'; then
+        if echo "$RESP" | grep -qF '<script>alert(1)</script>'; then
+            echo "  [WARN] Test $TEST_ID: XSS payload reflected in response (potential stored XSS)"
+            FAIL=$((FAIL + 1))
+        else
+            echo "  [PASS] Test $TEST_ID: XSS input accepted but payload sanitized"
+            PASS=$((PASS + 1))
+        fi
+    else
+        echo "  [PASS] Test $TEST_ID: XSS input rejected (non-200 code)"
+        PASS=$((PASS + 1))
+    fi
 else
     echo "  [FAIL] Test $TEST_ID: XSS input caused unexpected response"
     FAIL=$((FAIL + 1))
 fi
 
-# 6. SQL injection in report title
+# 6. SQL injection in report title — verify no data leak
 RESP=$(curl -s -X POST "$BASE_URL/carbon/reports" \
     -H "Authorization: Bearer $TOKEN_E1" \
     -H "Content-Type: application/json" \
     -d "{\"title\":\"test' OR 1=1 --\",\"accountingPeriod\":\"2024-Q1\",\"reportType\":1,\"emissionData\":\"${XSS_ESCAPED}\"}")
 TEST_ID=$((TEST_ID + 1))
 if echo "$RESP" | grep -q '"code"'; then
-    echo "  [PASS] Test $TEST_ID: SQL injection input handled (returns valid response)"
-    PASS=$((PASS + 1))
+    # Verify SQL injection does not bypass validation or return bulk data
+    if echo "$RESP" | grep -qE '"code"\s*:\s*200[^0-9]'; then
+        # Check response doesn't contain unexpected array of records
+        RECORD_COUNT=$(echo "$RESP" | grep -o '"id":' | wc -l)
+        if [ "$RECORD_COUNT" -le 1 ]; then
+            echo "  [PASS] Test $TEST_ID: SQL injection did not leak multiple records"
+            PASS=$((PASS + 1))
+        else
+            echo "  [FAIL] Test $TEST_ID: SQL injection may have returned multiple records ($RECORD_COUNT ids)"
+            FAIL=$((FAIL + 1))
+        fi
+    else
+        echo "  [PASS] Test $TEST_ID: SQL injection rejected (non-200 code)"
+        PASS=$((PASS + 1))
+    fi
 else
     echo "  [FAIL] Test $TEST_ID: SQL injection caused unexpected response"
     FAIL=$((FAIL + 1))
