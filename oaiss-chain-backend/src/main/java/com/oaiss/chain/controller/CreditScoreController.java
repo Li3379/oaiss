@@ -2,6 +2,7 @@ package com.oaiss.chain.controller;
 
 import com.oaiss.chain.dto.ApiResponse;
 import com.oaiss.chain.dto.CreditDeductionRequest;
+import jakarta.validation.Valid;
 import com.oaiss.chain.dto.CreditEventResponse;
 import com.oaiss.chain.dto.CreditScoreResponse;
 import com.oaiss.chain.security.JwtUserDetails;
@@ -188,7 +189,7 @@ public class CreditScoreController {
     public ApiResponse<CreditScoreResponse> deductPoints(
             @Parameter(hidden = true) @AuthenticationPrincipal JwtUserDetails currentUser,
             @Parameter(description = "扣分请求", required = true)
-            @RequestBody CreditDeductionRequest request) {
+            @Valid @RequestBody CreditDeductionRequest request) {
         return ApiResponse.success(creditScoreService.deductPoints(
                 request.getEnterpriseId(),
                 request.getEventType(),
