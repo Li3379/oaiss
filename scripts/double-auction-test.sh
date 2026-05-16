@@ -10,21 +10,28 @@ ok()   { echo -e "${GREEN}[OK]${NC} $1"; }
 fail() { echo -e "${RED}[FAIL]${NC} $1"; }
 info() { echo -e "${YELLOW}[..]${NC} $1"; }
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DB_PORT=3306 source "$SCRIPT_DIR/db-config.sh"
+
 API="http://localhost:8080/api/v1"
+API_PASSWORD="${API_PASSWORD:-admin123}"
 
 TOTAL=0
 PASSED=0
 FAILED=0
 
-# --- Helper: extract JSON field value via grep ---
+# --- Helper: extract JSON field value (jq preferred, grep fallback) ---
 extract_field() {
   local json="$1" field="$2"
+  if command -v jq &>/dev/null; then
+    echo "$json" | jq -r ".$field // empty" 2>/dev/null && return
+  fi
   echo "$json" | { grep -o "\"$field\":[^,}]*" || true; } | head -1 | sed "s/\"$field\"://" | tr -d '"'
 }
 
 # --- Verify backend is up ---
 info "Checking backend availability..."
-curl -sf "$API/auth/login" -o /dev/null -X POST -H "Content-Type: application/json" -d '{"username":"admin","password":"admin123"}' || { fail "Backend not running. Start it first: cd oaiss-chain-backend && mvn spring-boot:run"; exit 1; }
+curl -sf "$API/auth/login" -o /dev/null -X POST -H "Content-Type: application/json" -d "{\"username\":\"admin\",\"password\":\"$API_PASSWORD\"}" || { fail "Backend not running. Start it first: cd oaiss-chain-backend && mvn spring-boot:run"; exit 1; }
 ok "Backend is reachable"
 
 # --- Login helper ---
@@ -32,7 +39,7 @@ login() {
   local username="$1"
   local resp=$(curl -s -X POST "$API/auth/login" \
     -H "Content-Type: application/json" \
-    -d "{\"username\":\"$username\",\"password\":\"admin123\"}")
+    -d "{\"username\":\"$username\",\"password\":\"$API_PASSWORD\"}")
 
   local code=$(extract_field "$resp" "code")
   if [[ "$code" != "200" ]]; then
@@ -51,12 +58,12 @@ login() {
 
 # --- Reset test data: delete all existing auction orders and matching results ---
 info "Resetting auction test data..."
-mysql -u root -p123456 -h 127.0.0.1 -P 3306 oaiss_chain -e \
+mysql $MYSQL_CONN -e \
   "DELETE FROM matching_result; DELETE FROM auction_order;" 2>/dev/null || true
 # Reset enterprise quotas to original seed values
-mysql -u root -p123456 -h 127.0.0.1 -P 3306 oaiss_chain -e \
+mysql $MYSQL_CONN -e \
   "UPDATE enterprise SET carbon_tradable=38000, carbon_quota=50000, carbon_used=12000 WHERE user_id=2;" 2>/dev/null
-mysql -u root -p123456 -h 127.0.0.1 -P 3306 oaiss_chain -e \
+mysql $MYSQL_CONN -e \
   "UPDATE enterprise SET carbon_tradable=55000, carbon_quota=55000, carbon_used=0 WHERE user_id=3;" 2>/dev/null
 ok "Auction data reset, quotas restored to seed values"
 
@@ -76,12 +83,12 @@ ok "admin logged in"
 # --- Pre-condition: Record enterprise quotas before trading (for TRADE-05) ---
 info "Recording enterprise quotas before trading..."
 
-E1_TRADABLE_BEFORE=$(mysql -u root -p123456 -h 127.0.0.1 -P 3306 oaiss_chain -N -e \
+E1_TRADABLE_BEFORE=$(mysql $MYSQL_CONN -N -e \
   "SELECT carbon_tradable FROM enterprise WHERE user_id=2" | tr -d '[:space:]' | cut -d. -f1)
-E1_QUOTA_BEFORE=$(mysql -u root -p123456 -h 127.0.0.1 -P 3306 oaiss_chain -N -e \
+E1_QUOTA_BEFORE=$(mysql $MYSQL_CONN -N -e \
   "SELECT carbon_quota FROM enterprise WHERE user_id=2" | tr -d '[:space:]' | cut -d. -f1)
 
-E2_TRADABLE_BEFORE=$(mysql -u root -p123456 -h 127.0.0.1 -P 3306 oaiss_chain -N -e \
+E2_TRADABLE_BEFORE=$(mysql $MYSQL_CONN -N -e \
   "SELECT carbon_tradable FROM enterprise WHERE user_id=3" | tr -d '[:space:]' | cut -d. -f1)
 
 info "Before trading:"
@@ -170,12 +177,12 @@ fi
 # --- TRADE-05: Verify settlement -- direct DB quota verification ---
 info "[TRADE-05] Verifying settlement via direct DB query..."
 
-E1_TRADABLE_AFTER=$(mysql -u root -p123456 -h 127.0.0.1 -P 3306 oaiss_chain -N -e \
+E1_TRADABLE_AFTER=$(mysql $MYSQL_CONN -N -e \
   "SELECT carbon_tradable FROM enterprise WHERE user_id=2" | tr -d '[:space:]' | cut -d. -f1)
-E1_QUOTA_AFTER=$(mysql -u root -p123456 -h 127.0.0.1 -P 3306 oaiss_chain -N -e \
+E1_QUOTA_AFTER=$(mysql $MYSQL_CONN -N -e \
   "SELECT carbon_quota FROM enterprise WHERE user_id=2" | tr -d '[:space:]' | cut -d. -f1)
 
-E2_TRADABLE_AFTER=$(mysql -u root -p123456 -h 127.0.0.1 -P 3306 oaiss_chain -N -e \
+E2_TRADABLE_AFTER=$(mysql $MYSQL_CONN -N -e \
   "SELECT carbon_tradable FROM enterprise WHERE user_id=3" | tr -d '[:space:]' | cut -d. -f1)
 
 info "After matching:"
@@ -258,16 +265,15 @@ else
   FAILED=$((FAILED + 1))
 fi
 
-# --- TRADE-13: Sequential-only execution note ---
-# TRADE-13: All operations are sequential -- no concurrency
-# DoubleAuctionService.executeMatching() is synchronized, and this bash script is inherently single-threaded
-info "[TRADE-13] Sequential execution verification..."
+# --- TRADE-13: Verify @Transactional on DoubleAuctionService.executeMatching() ---
+info "[TRADE-13] Verifying DoubleAuctionService has transactional matching..."
 TOTAL=$((TOTAL + 1))
-if [[ $FAILED -eq 0 ]]; then
-  ok "TRADE-13: All operations completed sequentially without race conditions"
+SERVICE_FILE="oaiss-chain-backend/src/main/java/com/oaiss/chain/service/DoubleAuctionService.java"
+if [[ -f "$SERVICE_FILE" ]] && grep -q "@Transactional" "$SERVICE_FILE"; then
+  ok "TRADE-13: DoubleAuctionService annotated with @Transactional"
   PASSED=$((PASSED + 1))
 else
-  fail "TRADE-13: Previous failures detected -- sequential execution may have issues"
+  fail "TRADE-13: DoubleAuctionService missing @Transactional annotation"
   FAILED=$((FAILED + 1))
 fi
 
