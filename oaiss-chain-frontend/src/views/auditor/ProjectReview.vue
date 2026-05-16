@@ -163,7 +163,7 @@ onMounted(() => fetchData())
           <template #default="{ row }">
             <el-button v-if="row.status === 'PENDING_REVIEW'" link type="primary" @click="openReviewDialog(row)">{{ t('projectReview.review') }}</el-button>
             <el-button v-if="row.status === 'PENDING_VERIFICATION'" link type="success" @click="openVerifyDialog(row)">{{ t('projectReview.verify') }}</el-button>
-            <el-button link type="warning" @click="openDeductDialog(row)">{{ t('projectReview.deductCredit') }}</el-button>
+            <el-button v-if="row.status === 'PENDING_REVIEW' || row.status === 'PENDING_VERIFICATION'" link type="warning" @click="openDeductDialog(row)">{{ t('projectReview.deductCredit') }}</el-button>
           </template>
         </el-table-column>
       </el-table>

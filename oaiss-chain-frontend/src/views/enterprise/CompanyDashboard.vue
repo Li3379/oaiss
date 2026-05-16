@@ -6,7 +6,7 @@ import echarts from '../../utils/echarts'
 import { getMyReports } from '../../api/carbon'
 import { getMyTrades } from '../../api/trade'
 import { getMyScore } from '../../api/credit'
-import { getMyEnterpriseAdmission } from '../../api/admin'
+import { getMyEnterpriseAdmission } from '../../api/enterprise'
 
 const { t } = useI18n()
 

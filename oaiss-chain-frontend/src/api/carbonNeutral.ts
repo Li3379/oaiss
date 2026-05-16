@@ -55,7 +55,7 @@ export function verifyProject(data: { projectId: number; verified: boolean; comm
   return request.post('/carbon-neutral/verify', data)
 }
 
-export function useCredits(projectId: number, data: { creditAmount: number }): Promise<void> {
+export function useCredits(projectId: number, data: { amount: number }): Promise<void> {
   if (!projectId) return Promise.reject(new Error('项目ID不能为空'))
   return request.post(`/carbon-neutral/${projectId}/use-credits`, data)
 }

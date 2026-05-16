@@ -11,7 +11,11 @@ export function getQuotaInfo(): Promise<unknown> {
 export function updateContact(data: { contactPerson: string; contactPhone: string }): Promise<void> {
   if (!data?.contactPerson) return Promise.reject(new Error('联系人不能为空'))
   if (!data?.contactPhone) return Promise.reject(new Error('联系电话不能为空'))
-  return request.put('/enterprise/contact', data)
+  return request.put('/enterprise/contact', null, { params: data })
+}
+
+export function getMyEnterpriseAdmission(): Promise<unknown> {
+  return request.get('/enterprise/admission/my')
 }
 
 export function getEnterpriseById(enterpriseId: number): Promise<unknown> {

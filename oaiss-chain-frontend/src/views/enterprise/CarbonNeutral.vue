@@ -222,10 +222,10 @@ onMounted(() => {
           <el-table-column prop="createdAt" :label="t('carbonNeutral.colCreateTime')" min-width="170" />
           <el-table-column :label="t('common.operation')" width="280" fixed="right">
             <template #default="{ row }">
-              <el-button v-if="row.status === 'DRAFT'" link type="primary" @click="onSubmitProject(row)">{{ t('carbonNeutral.submit') }}</el-button>
-              <el-button v-if="row.status === 'APPROVED'" link type="primary" @click="onStartProject(row)">{{ t('carbonNeutral.start') }}</el-button>
-              <el-button v-if="row.status === 'IN_PROGRESS'" link type="success" @click="onApplyCertification(row)">{{ t('carbonNeutral.applyCert') }}</el-button>
-              <el-button v-if="['DRAFT', 'APPROVED', 'IN_PROGRESS'].includes(row.status)" link type="danger" @click="onTerminateProject(row)">{{ t('carbonNeutral.terminate') }}</el-button>
+              <el-button v-if="row.status === 0" link type="primary" @click="onSubmitProject(row)">{{ t('carbonNeutral.submit') }}</el-button>
+              <el-button v-if="row.status === 2" link type="primary" @click="onStartProject(row)">{{ t('carbonNeutral.start') }}</el-button>
+              <el-button v-if="row.status === 3" link type="success" @click="onApplyCertification(row)">{{ t('carbonNeutral.applyCert') }}</el-button>
+              <el-button v-if="[0, 2, 3].includes(row.status)" link type="danger" @click="onTerminateProject(row)">{{ t('carbonNeutral.terminate') }}</el-button>
               <router-link :to="`/enterprise/carbon-neutral/projects/${row.id}`">
                 <el-button link type="primary">{{ t('carbonNeutral.viewDetail') }}</el-button>
               </router-link>
