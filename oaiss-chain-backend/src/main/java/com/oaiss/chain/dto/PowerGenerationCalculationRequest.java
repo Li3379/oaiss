@@ -124,6 +124,7 @@ public class PowerGenerationCalculationRequest {
 
     /** 脱硫转化率 */
     @DecimalMin(value = "0", message = "脱硫转化率不能为负")
+    @DecimalMax(value = "1", message = "脱硫转化率不能大于1")
     private BigDecimal desulfConversionRate;
 
     // ==================== 元数据 ====================

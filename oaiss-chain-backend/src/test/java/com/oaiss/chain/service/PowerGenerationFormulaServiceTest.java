@@ -141,4 +141,15 @@ class PowerGenerationFormulaServiceTest {
         assertEquals(0, response.getTotalEmission().compareTo(BigDecimal.ZERO));
         assertTrue(response.getFuelDetails().isEmpty());
     }
+
+    @Test
+    @DisplayName("FC已填写但NCV/CC/OF为null时应抛出BusinessException")
+    void calculate_fcSetButOtherParamsNull_throwsBusinessException() {
+        baseRequest.setRawCoalFc(new BigDecimal("100"));
+        // NCV, CC, OF left null
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> service.calculate(baseRequest));
+        assertEquals(ErrorCode.PARAM_ERROR, exception.getCode());
+    }
 }
