@@ -55,13 +55,13 @@ const onCurrentChange = (page) => {
   loadHistory()
 }
 
-const getScoreLevelType = (level) => {
-  const map = {
-    'AAA': 'success',
-    'AA': 'success',
-    'A': 'primary',
-    'B': 'warning',
-    'C': 'danger',
+const getScoreLevelType = (level: string) => {
+  const map: Record<string, string> = {
+    'EXCELLENT': 'success',
+    'GOOD': 'primary',
+    'WARNING': 'warning',
+    'DANGER': 'danger',
+    'FROZEN': 'danger',
   }
   return map[level] || 'info'
 }
