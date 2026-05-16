@@ -7,47 +7,12 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 WORK_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
+# Source shared test helpers (provides assert_contains, assert_not_contains,
+# login_user, run_mysql, print_summary, and test counters)
+source "$SCRIPT_DIR/test-helpers.sh"
+
 BASE_URL="http://localhost:8080/api/v1"
-PASS=0
-FAIL=0
-TEST_ID=0
 TIMESTAMP=$(date +%s)
-
-assert_contains() {
-    local test_name="$1" response="$2" expected="$3"
-    TEST_ID=$((TEST_ID + 1))
-    if echo "$response" | grep -q "$expected"; then
-        echo "  [PASS] Test $TEST_ID: $test_name"
-        PASS=$((PASS + 1))
-    else
-        echo "  [FAIL] Test $TEST_ID: $test_name — expected '$expected' in response"
-        echo "    Response: $(echo "$response" | head -c 500)"
-        FAIL=$((FAIL + 1))
-    fi
-}
-
-assert_not_contains() {
-    local test_name="$1" response="$2" expected="$3"
-    TEST_ID=$((TEST_ID + 1))
-    if ! echo "$response" | grep -q "$expected"; then
-        echo "  [PASS] Test $TEST_ID: $test_name"
-        PASS=$((PASS + 1))
-    else
-        echo "  [FAIL] Test $TEST_ID: $test_name — did NOT expect '$expected' in response"
-        echo "    Response: $(echo "$response" | head -c 500)"
-        FAIL=$((FAIL + 1))
-    fi
-}
-
-login_user() {
-    curl -s -X POST "$BASE_URL/auth/login" \
-        -H "Content-Type: application/json" \
-        -d "{\"username\":\"$1\",\"password\":\"admin123\"}"
-}
-
-db_query() {
-    mysql -h 127.0.0.1 -P 3306 -u root -p123456 oaiss_chain -sNe "$1" 2>/dev/null
-}
 
 echo "=== 06-03: Edge Cases & Negative Testing (EDGE-01~06) ==="
 echo ""
@@ -190,8 +155,8 @@ echo ""
 echo "  P2P Trade state violations..."
 
 # Get enterprise IDs (for balance queries)
-E1_ENT_ID=$(db_query "SELECT id FROM enterprise WHERE user_id=$E1_UID")
-E2_ENT_ID=$(db_query "SELECT id FROM enterprise WHERE user_id=$E2_UID")
+E1_ENT_ID=$(run_mysql "SELECT id FROM enterprise WHERE user_id=$E1_UID")
+E2_ENT_ID=$(run_mysql "SELECT id FROM enterprise WHERE user_id=$E2_UID")
 
 # Violation 5: Create P2P trade, then non-participant tries to confirm
 RESP_TRADE=$(curl -s -X POST "$BASE_URL/trade/p2p" \
@@ -263,8 +228,8 @@ echo ""
 echo "[EDGE-03] Financial integrity..."
 
 # Get before carbon tradable (P2P settlement transfers carbonTradable, not coin balance)
-CT_E1_BEFORE=$(db_query "SELECT carbon_tradable FROM enterprise WHERE user_id=$E1_UID" | cut -d. -f1)
-CT_E2_BEFORE=$(db_query "SELECT carbon_tradable FROM enterprise WHERE user_id=$E2_UID" | cut -d. -f1)
+CT_E1_BEFORE=$(run_mysql "SELECT carbon_tradable FROM enterprise WHERE user_id=$E1_UID" | cut -d. -f1)
+CT_E2_BEFORE=$(run_mysql "SELECT carbon_tradable FROM enterprise WHERE user_id=$E2_UID" | cut -d. -f1)
 echo "  Before: E1_tradable=$CT_E1_BEFORE, E2_tradable=$CT_E2_BEFORE, sum=$((CT_E1_BEFORE + CT_E2_BEFORE))"
 
 # Create a P2P trade and confirm it
@@ -282,8 +247,8 @@ if [ -n "$TRADE3_ID" ] && [ "$TRADE3_ID" != "null" ]; then
 
     # Get after carbon tradable
     sleep 1
-    CT_E1_AFTER=$(db_query "SELECT carbon_tradable FROM enterprise WHERE user_id=$E1_UID" | cut -d. -f1)
-    CT_E2_AFTER=$(db_query "SELECT carbon_tradable FROM enterprise WHERE user_id=$E2_UID" | cut -d. -f1)
+    CT_E1_AFTER=$(run_mysql "SELECT carbon_tradable FROM enterprise WHERE user_id=$E1_UID" | cut -d. -f1)
+    CT_E2_AFTER=$(run_mysql "SELECT carbon_tradable FROM enterprise WHERE user_id=$E2_UID" | cut -d. -f1)
     echo "  After:  E1_tradable=$CT_E1_AFTER, E2_tradable=$CT_E2_AFTER, sum=$((CT_E1_AFTER + CT_E2_AFTER))"
 
     SUM_BEFORE=$((CT_E1_BEFORE + CT_E2_BEFORE))
@@ -512,10 +477,4 @@ fi
 echo ""
 
 # --- Summary ---
-echo "========================================"
-echo "Results: $PASS passed, $FAIL failed (total: $TEST_ID tests)"
-echo "========================================"
-
-if [ "$FAIL" -gt 0 ]; then
-    exit 1
-fi
+print_summary
