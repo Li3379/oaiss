@@ -8,3 +8,12 @@ export function getCarbonReports(params?: PageRequest): Promise<unknown> {
 export function getStatistics(): Promise<unknown> {
   return request.get('/third-party/statistics')
 }
+
+export function getOrgInfo(): Promise<unknown> {
+  return request.get('/third-party/org-info')
+}
+
+export function updateContact(data: { contactPerson: string; contactPhone: string }): Promise<void> {
+  if (!data?.contactPerson) return Promise.reject(new Error('联系人不能为空'))
+  return request.put('/third-party/contact', data)
+}

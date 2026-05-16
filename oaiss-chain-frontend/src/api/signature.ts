@@ -21,10 +21,18 @@ export function verifySignature(data: SignatureVerifyRequest): Promise<{ valid: 
   return request.post('/signature/verify', data)
 }
 
-export function encryptData(data: { data: string; publicKey: string }): Promise<{ encrypted: string }> {
-  return request.post('/signature/encrypt', data)
+export function encryptData(data: string, reviewerId: number): Promise<string> {
+  if (!data) return Promise.reject(new Error('待加密数据不能为空'))
+  if (!reviewerId) return Promise.reject(new Error('审核员ID不能为空'))
+  return request.post('/signature/encrypt', data, {
+    headers: { 'Content-Type': 'text/plain' },
+    params: { reviewerId }
+  })
 }
 
-export function decryptData(data: { data: string; privateKey: string }): Promise<{ decrypted: string }> {
-  return request.post('/signature/decrypt', data)
+export function decryptData(encryptedData: string): Promise<string> {
+  if (!encryptedData) return Promise.reject(new Error('加密数据不能为空'))
+  return request.post('/signature/decrypt', encryptedData, {
+    headers: { 'Content-Type': 'text/plain' }
+  })
 }

@@ -40,3 +40,31 @@ export function applyCertification(projectId: number): Promise<void> {
 export function terminateProject(projectId: number, data: { reason: string }): Promise<void> {
   return request.post(`/carbon-neutral/${projectId}/terminate`, data)
 }
+
+export function getMyProjects(params?: PageRequest): Promise<unknown> {
+  return request.get('/carbon-neutral/my', { params })
+}
+
+export function reviewProject(projectId: number, data: { approved: boolean; comment: string }): Promise<void> {
+  if (!projectId) return Promise.reject(new Error('项目ID不能为空'))
+  return request.post(`/carbon-neutral/${projectId}/review`, data)
+}
+
+export function verifyProject(data: { projectId: number; verified: boolean; comment: string }): Promise<void> {
+  if (!data?.projectId) return Promise.reject(new Error('项目ID不能为空'))
+  return request.post('/carbon-neutral/verify', data)
+}
+
+export function useCredits(projectId: number, data: { creditAmount: number }): Promise<void> {
+  if (!projectId) return Promise.reject(new Error('项目ID不能为空'))
+  return request.post(`/carbon-neutral/${projectId}/use-credits`, data)
+}
+
+export function completeCertification(projectId: number): Promise<void> {
+  if (!projectId) return Promise.reject(new Error('项目ID不能为空'))
+  return request.post(`/carbon-neutral/${projectId}/certify`)
+}
+
+export function getPendingVerification(params?: PageRequest): Promise<unknown> {
+  return request.get('/carbon-neutral/pending-verification', { params })
+}
