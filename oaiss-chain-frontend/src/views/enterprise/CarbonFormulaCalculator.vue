@@ -3,13 +3,13 @@ import { ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useI18n } from 'vue-i18n'
 import { calculatePowerGeneration, calculatePowerGrid } from '../../api/carbonFormula'
-import type { FuelParams, PowerGenerationCalculationResponse, PowerGridCalculationResponse } from '../../types/carbonFormula'
+import type { PowerGenerationCalculationResponse, PowerGridCalculationResponse } from '../../types/carbonFormula'
 import PageContainer from '../../components/PageContainer.vue'
 
 const { t } = useI18n()
 
-function createEmptyFuelParams(): FuelParams {
-  return { fc: null, ncv: null, cc: null, of: null }
+function createEmptyFuelParams() {
+  return { fc: null, ncv: null, cc: null, of: null } as { fc: number | null; ncv: number | null; cc: number | null; of: number | null }
 }
 
 const activeTab = ref('powerGeneration')
@@ -41,19 +41,39 @@ const fuelSections = [
 const onCalculatePowerGeneration = async () => {
   try {
     pgLoading.value = true
+    const f = pgForm.value
     const payload = {
-      ...pgForm.value,
-      reportingYear: typeof pgForm.value.reportingYear === 'string'
-        ? parseInt(pgForm.value.reportingYear, 10)
-        : pgForm.value.reportingYear,
+      rawCoalFc: f.rawCoal.fc,
+      rawCoalNcv: f.rawCoal.ncv,
+      rawCoalCc: f.rawCoal.cc,
+      rawCoalOf: f.rawCoal.of,
+      cleanedCoalFc: f.cleanedCoal.fc,
+      cleanedCoalNcv: f.cleanedCoal.ncv,
+      cleanedCoalCc: f.cleanedCoal.cc,
+      cleanedCoalOf: f.cleanedCoal.of,
+      otherWashedCoalFc: f.otherWashedCoal.fc,
+      otherWashedCoalNcv: f.otherWashedCoal.ncv,
+      otherWashedCoalCc: f.otherWashedCoal.cc,
+      otherWashedCoalOf: f.otherWashedCoal.of,
+      briquetteFc: f.briquette.fc,
+      briquetteNcv: f.briquette.ncv,
+      briquetteCc: f.briquette.cc,
+      briquetteOf: f.briquette.of,
+      otherCoalFc: f.otherCoal.fc,
+      otherCoalNcv: f.otherCoal.ncv,
+      otherCoalCc: f.otherCoal.cc,
+      otherCoalOf: f.otherCoal.of,
+      carbonateConsumed: f.carbonateConsumed,
+      desulfEmissionFactor: f.desulfEmissionFactor,
+      desulfConversionRate: f.desulfConversionRate,
+      reportingYear: typeof f.reportingYear === 'string'
+        ? parseInt(f.reportingYear, 10)
+        : f.reportingYear,
+      enterpriseName: f.enterpriseName,
     }
     const res = await calculatePowerGeneration(payload)
-    if (res.data) {
-      pgResult.value = res.data
-      ElMessage.success(t('carbonFormula.calcSuccess'))
-    } else {
-      ElMessage.error(res.message || t('carbonFormula.calcFailed'))
-    }
+    pgResult.value = res
+    ElMessage.success(t('carbonFormula.calcSuccess'))
   } catch {
     ElMessage.error(t('carbonFormula.calcFailed'))
   } finally {
@@ -86,12 +106,8 @@ const onCalculatePowerGrid = async () => {
         : gridForm.value.reportingYear,
     }
     const res = await calculatePowerGrid(payload)
-    if (res.data) {
-      gridResult.value = res.data
-      ElMessage.success(t('carbonFormula.calcSuccess'))
-    } else {
-      ElMessage.error(res.message || t('carbonFormula.calcFailed'))
-    }
+    gridResult.value = res
+    ElMessage.success(t('carbonFormula.calcSuccess'))
   } catch {
     ElMessage.error(t('carbonFormula.calcFailed'))
   } finally {

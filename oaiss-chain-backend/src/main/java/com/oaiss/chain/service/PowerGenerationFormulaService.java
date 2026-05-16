@@ -52,6 +52,13 @@ public class PowerGenerationFormulaService {
         // 校验燃料参数
         validateFuelParams(fuelParamsList);
 
+        // 校验脱硫转化率（与DTO @DecimalMax保持一致）
+        if (request.getDesulfConversionRate() != null
+                && request.getDesulfConversionRate().compareTo(BigDecimal.ONE) > 0) {
+            throw new BusinessException(ErrorCode.DATA_OUT_OF_RANGE,
+                    "脱硫转化率不能大于1");
+        }
+
         // 计算各燃料燃烧排放
         List<FuelEmissionDetail> fuelDetails = new ArrayList<>();
         BigDecimal combustionEmission = BigDecimal.ZERO;
@@ -128,6 +135,10 @@ public class PowerGenerationFormulaService {
     private BigDecimal calculateFuelEmission(FuelParams fp) {
         if (fp.fc() == null || fp.fc().compareTo(BigDecimal.ZERO) == 0) {
             return BigDecimal.ZERO;
+        }
+        if (fp.ncv() == null || fp.cc() == null || fp.of() == null) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR,
+                    fp.name() + "低位发热量、含碳量、碳氧化率不能为空（消耗量已填写）");
         }
         return fp.fc().multiply(fp.ncv())
                 .multiply(fp.cc())

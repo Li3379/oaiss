@@ -105,7 +105,7 @@ function renderChart() {
       {
         name: t('enterprise.marketPrediction.lowerBound'),
         type: 'line',
-        data: points.map(d => d.lowerBound),
+        data: points.map((d, i) => d.lowerBound - points[i].upperBound),
         lineStyle: { opacity: 0 },
         areaStyle: { color: 'rgba(64,158,255,0.15)' },
         stack: 'confidence',
@@ -121,13 +121,16 @@ function onResize() {
   chartInstance?.resize()
 }
 
-watch(predictionType, () => {
-  fetchForecast()
-})
+let debounceTimer: number | null = null
 
-watch(horizonDays, () => {
-  fetchForecast()
-})
+function debouncedFetch() {
+  if (debounceTimer) clearTimeout(debounceTimer)
+  debounceTimer = window.setTimeout(() => fetchForecast(), 300)
+}
+
+watch(predictionType, () => debouncedFetch())
+
+watch(horizonDays, () => debouncedFetch())
 
 onMounted(() => {
   fetchForecast()

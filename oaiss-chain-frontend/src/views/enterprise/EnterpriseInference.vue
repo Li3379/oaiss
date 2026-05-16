@@ -30,12 +30,12 @@ const loadData = async () => {
   }
 }
 
-function getStatusType(status: string): 'success' | 'warning' | 'danger' {
+function getStatusType(status: string): 'success' | 'warning' | 'danger' | 'info' {
   switch (status) {
     case 'compliant': return 'success'
     case 'warning': return 'warning'
     case 'non-compliant': return 'danger'
-    default: return 'info' as 'success' | 'warning' | 'danger'
+    default: return 'info'
   }
 }
 

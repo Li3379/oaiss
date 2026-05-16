@@ -1,18 +1,25 @@
-/** Power generation fuel parameters */
-export interface FuelParams {
-  fc: number | null  // fuel consumption (t)
-  ncv: number | null // net calorific value (GJ/t)
-  cc: number | null  // carbon content (tC/GJ)
-  of: number | null  // oxidation rate (0-1)
-}
-
-/** Power generation calculation request */
+/** Power generation calculation request — flat structure matching backend DTO */
 export interface PowerGenerationCalculationRequest {
-  rawCoal: FuelParams
-  cleanedCoal: FuelParams
-  otherWashedCoal: FuelParams
-  briquette: FuelParams
-  otherCoal: FuelParams
+  rawCoalFc: number | null
+  rawCoalNcv: number | null
+  rawCoalCc: number | null
+  rawCoalOf: number | null
+  cleanedCoalFc: number | null
+  cleanedCoalNcv: number | null
+  cleanedCoalCc: number | null
+  cleanedCoalOf: number | null
+  otherWashedCoalFc: number | null
+  otherWashedCoalNcv: number | null
+  otherWashedCoalCc: number | null
+  otherWashedCoalOf: number | null
+  briquetteFc: number | null
+  briquetteNcv: number | null
+  briquetteCc: number | null
+  briquetteOf: number | null
+  otherCoalFc: number | null
+  otherCoalNcv: number | null
+  otherCoalCc: number | null
+  otherCoalOf: number | null
   carbonateConsumed: number | null
   desulfEmissionFactor: number | null
   desulfConversionRate: number | null
@@ -44,9 +51,9 @@ export interface PowerGenerationCalculationResponse {
 
 /** Power grid calculation request */
 export interface PowerGridCalculationRequest {
-  transmissionVolume: number | null
-  lineLossRate: number | null
-  gridEmissionFactor: number | null
+  transmissionVolume: number
+  lineLossRate: number
+  gridEmissionFactor: number
   generationVolume: number | null
   importedElectricity: number | null
   exportedElectricity: number | null
