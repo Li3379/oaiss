@@ -61,7 +61,13 @@ export const MENU_BY_ROLE: Record<RoleType, MenuItem[]> = {
     {
       label: 'menu.reviewer',
       children: [
-        { label: 'menu.auditMaterial', children: [{ label: 'menu.carbonEmissionData', path: '/auditor/audit/list' }] },
+        { label: 'menu.auditMaterial', children: [
+          { label: 'menu.carbonEmissionData', path: '/auditor/audit/list' },
+          { label: 'menu.reviewHistory', path: '/auditor/review/history' },
+        ] },
+        { label: 'menu.projectReview', children: [
+          { label: 'menu.projectReviewList', path: '/auditor/project/review' },
+        ] },
       ],
     },
   ],
