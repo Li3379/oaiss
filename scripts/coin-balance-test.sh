@@ -10,21 +10,28 @@ ok()   { echo -e "${GREEN}[OK]${NC} $1"; }
 fail() { echo -e "${RED}[FAIL]${NC} $1"; }
 info() { echo -e "${YELLOW}[..]${NC} $1"; }
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DB_PORT=3306 source "$SCRIPT_DIR/db-config.sh"
+
 API="http://localhost:8080/api/v1"
+API_PASSWORD="${API_PASSWORD:-admin123}"
 
 TOTAL=0
 PASSED=0
 FAILED=0
 
-# --- Helper: extract JSON field value via grep ---
+# --- Helper: extract JSON field value (jq preferred, grep fallback) ---
 extract_field() {
   local json="$1" field="$2"
+  if command -v jq &>/dev/null; then
+    echo "$json" | jq -r ".$field // empty" 2>/dev/null && return
+  fi
   echo "$json" | { grep -o "\"$field\":[^,}]*" || true; } | head -1 | sed "s/\"$field\"://" | tr -d '"'
 }
 
 # --- Verify backend is up ---
 info "Checking backend availability..."
-curl -sf "$API/auth/login" -o /dev/null -X POST -H "Content-Type: application/json" -d '{"username":"admin","password":"admin123"}' || { fail "Backend not running. Start it first: cd oaiss-chain-backend && mvn spring-boot:run"; exit 1; }
+curl -sf "$API/auth/login" -o /dev/null -X POST -H "Content-Type: application/json" -d "{\"username\":\"admin\",\"password\":\"$API_PASSWORD\"}" || { fail "Backend not running. Start it first: cd oaiss-chain-backend && mvn spring-boot:run"; exit 1; }
 ok "Backend is reachable"
 
 # --- Login helper ---
@@ -32,7 +39,7 @@ login() {
   local username="$1"
   local resp=$(curl -s -X POST "$API/auth/login" \
     -H "Content-Type: application/json" \
-    -d "{\"username\":\"$username\",\"password\":\"admin123\"}")
+    -d "{\"username\":\"$username\",\"password\":\"$API_PASSWORD\"}")
 
   local code=$(extract_field "$resp" "code")
   if [[ "$code" != "200" ]]; then
@@ -61,6 +68,12 @@ ok "enterprise002 logged in"
 info "Logging in as admin..."
 TOKEN_ADMIN=$(login "admin") || { fail "Cannot proceed without admin token"; exit 1; }
 ok "admin logged in"
+
+# --- Reset carbon coin balances to seed values ---
+info "Resetting carbon coin balances to seed values..."
+mysql $MYSQL_CONN -e \
+  "UPDATE carbon_coin_account SET balance=10000 WHERE user_id IN (2,3)" 2>/dev/null || true
+ok "Carbon coin balances reset"
 
 # --- COIN-01: View carbon coin balance ---
 info "[COIN-01] Viewing carbon coin balance for enterprise001..."
