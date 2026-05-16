@@ -23,10 +23,10 @@ import org.springframework.web.bind.annotation.*;
  * @author OAISS Team
  */
 @RestController
-@RequestMapping("/api/v1/ai/market")
+@RequestMapping("/ai/market")
 @RequiredArgsConstructor
 @Validated
-@Tag(name = "AI Market Prediction", description = "Carbon market trend and price forecasting")
+@Tag(name = "19. AI市场预测", description = "碳市场价格走势预测、供需预测、市场趋势分析")
 public class MarketPredictionController {
 
     private static final int DEFAULT_HORIZON_DAYS = 30;

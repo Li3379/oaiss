@@ -18,9 +18,9 @@ import org.springframework.web.bind.annotation.*;
  * @author OAISS Team
  */
 @RestController
-@RequestMapping("/api/v1/predict/enterprise")
+@RequestMapping("/predict/enterprise")
 @RequiredArgsConstructor
-@Tag(name = "Enterprise Inference", description = "Enterprise compliance risk assessment")
+@Tag(name = "20. AI企业推断", description = "企业碳排放趋势推断、合规风险评估、异常检测")
 public class EnterpriseInferenceController {
 
     private final EnterpriseInferenceService enterpriseInferenceService;
