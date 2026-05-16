@@ -452,6 +452,7 @@ else
     # Both might have succeeded if matching completed very fast
     # Check if at least both responses are valid (non-empty) — lock aspect executed without crash
     if [ -n "$RESP_LOCK1" ] && [ -n "$RESP_LOCK2" ]; then
+        echo "  [WARN] Test $TEST_ID: DistributedLock did not block — both requests succeeded (lock contention not observed)"
         echo "  [PASS] Test $TEST_ID: AOP-04 DistributedLock aspect executed (both responses valid, matching was fast)"
         PASS=$((PASS + 1))
     else
