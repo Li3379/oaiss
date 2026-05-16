@@ -88,6 +88,7 @@ public class CreditScoreService {
      * @param enterpriseId 企业ID
      * @return 信誉评分响应
      */
+    @Transactional
     public CreditScoreResponse getScore(Long enterpriseId) {
         CreditScore creditScore = creditScoreRepository.findByEnterpriseIdAndDeletedFalse(enterpriseId)
                 .orElseGet(() -> {
@@ -135,6 +136,9 @@ public class CreditScoreService {
         if (typeEnum == null) {
             throw new IllegalArgumentException("无效的事件类型: " + eventType);
         }
+        if (typeEnum.getDefaultPoints() > 0) {
+            throw new IllegalArgumentException("扣分接口不接受奖励类型事件，请使用 /credit/bonus 接口");
+        }
 
         int pointsToDeduct = typeEnum.getDefaultPoints();
         int scoreBefore = creditScore.getScore();
@@ -178,6 +182,9 @@ public class CreditScoreService {
     @Transactional
     public CreditScoreResponse addBonusPoints(Long enterpriseId, Integer points,
                                                 String description, Long triggeredBy) {
+        if (points == null || points <= 0) {
+            throw new IllegalArgumentException("奖励分数必须为正整数");
+        }
         CreditScore creditScore = creditScoreRepository.findByEnterpriseIdAndDeletedFalse(enterpriseId)
                 .orElseGet(() -> {
                     CreditScore cs = CreditScore.builder()

@@ -86,6 +86,7 @@ public class CarbonNeutralProjectController {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "参数无效")
     })
     @SecurityRequirement(name = "Bearer Authentication")
+    @PreAuthorize("hasAnyRole('ADMIN', 'REVIEWER', 'THIRD_PARTY')")
     public ApiResponse<Page<CarbonNeutralProjectResponse>> search(
             @Parameter(description = "项目类型：1-碳汇, 2-CCUS, 3-可再生能源, 4-节能改造, 5-其他", example = "1")
             @RequestParam(required = false) Integer projectType,
@@ -100,8 +101,9 @@ public class CarbonNeutralProjectController {
         return ApiResponse.success(projectService.searchProjects(projectType, status, keyword, page, size));
     }
 
+    @Deprecated // Use GET /search instead
     @GetMapping("/projects")
-    @Operation(summary = "获取项目列表", description = "获取碳中和项目列表（别名端点），支持分页")
+    @Operation(summary = "获取项目列表", description = "获取碳中和项目列表（别名端点），支持分页。已弃用，请使用 /search 端点。")
     @ApiResponses(value = {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "查询成功"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "参数无效")
@@ -227,10 +229,11 @@ public class CarbonNeutralProjectController {
     })
     @SecurityRequirement(name = "Bearer Authentication")
     public ApiResponse<CarbonNeutralProjectResponse> useCredits(
+            @AuthenticationPrincipal JwtUserDetails currentUser,
             @Parameter(description = "项目ID", required = true, example = "1") @PathVariable Long id,
             @RequestBody Map<String, java.math.BigDecimal> body) {
         java.math.BigDecimal amount = body.get("amount");
-        return ApiResponse.success(projectService.useCredits(id, amount));
+        return ApiResponse.success(projectService.useCredits(currentUser, id, amount));
     }
 
     @PutMapping("/{id}/monitoring")
