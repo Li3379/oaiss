@@ -176,14 +176,12 @@ class CreditScoreServiceTest {
     }
 
     @Test
-    @DisplayName("扣分 - 良好行为加5分")
-    void deductPoints_GoodBehavior_ShouldAdd5() {
+    @DisplayName("扣分 - 良好行为奖励类型被扣分接口拒绝")
+    void deductPoints_GoodBehavior_ShouldReject() {
         testCreditScore.setScore(50);
         when(creditScoreRepository.findByEnterpriseIdAndDeletedFalse(1L)).thenReturn(Optional.of(testCreditScore));
-        when(creditEventRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
-        when(creditScoreRepository.save(any(CreditScore.class))).thenAnswer(inv -> inv.getArgument(0));
-        CreditScoreResponse response = creditScoreService.deductPoints(1L, CreditEventTypeEnum.BONUS_GOOD_BEHAVIOR.getCode(), "奖励", 1L, null);
-        assertEquals(55, response.getScore());
+        assertThrows(IllegalArgumentException.class,
+            () -> creditScoreService.deductPoints(1L, CreditEventTypeEnum.BONUS_GOOD_BEHAVIOR.getCode(), "奖励", 1L, null));
     }
 
     @Test
@@ -289,6 +287,30 @@ class CreditScoreServiceTest {
         when(creditEventRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         CreditScoreResponse response = creditScoreService.addBonusPoints(1L, 5, "奖励", 1L);
         assertEquals(100, response.getScore());
+    }
+
+    @Test
+    @DisplayName("加分 - 负数分数抛出异常")
+    void addBonusPoints_NegativePoints_ShouldThrow() {
+        assertThrows(IllegalArgumentException.class,
+            () -> creditScoreService.addBonusPoints(1L, -10, "无效", 1L));
+    }
+
+    @Test
+    @DisplayName("加分 - null分数抛出异常")
+    void addBonusPoints_NullPoints_ShouldThrow() {
+        assertThrows(IllegalArgumentException.class,
+            () -> creditScoreService.addBonusPoints(1L, null, "无效", 1L));
+    }
+
+    @Test
+    @DisplayName("扣分 - 奖励类型不可用于扣分接口")
+    void deductPoints_BonusEventType_ShouldThrow() {
+        when(creditScoreRepository.findByEnterpriseIdAndDeletedFalse(1L))
+            .thenReturn(Optional.of(testCreditScore));
+        assertThrows(IllegalArgumentException.class,
+            () -> creditScoreService.deductPoints(1L,
+                CreditEventTypeEnum.BONUS_GOOD_BEHAVIOR.getCode(), "无效", 1L, null));
     }
 
     // ==================== evaluateLevel ====================
