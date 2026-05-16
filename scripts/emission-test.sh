@@ -1,49 +1,38 @@
 #!/bin/bash
 # 05-03: Emission Ratings - View/Create/Recalculate + Rankings + AI Predict
 # Requirements: EMIT-01, EMIT-02, EMIT-03
+#
+# Required seed data:
+#   - Users: admin, enterprise001 (password from TEST_PASSWORD env, default: admin123)
+#   - MySQL accessible with DB_USER/DB_PASS env vars
+#   - Backend running at BASE_URL (default: http://localhost:8080/api/v1)
 
-set -euo pipefail
+source "$(dirname "$0")/test-helpers.sh"
 
-BASE_URL="http://localhost:8080/api/v1"
-PASS=0
-FAIL=0
-TEST_ID=0
-
-assert_contains() {
-    local test_name="$1" response="$2" expected="$3"
-    TEST_ID=$((TEST_ID + 1))
-    if echo "$response" | grep -q "$expected"; then
-        echo "  [PASS] Test $TEST_ID: $test_name"
-        PASS=$((PASS + 1))
-    else
-        echo "  [FAIL] Test $TEST_ID: $test_name — expected '$expected' in response"
-        echo "    Response: $(echo "$response" | head -c 500)"
-        FAIL=$((FAIL + 1))
-    fi
-}
+check_dependencies mysql
 
 echo "=== 05-03: Emission Ratings (EMIT-01~03) ==="
 echo ""
 
-# --- Authentication ---
+# --- Authentication (WR-01: validate tokens) ---
 echo "[1/6] Authenticating..."
 
-login_user() {
-    curl -s -X POST "$BASE_URL/auth/login" \
-        -H "Content-Type: application/json" \
-        -d "{\"username\":\"$1\",\"password\":\"admin123\"}"
-}
-
 RESP_ADMIN=$(login_user "admin")
-TOKEN_ADMIN=$(echo "$RESP_ADMIN" | grep -o '"accessToken":"[^"]*"' | head -1 | cut -d'"' -f4)
+TOKEN_ADMIN=$(extract_token "$RESP_ADMIN" "admin")
 echo "  admin token: ${TOKEN_ADMIN:0:20}..."
 
-# Get enterprise001's enterprise ID from carbon reports
-E1_ENTERPRISE_ID=$(curl -s "$BASE_URL/credit/my-score" \
-    -H "Authorization: Bearer $(echo $(login_user 'enterprise001') | grep -o '"accessToken":"[^"]*"' | head -1 | cut -d'"' -f4)" \
-    | grep -o '"enterpriseId":[0-9]*' | head -1 | cut -d: -f2)
+# Get enterprise001's enterprise ID (WR-03: use extract_field)
+RESP_E1_LOGIN=$(login_user "enterprise001")
+TOKEN_E1=$(extract_token "$RESP_E1_LOGIN" "enterprise001")
+
+RESP_SCORE=$(curl -s "$BASE_URL/credit/my-score" \
+    -H "Authorization: Bearer $TOKEN_E1")
+E1_ENTERPRISE_ID=$(extract_field "$RESP_SCORE" "enterpriseId")
 echo "  enterprise001 enterpriseId: $E1_ENTERPRISE_ID"
 echo ""
+
+# Validate extracted ID is a positive integer (CR-02)
+validate_integer "E1_ENTERPRISE_ID" "$E1_ENTERPRISE_ID" || exit 1
 
 # --- EMIT-01: View emission ratings ---
 echo "[2/6] EMIT-01: View emission ratings for enterprise001..."
@@ -52,7 +41,7 @@ RESP_RATINGS=$(curl -s "$BASE_URL/emission/ratings/$E1_ENTERPRISE_ID" \
     -H "Authorization: Bearer $TOKEN_ADMIN")
 echo "  Ratings response: $(echo "$RESP_RATINGS" | head -c 400)"
 
-assert_contains "Get ratings returns 200" "$RESP_RATINGS" '"code":200'
+assert_code_200 "Get ratings returns 200" "$RESP_RATINGS"
 echo ""
 
 # --- EMIT-01: Create/recalculate rating ---
@@ -64,16 +53,23 @@ RESP_CREATE=$(curl -s -X POST "$BASE_URL/emission/ratings" \
     -d "{\"enterpriseId\":$E1_ENTERPRISE_ID,\"year\":\"2025\",\"totalEmission\":1500.50,\"revenue\":50000,\"ratedBy\":1}")
 echo "  Create rating response: $(echo "$RESP_CREATE" | head -c 400)"
 
-assert_contains "Create rating returns 200" "$RESP_CREATE" '"code":200'
+assert_code_200 "Create rating returns 200" "$RESP_CREATE"
 assert_contains "Rating has ratingLevel" "$RESP_CREATE" '"ratingLevel":'
 assert_contains "Rating has totalEmission" "$RESP_CREATE" '"totalEmission":'
 echo ""
 
-# --- DB verification ---
+# --- DB verification (CR-01/WR-07: use run_mysql, show errors) ---
 echo "[4/6] DB check: emission_rating table..."
 
-DB_COUNT=$(mysql -h 127.0.0.1 -P 3306 -u root -p123456 oaiss_chain -sNe \
-    "SELECT COUNT(*) FROM emission_rating WHERE enterprise_id=$E1_ENTERPRISE_ID" 2>/dev/null || echo "0")
+DB_COUNT=$(run_mysql "SELECT COUNT(*) FROM emission_rating WHERE enterprise_id=$E1_ENTERPRISE_ID")
+if [[ "$DB_COUNT" == MYSQL_ERROR:* ]]; then
+    echo "  [ERROR] MySQL query failed: ${DB_COUNT#MYSQL_ERROR:}"
+    DB_COUNT="0"
+elif ! [[ "$DB_COUNT" =~ ^[0-9]+$ ]]; then
+    echo "  [ERROR] Unexpected DB response: $DB_COUNT"
+    DB_COUNT="0"
+fi
+
 TEST_ID=$((TEST_ID + 1))
 if [ "$DB_COUNT" -gt 0 ]; then
     echo "  [PASS] Test $TEST_ID: emission_rating has records for enterprise001 (count=$DB_COUNT)"
@@ -91,7 +87,7 @@ RESP_RANKINGS=$(curl -s "$BASE_URL/emission/rankings/2025" \
     -H "Authorization: Bearer $TOKEN_ADMIN")
 echo "  Rankings response: $(echo "$RESP_RANKINGS" | head -c 400)"
 
-assert_contains "Rankings returns 200" "$RESP_RANKINGS" '"code":200'
+assert_code_200 "Rankings returns 200" "$RESP_RANKINGS"
 assert_contains "Rankings has list data" "$RESP_RANKINGS" '"data":'
 echo ""
 
@@ -104,15 +100,9 @@ RESP_PREDICT=$(curl -s -X POST "$BASE_URL/emission/predict" \
     -d "{\"enterpriseId\":$E1_ENTERPRISE_ID,\"predictMonths\":6}")
 echo "  Predict response: $(echo "$RESP_PREDICT" | head -c 400)"
 
-assert_contains "Prediction returns 200" "$RESP_PREDICT" '"code":200'
+assert_code_200 "Prediction returns 200" "$RESP_PREDICT"
 assert_contains "Prediction has data" "$RESP_PREDICT" '"data":'
 echo ""
 
 # --- Summary ---
-echo "========================================"
-echo "Results: $PASS passed, $FAIL failed (total: $TEST_ID tests)"
-echo "========================================"
-
-if [ "$FAIL" -gt 0 ]; then
-    exit 1
-fi
+print_summary
