@@ -1,41 +1,24 @@
 #!/bin/bash
 # 05-05: Admin Management - List/Filter Users, Status Toggle, Dashboard, Statistics
 # Requirements: ADMIN-01, ADMIN-02 (gap), ADMIN-03 (gap), ADMIN-04, ADMIN-05
+#
+# Required seed data:
+#   - Users: admin, enterprise001 (password from TEST_PASSWORD env, default: admin123)
+#   - enterprise001 must have userType=1 (ENTERPRISE)
+#   - Backend running at BASE_URL (default: http://localhost:8080/api/v1)
 
-set -euo pipefail
+source "$(dirname "$0")/test-helpers.sh"
 
-BASE_URL="http://localhost:8080/api/v1"
-PASS=0
-FAIL=0
-TEST_ID=0
-
-assert_contains() {
-    local test_name="$1" response="$2" expected="$3"
-    TEST_ID=$((TEST_ID + 1))
-    if echo "$response" | grep -q "$expected"; then
-        echo "  [PASS] Test $TEST_ID: $test_name"
-        PASS=$((PASS + 1))
-    else
-        echo "  [FAIL] Test $TEST_ID: $test_name — expected '$expected' in response"
-        echo "    Response: $(echo "$response" | head -c 500)"
-        FAIL=$((FAIL + 1))
-    fi
-}
+check_dependencies
 
 echo "=== 05-05: Admin Management (ADMIN-01~05) ==="
 echo ""
 
-# --- Authentication ---
+# --- Authentication (WR-01: validate tokens) ---
 echo "[1/8] Authenticating..."
 
-login_user() {
-    curl -s -X POST "$BASE_URL/auth/login" \
-        -H "Content-Type: application/json" \
-        -d "{\"username\":\"$1\",\"password\":\"admin123\"}"
-}
-
 RESP_ADMIN=$(login_user "admin")
-TOKEN_ADMIN=$(echo "$RESP_ADMIN" | grep -o '"accessToken":"[^"]*"' | head -1 | cut -d'"' -f4)
+TOKEN_ADMIN=$(extract_token "$RESP_ADMIN" "admin")
 echo "  admin token: ${TOKEN_ADMIN:0:20}..."
 echo ""
 
@@ -46,20 +29,18 @@ RESP_USERS=$(curl -s "$BASE_URL/admin/users?page=1&size=10" \
     -H "Authorization: Bearer $TOKEN_ADMIN")
 echo "  Users response: $(echo "$RESP_USERS" | head -c 400)"
 
-assert_contains "List users returns 200" "$RESP_USERS" '"code":200'
+assert_code_200 "List users returns 200" "$RESP_USERS"
 assert_contains "Users has content" "$RESP_USERS" '"content":'
 
-# Extract enterprise001's userId for status toggle
-E1_USER_ID=$(echo "$RESP_USERS" | grep -o '"id":[0-9]*' | head -1 | cut -d: -f2)
-# Find a non-admin user (enterprise001 typically has id=2)
-E1_USER_ID=$(echo "$RESP_USERS" | python3 -c "
-import sys, json
-data = json.loads(sys.stdin.read().replace('\"code\":', '\"_code\":').split('\"data\":', 1)[1].rsplit(',\"meta\"', 1)[0])
-for u in data.get('content', []):
-    if u.get('userType', 0) == 1:
-        print(u['id'])
-        break
-" 2>/dev/null || echo "$E1_USER_ID")
+# Extract enterprise001's userId using jq if available (IN-03: replace inline python)
+E1_USER_ID=""
+if command -v jq >/dev/null 2>&1; then
+    E1_USER_ID=$(echo "$RESP_USERS" | jq -r '.data.content[] | select(.userType == 1) | .id' 2>/dev/null | head -1)
+fi
+# Fallback: grep for first id in content (less precise but functional)
+if [ -z "$E1_USER_ID" ]; then
+    E1_USER_ID=$(echo "$RESP_USERS" | grep -o '"id":[0-9]*' | head -1 | cut -d: -f2)
+fi
 echo "  enterprise001 userId: $E1_USER_ID"
 echo ""
 
@@ -70,7 +51,7 @@ RESP_FILTER=$(curl -s "$BASE_URL/admin/users?userType=1&page=1&size=10" \
     -H "Authorization: Bearer $TOKEN_ADMIN")
 echo "  Filter response: $(echo "$RESP_FILTER" | head -c 300)"
 
-assert_contains "Filter by type returns 200" "$RESP_FILTER" '"code":200'
+assert_code_200 "Filter by type returns 200" "$RESP_FILTER"
 assert_contains "Filter has content" "$RESP_FILTER" '"content":'
 echo ""
 
@@ -81,7 +62,7 @@ RESP_DISABLE=$(curl -s -X PUT "$BASE_URL/admin/users/$E1_USER_ID/status?status=0
     -H "Authorization: Bearer $TOKEN_ADMIN")
 echo "  Disable response: $(echo "$RESP_DISABLE" | head -c 300)"
 
-assert_contains "Disable user returns 200" "$RESP_DISABLE" '"code":200'
+assert_code_200 "Disable user returns 200" "$RESP_DISABLE"
 echo ""
 
 # --- Verify disabled ---
@@ -99,7 +80,7 @@ RESP_ENABLE=$(curl -s -X PUT "$BASE_URL/admin/users/$E1_USER_ID/status?status=1"
     -H "Authorization: Bearer $TOKEN_ADMIN")
 echo "  Enable response: $(echo "$RESP_ENABLE" | head -c 300)"
 
-assert_contains "Re-enable user returns 200" "$RESP_ENABLE" '"code":200'
+assert_code_200 "Re-enable user returns 200" "$RESP_ENABLE"
 echo ""
 
 # --- ADMIN-05: Dashboard ---
@@ -109,7 +90,7 @@ RESP_DASH=$(curl -s "$BASE_URL/admin/dashboard" \
     -H "Authorization: Bearer $TOKEN_ADMIN")
 echo "  Dashboard response: $RESP_DASH"
 
-assert_contains "Dashboard returns 200" "$RESP_DASH" '"code":200'
+assert_code_200 "Dashboard returns 200" "$RESP_DASH"
 assert_contains "Dashboard has totalUsers" "$RESP_DASH" '"totalUsers":'
 echo ""
 
@@ -120,7 +101,7 @@ RESP_STATS=$(curl -s "$BASE_URL/admin/statistics" \
     -H "Authorization: Bearer $TOKEN_ADMIN")
 echo "  Statistics response: $RESP_STATS"
 
-assert_contains "Statistics returns 200" "$RESP_STATS" '"code":200'
+assert_code_200 "Statistics returns 200" "$RESP_STATS"
 assert_contains "Statistics has enterpriseCount" "$RESP_STATS" '"enterpriseCount":'
 assert_contains "Statistics has reviewerCount" "$RESP_STATS" '"reviewerCount":'
 assert_contains "Statistics has thirdPartyCount" "$RESP_STATS" '"thirdPartyCount":'
@@ -134,10 +115,4 @@ echo "  ADMIN-03 (Edit User): No backend endpoint exists"
 echo "========================================"
 
 # --- Summary ---
-echo "========================================"
-echo "Results: $PASS passed, $FAIL failed (total: $TEST_ID tests)"
-echo "========================================"
-
-if [ "$FAIL" -gt 0 ]; then
-    exit 1
-fi
+print_summary
