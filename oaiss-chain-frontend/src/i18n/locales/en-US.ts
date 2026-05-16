@@ -311,6 +311,7 @@ export default {
     reportTypeAnnual: 'Annual Report',
     colReportNo: 'Report No.',
     colReportTitle: 'Report Title',
+    colReportType: 'Report Type',
     colAccountingPeriod: 'Accounting Period',
     colTotalEmission: 'Total Emission (tCO2e)',
     colStatus: 'Status',
@@ -826,6 +827,9 @@ export default {
     loading: 'Loading predictions...',
     noData: 'No prediction data available',
     loadFailed: 'Failed to load prediction data',
+    trendDirection: 'Trend Direction',
+    horizon: 'Prediction Horizon',
+    days: 'Days',
   },
   enterpriseInference: {
     title: 'AI Enterprise Inference',

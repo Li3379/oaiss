@@ -3,7 +3,7 @@ import { onMounted, ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getReportList, reviewReport } from '../../api/carbon'
-import { getMyReviewerQualification } from '../../api/admin'
+import { getMyReviewerQualification } from '../../api/reviewer'
 import { getPendingReports, getStatistics, getReviewerInfo } from '../../api/reviewer'
 import { formatDateTime } from '../../utils/format'
 
@@ -93,9 +93,9 @@ const getStatusType = (status) => {
   const statusMap = {
     0: 'info',
     1: 'warning',
-    2: 'success',
-    3: 'danger',
-    4: 'info',
+    2: 'primary',
+    3: 'success',
+    4: 'danger',
   }
   return statusMap[status] || 'info'
 }

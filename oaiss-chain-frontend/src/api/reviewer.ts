@@ -13,6 +13,10 @@ export function getReviewHistory(params?: PageRequest): Promise<unknown> {
   return request.get('/reviewer/history', { params })
 }
 
+export function getMyReviewerQualification(): Promise<unknown> {
+  return request.get('/reviewer/qualification/my')
+}
+
 export function getStatistics(): Promise<unknown> {
   return request.get('/reviewer/statistics')
 }

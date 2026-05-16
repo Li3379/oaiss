@@ -311,6 +311,7 @@ export default {
     reportTypeAnnual: '年度报告',
     colReportNo: '报告编号',
     colReportTitle: '报告标题',
+    colReportType: '报告类型',
     colAccountingPeriod: '核算周期',
     colTotalEmission: '总排放量(tCO2e)',
     colStatus: '状态',
@@ -838,6 +839,9 @@ export default {
     loading: '加载预测数据...',
     noData: '暂无预测数据',
     loadFailed: '加载预测数据失败',
+    trendDirection: '趋势方向',
+    horizon: '预测周期',
+    days: '天',
   },
   enterpriseInference: {
     title: 'AI企业推理',

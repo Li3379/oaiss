@@ -27,10 +27,6 @@ export function revokeEnterpriseAdmission(enterpriseId: number): Promise<void> {
   return request.delete(`/admin/enterprise-admission/${enterpriseId}`)
 }
 
-export function getMyEnterpriseAdmission(): Promise<unknown> {
-  return request.get('/enterprise/admission/my')
-}
-
 // ============ Reviewer Qualification (审核员资格证) ============
 
 export function getReviewerQualificationList(params?: PageRequest): Promise<unknown> {
@@ -43,10 +39,6 @@ export function issueReviewerQualification(reviewerId: number): Promise<unknown>
 
 export function revokeReviewerQualification(reviewerId: number): Promise<void> {
   return request.delete(`/admin/reviewer-qualification/${reviewerId}`)
-}
-
-export function getMyReviewerQualification(): Promise<unknown> {
-  return request.get('/reviewer/qualification/my')
 }
 
 export function getDashboard(): Promise<unknown> {
