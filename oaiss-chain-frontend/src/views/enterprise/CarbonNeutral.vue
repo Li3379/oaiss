@@ -25,11 +25,11 @@ const createForm = reactive({
 })
 
 const projectTypeOptions = [
-  { label: 'carbonNeutral.typeEnergySaving', value: 'ENERGY_SAVING' },
-  { label: 'carbonNeutral.typeNewEnergy', value: 'RENEWABLE_ENERGY' },
-  { label: 'carbonNeutral.typeCarbonSink', value: 'AFFORESTATION' },
-  { label: 'carbonNeutral.typeCCUS', value: 'CCUS' },
-  { label: 'carbonNeutral.typeOther', value: 'OTHER' },
+  { label: 'carbonNeutral.typeCarbonSink', value: 1 },
+  { label: 'carbonNeutral.typeCCUS', value: 2 },
+  { label: 'carbonNeutral.typeNewEnergy', value: 3 },
+  { label: 'carbonNeutral.typeEnergySaving', value: 4 },
+  { label: 'carbonNeutral.typeOther', value: 5 },
 ]
 
 const createFormRules = {
@@ -77,24 +77,30 @@ const getProjectTypeLabel = (type) => {
   return t(option.label)
 }
 
-const getProjectStatusTag = (status) => {
-  const map = {
-    'PENDING': 'warning',
-    'VERIFIED': 'success',
-    'REJECTED': 'danger',
-    'COMPLETED': 'info',
+const getProjectStatusTag = (status: number) => {
+  const map: Record<number, string> = {
+    0: 'info',      // DRAFT
+    1: 'warning',   // PENDING
+    2: 'success',   // APPROVED
+    3: 'primary',   // IMPLEMENTING
+    4: 'success',   // COMPLETED
+    5: 'danger',    // TERMINATED
+    6: 'danger',    // REJECTED
   }
   return map[status] || 'info'
 }
 
-const getProjectStatusText = (status) => {
-  const map = {
-    'PENDING': t('carbonNeutral.statusPending'),
-    'VERIFIED': t('carbonNeutral.statusVerified'),
-    'REJECTED': t('carbonNeutral.statusRejected'),
-    'COMPLETED': t('carbonNeutral.statusCompleted'),
+const getProjectStatusText = (status: number) => {
+  const map: Record<number, string> = {
+    0: t('carbonNeutral.statusDraft'),
+    1: t('carbonNeutral.statusPending'),
+    2: t('carbonNeutral.statusApproved'),
+    3: t('carbonNeutral.statusImplementing'),
+    4: t('carbonNeutral.statusCompleted'),
+    5: t('carbonNeutral.statusTerminated'),
+    6: t('carbonNeutral.statusRejected'),
   }
-  return map[status] || status
+  return map[status] || String(status)
 }
 
 const openCreateDialog = () => {
