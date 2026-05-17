@@ -288,7 +288,7 @@ public class TradeService {
                 .id(trade.getId())
                 .tradeNo(trade.getTradeNo())
                 .tradeType(trade.getTradeType())
-                .tradeTypeText(TradeTypeEnum.fromCode(trade.getTradeType()).getDescription())
+                .tradeTypeText(safeTradeTypeText(trade.getTradeType()))
                 .sellerId(trade.getSellerId())
                 .sellerName(sellerName)
                 .buyerId(trade.getBuyerId())
@@ -298,11 +298,29 @@ public class TradeService {
                 .totalAmount(trade.getTotalAmount())
                 .reportId(trade.getReportId())
                 .status(trade.getStatus())
-                .statusText(TradeStatusEnum.fromCode(trade.getStatus()).getDescription())
+                .statusText(safeTradeStatusText(trade.getStatus()))
                 .remark(trade.getRemark())
                 .blockchainTxHash(trade.getBlockchainTxHash())
                 .completedAt(trade.getCompletedAt())
                 .createdAt(trade.getCreatedAt())
                 .build();
+    }
+
+    private String safeTradeTypeText(Integer code) {
+        try {
+            TradeTypeEnum e = TradeTypeEnum.fromCode(code);
+            return e != null ? e.getDescription() : "未知";
+        } catch (IllegalArgumentException ex) {
+            return "未知";
+        }
+    }
+
+    private String safeTradeStatusText(Integer code) {
+        try {
+            TradeStatusEnum e = TradeStatusEnum.fromCode(code);
+            return e != null ? e.getDescription() : "未知";
+        } catch (IllegalArgumentException ex) {
+            return "未知";
+        }
     }
 }
