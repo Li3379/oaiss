@@ -200,9 +200,9 @@ Phase 8 depends on Phase 7. Phase 11 depends on Phases 7-10. Phase 12 depends on
 | 7. AI 智能预测基础 | v1.1.0 | 4/4 | Complete | 2026-05-14 |
 | 8. AI 前端 + 碳核算公式 | v1.1.0 | 3/3 | Complete | 2026-05-15 |
 | 9. 区块链真实对接 | v1.1.0 | 3/3 | Complete | 2026-05-15 |
-| 10. 准入与资格证 | v1.1.0 | 3/3 | Planned | - |
-| 11. 前端覆盖率补齐 | v1.1.0 | 0/4 | Not started | - |
-| 12. E2E 测试与验收 | v1.1.0 | 0/6 | Not started | - |
+| 10. 准入与资格证 | v1.1.0 | 3/3 | Complete | 2026-05-15 |
+| 11. 前端覆盖率补齐 | v1.1.0 | 4/4 | Complete | 2026-05-16 |
+| 12. E2E 测试与验收 | v1.1.0 | 6/6 | Complete | 2026-05-17 |
 
 ## Known Issues & Deferred Items
 
