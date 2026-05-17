@@ -214,6 +214,84 @@ test.describe('AI Prediction Flow', () => {
     })
   })
 
+  // ─── REQ-03: Carbon Emission Prediction ──────────────────────────────────
+
+  test.describe('Carbon Emission Prediction (REQ-03)', () => {
+    test('should predict emission for an enterprise', async ({ request }) => {
+      test.skip(!await isMlServiceAvailable(), 'ML service not available')
+
+      const response = await request.post(`${API_BASE}/emission/predict`, {
+        data: { enterpriseId: 1, predictMonths: 6 }
+      })
+
+      expect(response.ok()).toBeTruthy()
+      const body = await response.json()
+      expect(body.code).toBe(200)
+      expect(body.data).toBeDefined()
+      expect(body.data).toHaveProperty('enterpriseId')
+      expect(body.data).toHaveProperty('confidence')
+      expect(body.data).toHaveProperty('message')
+      expect(body.data).toHaveProperty('predictions')
+      expect(body.data).toHaveProperty('generatedAt')
+      expect(typeof body.data.confidence).toBe('number')
+      expect(Array.isArray(body.data.predictions)).toBeTruthy()
+    })
+
+    test('should return prediction data points with period and emission', async ({ request }) => {
+      test.skip(!await isMlServiceAvailable(), 'ML service not available')
+
+      const response = await request.post(`${API_BASE}/emission/predict`, {
+        data: { enterpriseId: 1, predictMonths: 3 }
+      })
+
+      expect(response.ok()).toBeTruthy()
+      const body = await response.json()
+
+      if (body.data?.predictions?.length > 0) {
+        const firstPoint = body.data.predictions[0]
+        expect(firstPoint).toHaveProperty('period')
+        expect(firstPoint).toHaveProperty('predictedEmission')
+        expect(typeof firstPoint.predictedEmission).toBe('number')
+      }
+    })
+
+    test('should work without optional predictMonths', async ({ request }) => {
+      test.skip(!await isMlServiceAvailable(), 'ML service not available')
+
+      const response = await request.post(`${API_BASE}/emission/predict`, {
+        data: { enterpriseId: 1 }
+      })
+
+      expect(response.ok()).toBeTruthy()
+      const body = await response.json()
+      expect(body.data).toHaveProperty('predictions')
+    })
+
+    test('should validate enterpriseId is required', async ({ request }) => {
+      test.skip(!await isMlServiceAvailable(), 'ML service not available')
+
+      const response = await request.post(`${API_BASE}/emission/predict`, {
+        data: { predictMonths: 6 }
+      })
+
+      expect(response.status()).toBeGreaterThanOrEqual(400)
+    })
+
+    test('should enforce rate limit on prediction endpoint', async ({ request }) => {
+      test.skip(!await isMlServiceAvailable(), 'ML service not available')
+
+      // Rate limit is 10 per 60 seconds — send 12 rapid requests
+      const requests = Array(12).fill(null).map(() =>
+        request.post(`${API_BASE}/emission/predict`, { data: { enterpriseId: 1 } })
+      )
+
+      const responses = await Promise.all(requests)
+      const rateLimited = responses.some(r => r.status() === 429)
+
+      expect(rateLimited).toBeTruthy()
+    })
+  })
+
   // ─── Permission Checks ────────────────────────────────────────────────────
 
   test.describe('Permission Checks', () => {

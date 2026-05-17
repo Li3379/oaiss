@@ -65,9 +65,12 @@ export const CORE_ENDPOINTS: EndpointCoverage[] = [
   { endpoint: '/ai/market/supply-demand', method: 'POST', module: 'marketPrediction', testedIn: ['ai-prediction-flow'], category: 'v1.1' },
   { endpoint: '/predict/enterprise/{id}/inference', method: 'GET', module: 'enterpriseInference', testedIn: ['ai-prediction-flow'], category: 'v1.1' },
 
-  // Carbon Formulas (v1.1) - no test file exists yet (12-03 tests not on disk)
-  { endpoint: '/carbon/calculate/power-generation', method: 'POST', module: 'carbonFormula', testedIn: [], category: 'v1.1' },
-  { endpoint: '/carbon/calculate/power-grid', method: 'POST', module: 'carbonFormula', testedIn: [], category: 'v1.1' },
+  // Carbon Formulas (v1.1)
+  { endpoint: '/carbon/calculate/power-generation', method: 'POST', module: 'carbonFormula', testedIn: ['blockchain-formula-flow'], category: 'v1.1' },
+  { endpoint: '/carbon/calculate/power-grid', method: 'POST', module: 'carbonFormula', testedIn: ['blockchain-formula-flow'], category: 'v1.1' },
+
+  // Emission Prediction (v1.1)
+  { endpoint: '/emission/predict', method: 'POST', module: 'emissionPrediction', testedIn: ['ai-prediction-flow'], category: 'v1.1' },
 
   // Certificates (v1.1)
   { endpoint: '/admin/enterprise-admission/{id}/issue', method: 'POST', module: 'admin', testedIn: ['certificate-flow'], category: 'v1.1' },
@@ -312,7 +315,7 @@ export function generateAcceptanceChecklist(
   const reqCoverage = [
     { req: 'REQ-01', name: 'Market Prediction API', covered: (coverage.byModule.marketPrediction?.covered ?? 0) > 0 },
     { req: 'REQ-02', name: 'Enterprise Inference API', covered: (coverage.byModule.enterpriseInference?.covered ?? 0) > 0 },
-    { req: 'REQ-03', name: 'Carbon ML Prediction', covered: (coverage.byModule.carbon?.covered ?? 0) > 0 },
+    { req: 'REQ-03', name: 'Carbon ML Prediction', covered: (coverage.byModule.emissionPrediction?.covered ?? 0) > 0 },
     { req: 'REQ-04', name: 'AI Frontend Pages', covered: (coverage.byModule.marketPrediction?.covered ?? 0) > 0 },
     { req: 'REQ-05', name: 'Blockchain Real Integration', covered: (coverage.byModule.blockchain?.covered ?? 0) > 0 },
     { req: 'REQ-06', name: 'Carbon Formulas', covered: (coverage.byModule.carbonFormula?.covered ?? 0) > 0 },
