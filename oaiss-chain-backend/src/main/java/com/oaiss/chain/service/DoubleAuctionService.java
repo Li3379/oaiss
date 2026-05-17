@@ -375,8 +375,7 @@ public class DoubleAuctionService {
                 order.getMatchedQuantity() != null ? order.getMatchedQuantity() : BigDecimal.ZERO);
 
         String directionText = order.getDirection() == 1 ? "买入" : "卖出";
-        String statusText = AuctionOrderStatusEnum.fromCode(order.getStatus()) != null
-                ? AuctionOrderStatusEnum.fromCode(order.getStatus()).getDescription() : "";
+        String statusText = safeAuctionStatusText(order.getStatus());
 
         return AuctionOrderResponse.builder()
                 .id(order.getId())
@@ -417,8 +416,7 @@ public class DoubleAuctionService {
                 .map(User::getRealName).orElse("未知");
         String sellerName = userRepository.findById(match.getSellerId())
                 .map(User::getRealName).orElse("未知");
-        String statusText = MatchingStatusEnum.fromCode(match.getStatus()) != null
-                ? MatchingStatusEnum.fromCode(match.getStatus()).getDescription() : "";
+        String statusText = safeMatchingStatusText(match.getStatus());
 
         return buildMatchResponse(match, buyerName, sellerName, statusText);
     }
@@ -426,8 +424,7 @@ public class DoubleAuctionService {
     private MatchingResultResponse toMatchResponse(MatchingResult match, Map<Long, String> userNames) {
         String buyerName = userNames.getOrDefault(match.getBuyerId(), "未知");
         String sellerName = userNames.getOrDefault(match.getSellerId(), "未知");
-        String statusText = MatchingStatusEnum.fromCode(match.getStatus()) != null
-                ? MatchingStatusEnum.fromCode(match.getStatus()).getDescription() : "";
+        String statusText = safeMatchingStatusText(match.getStatus());
 
         return buildMatchResponse(match, buyerName, sellerName, statusText);
     }
@@ -453,5 +450,15 @@ public class DoubleAuctionService {
                 .settledAt(match.getSettledAt())
                 .createdAt(match.getCreatedAt())
                 .build();
+    }
+
+    private String safeAuctionStatusText(Integer code) {
+        AuctionOrderStatusEnum e = AuctionOrderStatusEnum.fromCode(code);
+        return e != null ? e.getDescription() : "";
+    }
+
+    private String safeMatchingStatusText(Integer code) {
+        MatchingStatusEnum e = MatchingStatusEnum.fromCode(code);
+        return e != null ? e.getDescription() : "";
     }
 }
