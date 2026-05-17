@@ -86,7 +86,7 @@ public class CarbonNeutralProjectController {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "参数无效")
     })
     @SecurityRequirement(name = "Bearer Authentication")
-    @PreAuthorize("hasAnyRole('ADMIN', 'REVIEWER', 'THIRD_PARTY')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'ENTERPRISE', 'REVIEWER', 'THIRD_PARTY')")
     public ApiResponse<Page<CarbonNeutralProjectResponse>> search(
             @Parameter(description = "项目类型：1-碳汇, 2-CCUS, 3-可再生能源, 4-节能改造, 5-其他", example = "1")
             @RequestParam(required = false) Integer projectType,
@@ -109,6 +109,7 @@ public class CarbonNeutralProjectController {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "参数无效")
     })
     @SecurityRequirement(name = "Bearer Authentication")
+    @PreAuthorize("hasAnyRole('ADMIN', 'ENTERPRISE', 'REVIEWER', 'THIRD_PARTY')")
     public ApiResponse<Page<CarbonNeutralProjectResponse>> listProjects(
             @Parameter(description = "项目类型", example = "1")
             @RequestParam(required = false) Integer projectType,
