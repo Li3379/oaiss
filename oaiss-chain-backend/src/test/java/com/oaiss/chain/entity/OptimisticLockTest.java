@@ -12,6 +12,9 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Optimistic lock tests for financial entities (CON-02)
  * Verifies that Enterprise, CarbonCoinAccount, and AuctionOrder
  * have @Version fields for optimistic locking.
+ *
+ * Note: @Builder.Default has CLASS retention (not RUNTIME), so it cannot be
+ * tested via reflection. The annotation is verified present in source code.
  */
 class OptimisticLockTest {
 
@@ -61,38 +64,38 @@ class OptimisticLockTest {
     }
 
     @Test
-    @DisplayName("Enterprise的version字段应有@Builder.Default注解")
-    void enterpriseVersionShouldHaveBuilderDefault() throws NoSuchFieldException {
+    @DisplayName("Enterprise通过builder创建时version字段应有默认值0L")
+    void enterpriseBuilderShouldDefaultVersionToZero() {
         // When
-        Field versionField = Enterprise.class.getDeclaredField("version");
+        Enterprise enterprise = Enterprise.builder().build();
 
         // Then
-        assertThat(versionField.getAnnotation(lombok.Builder.Default.class))
-                .as("version field must have @Builder.Default so builder sets version=0L instead of null")
-                .isNotNull();
+        assertThat(enterprise.getVersion())
+                .as("@Builder.Default ensures version is 0L, not null, when using builder")
+                .isEqualTo(0L);
     }
 
     @Test
-    @DisplayName("CarbonCoinAccount的version字段应有@Builder.Default注解")
-    void carbonCoinAccountVersionShouldHaveBuilderDefault() throws NoSuchFieldException {
+    @DisplayName("CarbonCoinAccount通过builder创建时version字段应有默认值0L")
+    void carbonCoinAccountBuilderShouldDefaultVersionToZero() {
         // When
-        Field versionField = CarbonCoinAccount.class.getDeclaredField("version");
+        CarbonCoinAccount account = CarbonCoinAccount.builder().build();
 
         // Then
-        assertThat(versionField.getAnnotation(lombok.Builder.Default.class))
-                .as("version field must have @Builder.Default so builder sets version=0L instead of null")
-                .isNotNull();
+        assertThat(account.getVersion())
+                .as("@Builder.Default ensures version is 0L, not null, when using builder")
+                .isEqualTo(0L);
     }
 
     @Test
-    @DisplayName("AuctionOrder的version字段应有@Builder.Default注解")
-    void auctionOrderVersionShouldHaveBuilderDefault() throws NoSuchFieldException {
+    @DisplayName("AuctionOrder通过builder创建时version字段应有默认值0L")
+    void auctionOrderBuilderShouldDefaultVersionToZero() {
         // When
-        Field versionField = AuctionOrder.class.getDeclaredField("version");
+        AuctionOrder order = AuctionOrder.builder().build();
 
         // Then
-        assertThat(versionField.getAnnotation(lombok.Builder.Default.class))
-                .as("version field must have @Builder.Default so builder sets version=0L instead of null")
-                .isNotNull();
+        assertThat(order.getVersion())
+                .as("@Builder.Default ensures version is 0L, not null, when using builder")
+                .isEqualTo(0L);
     }
 }
