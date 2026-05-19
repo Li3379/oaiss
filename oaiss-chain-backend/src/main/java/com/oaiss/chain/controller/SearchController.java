@@ -10,6 +10,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -22,6 +23,7 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/search")
 @RequiredArgsConstructor
 @Tag(name = "14. 搜索查询管理", description = "碳报告搜索、交易记录搜索、市场宏观数据统计")
+@PreAuthorize("isAuthenticated()")
 public class SearchController {
 
     private final SearchService searchService;
