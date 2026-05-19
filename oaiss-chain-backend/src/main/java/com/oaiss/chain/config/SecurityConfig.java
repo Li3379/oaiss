@@ -76,8 +76,9 @@ public class SecurityConfig {
                                 "/v1/api-docs/**",
                                 "/v3/api-docs/**"
                         ).authenticated()
-                        // Actuator: 仅health和prometheus公开，其余需认证
-                        .requestMatchers("/actuator/health", "/actuator/prometheus").permitAll()
+                        // Actuator: health公开（k8s探针），prometheus需ADMIN认证，其余需认证
+                        .requestMatchers("/actuator/health").permitAll()
+                        .requestMatchers("/actuator/prometheus").hasRole("ADMIN")
                         .requestMatchers("/actuator/**").authenticated()
                         // 其余接口：角色控制由 @PreAuthorize 注解在 Controller 方法上完成
                         .anyRequest().authenticated()
