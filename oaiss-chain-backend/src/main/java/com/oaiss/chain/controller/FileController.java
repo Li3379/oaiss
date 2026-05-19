@@ -12,13 +12,13 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
@@ -43,10 +43,12 @@ import java.util.List;
 @RequiredArgsConstructor
 @Tag(name = "07. 文件管理", description = "文件上传、下载、删除、预签名等文件操作接口")
 @Validated
+@PreAuthorize("isAuthenticated()")
 public class FileController {
 
     private final MinioService minioService;
 
+    @PreAuthorize("hasAnyRole('ENTERPRISE', 'ADMIN')")
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(
         summary = "上传单个文件", 
@@ -79,6 +81,7 @@ public class FileController {
         return ApiResponse.success(result, "文件上传成功");
     }
 
+    @PreAuthorize("hasAnyRole('ENTERPRISE', 'ADMIN')")
     @PostMapping(value = "/upload/batch", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(
         summary = "批量上传文件", 
@@ -168,10 +171,9 @@ public class FileController {
     public ApiResponse<Void> deleteFile(
             @Parameter(description = "对象名称", required = true, example = "reports/2024/report.pdf")
             @RequestParam @NotBlank String objectName,
-            @Parameter(hidden = true) @AuthenticationPrincipal JwtUserDetails currentUser,
-            HttpServletRequest request) {
+            @Parameter(hidden = true) @AuthenticationPrincipal JwtUserDetails currentUser) {
 
-        checkDeletePermission(objectName, currentUser, request);
+        checkDeletePermission(objectName, currentUser);
         minioService.deleteFile(objectName);
         return ApiResponse.success(null, "文件删除成功");
     }
@@ -191,12 +193,11 @@ public class FileController {
     public ApiResponse<Void> deleteFiles(
             @Parameter(description = "对象名称列表", required = true)
             @RequestBody @NotBlank List<String> objectNames,
-            @Parameter(hidden = true) @AuthenticationPrincipal JwtUserDetails currentUser,
-            HttpServletRequest request) {
+            @Parameter(hidden = true) @AuthenticationPrincipal JwtUserDetails currentUser) {
 
         // Check permission for each file
         for (String objectName : objectNames) {
-            checkDeletePermission(objectName, currentUser, request);
+            checkDeletePermission(objectName, currentUser);
         }
         minioService.deleteFiles(objectNames);
         return ApiResponse.success(null, "批量删除成功，共 " + objectNames.size() + " 个文件");
@@ -248,6 +249,7 @@ public class FileController {
         return ApiResponse.success(exists);
     }
 
+    @PreAuthorize("hasAnyRole('ENTERPRISE', 'ADMIN')")
     @GetMapping("/presigned-url")
     @Operation(
         summary = "获取文件预签名URL", 
@@ -272,6 +274,7 @@ public class FileController {
         return ApiResponse.success(url);
     }
 
+    @PreAuthorize("hasAnyRole('ENTERPRISE', 'ADMIN')")
     @GetMapping("/presigned-upload-url")
     @Operation(
         summary = "获取上传预签名URL", 
@@ -292,6 +295,7 @@ public class FileController {
         return ApiResponse.success(url);
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/list")
     @Operation(
         summary = "列出文件", 
@@ -315,6 +319,7 @@ public class FileController {
         return ApiResponse.success(minioService.listFiles(prefix, page, size));
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/copy")
     @Operation(
         summary = "复制文件", 
@@ -346,9 +351,9 @@ public class FileController {
     /**
      * 检查删除权限：管理员可删除任意文件，普通用户只能删除自己上传的文件
      */
-    private void checkDeletePermission(String objectName, JwtUserDetails currentUser, HttpServletRequest request) {
-        Long userId = resolveUserId(currentUser, request);
-        Integer userType = resolveUserType(currentUser, request);
+    private void checkDeletePermission(String objectName, JwtUserDetails currentUser) {
+        Long userId = resolveUserId(currentUser);
+        Integer userType = resolveUserType(currentUser);
 
         // 管理员（userType=4）可删除任意文件
         if (userType != null && userType == 4) {
@@ -369,19 +374,11 @@ public class FileController {
         }
     }
 
-    private Long resolveUserId(JwtUserDetails currentUser, HttpServletRequest request) {
-        if (currentUser != null) {
-            return currentUser.getUserId();
-        }
-        String header = request.getHeader("X-User-Id");
-        return header != null ? Long.parseLong(header) : null;
+    private Long resolveUserId(JwtUserDetails currentUser) {
+        return currentUser.getUserId();
     }
 
-    private Integer resolveUserType(JwtUserDetails currentUser, HttpServletRequest request) {
-        if (currentUser != null) {
-            return currentUser.getUserType();
-        }
-        String header = request.getHeader("X-User-Type");
-        return header != null ? Integer.parseInt(header) : null;
+    private Integer resolveUserType(JwtUserDetails currentUser) {
+        return currentUser.getUserType();
     }
 }
