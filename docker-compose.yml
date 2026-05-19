@@ -3,7 +3,7 @@ services:
     image: mysql:8.0
     container_name: oaiss-mysql
     environment:
-      MYSQL_ROOT_PASSWORD: Oa1ssDb2026Pr0dSecureP4ss
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
       MYSQL_DATABASE: oaiss_chain
       MYSQL_CHARSET: utf8mb4
       MYSQL_COLLATION: utf8mb4_unicode_ci
@@ -20,13 +20,13 @@ services:
   redis:
     image: redis:7-alpine
     container_name: oaiss-redis
-    command: redis-server --requirepass ${REDIS_PASSWORD:-oaiss_redis_dev_2026}
+    command: redis-server --requirepass ${REDIS_PASSWORD}
     ports:
       - "127.0.0.1:6379:6379"
     volumes:
       - redis-data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-oaiss_redis_dev_2026}", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -36,8 +36,8 @@ services:
     container_name: oaiss-minio
     command: server /data --console-address ":9001"
     environment:
-      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-minioadmin}
-      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-minioadmin}
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY}
     ports:
       - "9002:9000"
       - "9003:9001"
@@ -56,14 +56,14 @@ services:
       SPRING_PROFILES_ACTIVE: docker
       DB_HOST: mysql
       DB_PORT: 3306
-      DB_PASSWORD: Oa1ssDb2026Pr0dSecureP4ss
+      DB_PASSWORD: ${DB_PASSWORD}
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      REDIS_PASSWORD: ${REDIS_PASSWORD:-oaiss_redis_dev_2026}
-      JWT_SECRET: Oa1ss2026Pr0dS3cur3JwtK3yF0rHmacSha256S1gn1ngD0ck3r
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
       MINIO_ENDPOINT: http://minio:9000
-      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
-      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
       CORS_ALLOWED_ORIGINS: http://localhost:5173,http://localhost:80
     depends_on:
       mysql:
