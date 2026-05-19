@@ -4,14 +4,15 @@
 
 - **v1.0 Manual Testing** - Phases 1-6 (shipped 2026-05-13) — [Archive](milestones/v1.0-ROADMAP.md)
 - **v1.1.0 需求对齐** - Phases 7-12 (shipped 2026-05-18) — [Archive](milestones/v1.1.0-ROADMAP.md)
+- **v2.0 安全与性能加固** - Phases 13-15 (active)
 
 ## Overview
 
-v1.0 验证了 84 个需求的全角色手工测试。v1.1.0 补齐需求文档中定义但代码中缺失的 AI 智能预测、区块链真实对接、碳核算行业公式、准入/资格证签发、前端覆盖率等 12 个 Gap 项，最终达到 E2E 自动化测试覆盖率 95%、验收报告 APPROVE。
+v1.0 验证了 84 个需求的全角色手工测试。v1.1.0 补齐 12 个 Gap 项，E2E 95% 覆盖。v2.0 解决延期的并发、安全、性能问题，达到生产部署就绪标准。
 
 ## Next Milestone
 
-_To be defined via `/gsd:new-milestone`_
+**v2.0 安全与性能加固** — 19 项需求，3 个 Phase
 
 ## Phase Details
 
@@ -67,17 +68,17 @@ _To be defined via `/gsd:new-milestone`_
 ### Phase 8: AI 前端 + 碳核算公式
 **Goal**: 用户可在前端查看 AI 预测可视化图表；企业上报碳排放时使用行业专用核算公式
 **Depends on**: Phase 7
-**Plans**: 3 plans (08-01 through 08-03) -- Complete
+**Plans**: 3 plans (08-01, 08-02, 08-03) -- Complete
 
 ### Phase 9: 区块链真实对接
 **Goal**: 区块链记录从 Mock 模式升级为 Hyperledger Fabric 真实链上存储与查询
 **Depends on**: Phase 6
-**Plans**: 3 plans (09-01 through 09-03) -- Complete
+**Plans**: 3 plans (09-01, 09-02, 09-03) -- Complete
 
 ### Phase 10: 准入与资格证
 **Goal**: 管理员可签发企业准入证书和审核员资格证，企业和审核员可在前端查看证书状态
 **Depends on**: Phase 6
-**Plans**: 3 plans (10-01 through 10-03) -- Complete
+**Plans**: 3 plans (10-01, 10-02, 10-03) -- Complete
 
 ### Phase 11: 前端覆盖率补齐
 **Goal**: 前端 API 模块覆盖全部后端 endpoint，Enterprise/Reviewer 视图功能完整，Swagger 文档与实际 API 对齐
@@ -88,6 +89,36 @@ _To be defined via `/gsd:new-milestone`_
 **Goal**: 全量 E2E 自动化测试通过，覆盖率 90%+，通过率 90%+，v1.1.0 验收达标
 **Depends on**: Phase 7, 8, 9, 10, 11
 **Plans**: 6 plans (12-01 through 12-06) -- Complete
+
+</details>
+
+<details open>
+<summary>v2.0 安全与性能加固 (Phases 13-15) - ACTIVE</summary>
+
+### Phase 13: 并发安全与凭据加固
+**Goal**: 消除金融交易竞态风险，外部化所有硬编码凭据，补全授权注解
+**Depends on**: Phase 12 (v1.1.0 shipped)
+**Requirements**: CON-01~03, SEC-07~13
+**Priority**: CRITICAL — 生产部署安全底线
+**Plans**: 3 plans
+Plans:
+- [ ] 13-01-PLAN.md — Concurrency Safety: lock-before-transaction, @DistributedLock, @Version optimistic lock (CON-01, CON-02, CON-03)
+- [ ] 13-02-PLAN.md — Credential Hardening: externalize docker-compose & YAML credentials, remove insecure defaults (SEC-07, SEC-08, SEC-09)
+- [ ] 13-03-PLAN.md — Authorization Hardening: @PreAuthorize on FileController/SearchController, remove X-User-Id fallback, Prometheus auth (SEC-10, SEC-11, SEC-12, SEC-13)
+
+### Phase 14: 性能优化与代码质量
+**Goal**: 解决性能瓶颈 (Redis SCAN、缓存异步、订单分页、外键索引)，补全事务注解和软删除过滤
+**Depends on**: Phase 13
+**Requirements**: PERF-02~05, SEC-01~02, QUAL-01~02
+**Plans**: TBD (via `/gsd:plan-phase 14`)
+**Priority**: HIGH — 生产负载就绪
+
+### Phase 15: DevOps 与回归验证
+**Goal**: 建立 CI/CD 管道，修正 dev profile，全量 E2E 回归测试通过
+**Depends on**: Phase 14
+**Requirements**: OPS-01~02, 全量 E2E 回归
+**Plans**: TBD (via `/gsd:plan-phase 15`)
+**Priority**: MEDIUM — 自动化保障
 
 </details>
 
@@ -102,24 +133,34 @@ _To be defined via `/gsd:new-milestone`_
 | 5. Supporting Domains | v1.0 | 7/7 | Complete | 2026-05-09 |
 | 6. Cross-Cutting & Edge Cases | v1.0 | 3/3 | Complete | 2026-05-13 |
 | 7. AI 智能预测基础 | v1.1.0 | 4/4 | Complete | 2026-05-14 |
-| 8. AI 前端 + 碳核算公式 | v1.1.0 | 3/3 | Complete | 2026-05-15 |
+| 8. AI 前端 + 碼核算公式 | v1.1.0 | 3/3 | Complete | 2026-05-15 |
 | 9. 区块链真实对接 | v1.1.0 | 3/3 | Complete | 2026-05-15 |
 | 10. 准入与资格证 | v1.1.0 | 3/3 | Complete | 2026-05-15 |
 | 11. 前端覆盖率补齐 | v1.1.0 | 4/4 | Complete | 2026-05-16 |
 | 12. E2E 测试与验收 | v1.1.0 | 6/6 | Complete | 2026-05-17 |
+| 13. 并发安全与凭据加固 | v2.0 | 0/3 | Planned | — |
+| 14. 性能优化与代码质量 | v2.0 | 0/? | Pending | — |
+| 15. DevOps 与回归验证 | v2.0 | 0/? | Pending | — |
 
 ## Known Issues & Deferred Items
 
-| Item | Status | Impact |
-|------|--------|--------|
-| CON-01/02/03 (concurrency) | Deferred to v2 | Do not test concurrent trading; accept single-threaded behavior |
-| SEC-01/02/05/06 (security) | Deferred to v2 | Low risk in dev/test environment |
-| PERF-01~04 (performance) | Deferred to v2 | No load testing; acceptable for current scale |
-| REQ-06 carbon formula E2E | Coverage gap | Backend endpoints exist, E2E tests incomplete |
-| REQ-03 emission prediction E2E | Coverage gap | No dedicated E2E test |
-| REQ-12 (Fabric CA) | Optional | Can degrade to mock CA; does not block |
+| Item | Status | Impact | v2.0 Coverage |
+|------|--------|--------|---------------|
+| CON-01/02/03 (concurrency) | Active in v2.0 | Financial data corruption risk | Phase 13 |
+| SEC-07/08/09 (credentials) | Active in v2.0 | Production deployment blocker | Phase 13 |
+| SEC-10/11/12/13 (authorization) | Active in v2.0 | Data access control gap | Phase 13 |
+| PERF-02/03/04 (performance) | Active in v2.0 | Production load risk | Phase 14 |
+| PERF-05 (indexes) | Active in v2.0 | Slow query risk | Phase 14 |
+| SEC-01 (RSA plaintext) | Active in v2.0 | Key compromise risk | Phase 14 |
+| SEC-02 (CSRF) | Active in v2.0 | ADR documentation | Phase 14 |
+| QUAL-01/02 (code quality) | Active in v2.0 | Maintainability | Phase 14 |
+| OPS-01/02 (DevOps) | Active in v2.0 | No CI/CD | Phase 15 |
+| M19 i18n 残留 | Deferred to v2.1 | LOW | — |
+| Fabric CA integration | Deferred to v2.1 | Optional | — |
+| Phase 11 skipped items | Deferred to v2.1 | LOW | — |
 
 ---
 *Roadmap created: 2026-05-08*
 *v1.0 shipped: 2026-05-13*
 *v1.1.0 shipped: 2026-05-18*
+*v2.0 milestone defined: 2026-05-19*
