@@ -15,22 +15,23 @@ fail() { echo -e "${RED}[FAIL]${NC} $1"; }
 info() { echo -e "${YELLOW}[..]${NC} $1"; }
 
 API="http://localhost:8080/api/v1"
+CURL_OPTS="--connect-timeout 5 --max-time 15"
 TIMESTAMP=$(date +%s)
 
 # --- Cleanup test data before running ---
 cleanup_test_data() {
     info "Cleaning up existing test data..."
     if docker ps --format '{{.Names}}' | grep -q "^${MYSQL_CONTAINER}$"; then
-        docker exec "$MYSQL_CONTAINER" mysql -u"$DB_USERNAME" -p"$DB_PASSWORD" "$DB_NAME" -e "
-            DELETE FROM emission_rating WHERE remark LIKE '%TEST%' OR remark LIKE '%UAT%' OR remark LIKE '%CARB-TEST%';
-            DELETE FROM credit_event WHERE event_type LIKE '%TEST%' OR event_type LIKE '%UAT%';
-            DELETE FROM carbon_report WHERE title LIKE 'TEST-%' OR title LIKE 'UAT-%' OR title LIKE '%CARB-TEST%' OR title LIKE '%STATE-TEST%';
+        docker exec -e MYSQL_PWD="$DB_PASSWORD" "$MYSQL_CONTAINER" mysql -u"$DB_USERNAME" "$DB_NAME" -e "
+            DELETE FROM emission_rating WHERE remark LIKE 'CARB-TEST-%';
+            DELETE FROM credit_event WHERE event_type LIKE 'CARB-TEST-%';
+            DELETE FROM carbon_report WHERE title LIKE 'CARB-TEST-%';
         " 2>/dev/null || true
     else
         mysql $MYSQL_CONN "$DB_NAME" -e "
-            DELETE FROM emission_rating WHERE remark LIKE '%TEST%' OR remark LIKE '%UAT%' OR remark LIKE '%CARB-TEST%';
-            DELETE FROM credit_event WHERE event_type LIKE '%TEST%' OR event_type LIKE '%UAT%';
-            DELETE FROM carbon_report WHERE title LIKE 'TEST-%' OR title LIKE 'UAT-%' OR title LIKE '%CARB-TEST%' OR title LIKE '%STATE-TEST%';
+            DELETE FROM emission_rating WHERE remark LIKE 'CARB-TEST-%';
+            DELETE FROM credit_event WHERE event_type LIKE 'CARB-TEST-%';
+            DELETE FROM carbon_report WHERE title LIKE 'CARB-TEST-%';
         " 2>/dev/null || true
     fi
     ok "Test data cleanup complete"
@@ -53,13 +54,13 @@ extract_field() {
 
 # --- Verify backend is up ---
 info "Checking backend availability..."
-curl -sf "$API/auth/login" -H "Content-Type: application/json" -d '{"username":"admin","password":"admin123"}' -o /dev/null || { fail "Backend not running. Start it first: cd oaiss-chain-backend && mvn spring-boot:run"; exit 1; }
+curl -sf $CURL_OPTS "$API/auth/login" -H "Content-Type: application/json" -d '{"username":"admin","password":"admin123"}' -o /dev/null || { fail "Backend not running. Start it first: cd oaiss-chain-backend && mvn spring-boot:run"; exit 1; }
 ok "Backend is reachable"
 
 # --- Login helpers ---
 login() {
   local username="$1"
-  local resp=$(curl -s -X POST "$API/auth/login" \
+  local resp=$(curl -s $CURL_OPTS -X POST "$API/auth/login" \
     -H "Content-Type: application/json" \
     -d "{\"username\":\"$username\",\"password\":\"admin123\"}")
 
@@ -92,7 +93,7 @@ info "[CARB-01] Uploading test file..."
 UPLOAD_FILE=$(mktemp)
 echo "Carbon report test evidence - $TIMESTAMP" > "$UPLOAD_FILE"
 
-UPLOAD_RESP=$(curl -s -X POST "$API/file/upload" \
+UPLOAD_RESP=$(curl -s $CURL_OPTS -X POST "$API/file/upload" \
   -H "Authorization: Bearer $TOKEN_E1" \
   -F "file=@$UPLOAD_FILE;filename=test-evidence.txt;type=text/plain" || true)
 
@@ -120,7 +121,7 @@ if [[ -n "$OBJECT_NAME" ]]; then
 fi
 
 # Create report1 (enterprise001, will be approved in Plan 02-02)
-REPORT1_RESP=$(curl -s -X POST "$API/carbon/reports" \
+REPORT1_RESP=$(curl -s $CURL_OPTS -X POST "$API/carbon/reports" \
   -H "Authorization: Bearer $TOKEN_E1" \
   -H "Content-Type: application/json" \
   -d "{\"title\":\"CARB-TEST-APPROVE-$TIMESTAMP\",\"accountingPeriod\":\"2024-Q1\",\"reportType\":1,\"emissionData\":\"${EMISSION_ESCAPED}\",\"calculationMethod\":\"manual\",\"attachments\":$ATTACHMENTS}")
@@ -138,7 +139,7 @@ else
 fi
 
 # Create report2 (enterprise001, will be rejected in Plan 02-02)
-REPORT2_RESP=$(curl -s -X POST "$API/carbon/reports" \
+REPORT2_RESP=$(curl -s $CURL_OPTS -X POST "$API/carbon/reports" \
   -H "Authorization: Bearer $TOKEN_E1" \
   -H "Content-Type: application/json" \
   -d "{\"title\":\"CARB-TEST-REJECT-$TIMESTAMP\",\"accountingPeriod\":\"2024-Q2\",\"reportType\":1,\"emissionData\":\"${EMISSION_ESCAPED}\",\"calculationMethod\":\"manual\",\"attachments\":null}")
@@ -156,7 +157,7 @@ else
 fi
 
 # Create report3 (enterprise002, stays DRAFT -- tests data isolation)
-REPORT3_RESP=$(curl -s -X POST "$API/carbon/reports" \
+REPORT3_RESP=$(curl -s $CURL_OPTS -X POST "$API/carbon/reports" \
   -H "Authorization: Bearer $TOKEN_E2" \
   -H "Content-Type: application/json" \
   -d "{\"title\":\"CARB-TEST-ISOLATION-$TIMESTAMP\",\"accountingPeriod\":\"2024-Q3\",\"reportType\":2,\"emissionData\":\"${EMISSION_ESCAPED}\",\"calculationMethod\":\"manual\",\"attachments\":null}")
@@ -175,7 +176,7 @@ fi
 
 # --- Step 3: [CARB-02] List my-reports for enterprise001 ---
 info "[CARB-02] Listing enterprise001 reports..."
-LIST_RESP=$(curl -s "$API/carbon/my-reports?pageNum=1&pageSize=20" \
+LIST_RESP=$(curl -s $CURL_OPTS "$API/carbon/my-reports?pageNum=1&pageSize=20" \
   -H "Authorization: Bearer $TOKEN_E1")
 
 LIST_CODE=$(extract_field "$LIST_RESP" "code")
@@ -206,7 +207,7 @@ if [[ -z "${REPORT1_ID:-}" ]]; then
   fail "Cannot fetch detail: report1 ID not available"
   FAILED=$((FAILED + 1))
 else
-  DETAIL_RESP=$(curl -s "$API/carbon/reports/$REPORT1_ID" \
+  DETAIL_RESP=$(curl -s $CURL_OPTS "$API/carbon/reports/$REPORT1_ID" \
     -H "Authorization: Bearer $TOKEN_E1")
 
   DETAIL_CODE=$(extract_field "$DETAIL_RESP" "code")
@@ -233,7 +234,7 @@ info "[CARB-04] Submitting report1..."
 
 submit_report() {
   local rid="$1" label="$2"
-  local resp=$(curl -s -X POST "$API/carbon/reports/$rid/submit" \
+  local resp=$(curl -s $CURL_OPTS -X POST "$API/carbon/reports/$rid/submit" \
     -H "Authorization: Bearer $TOKEN_E1")
 
   local code=$(extract_field "$resp" "code")
@@ -281,7 +282,7 @@ ok "reviewer001 logged in"
 
 # --- Step 7: [CARB-05] Reviewer views SUBMITTED reports ---
 info "[CARB-05] Reviewer listing SUBMITTED reports (status=1)..."
-REVIEW_LIST_RESP=$(curl -s "$API/carbon/reports?status=1&page=1&size=20" \
+REVIEW_LIST_RESP=$(curl -s $CURL_OPTS "$API/carbon/reports?status=1&page=1&size=20" \
   -H "Authorization: Bearer $TOKEN_R")
 
 REVIEW_LIST_CODE=$(extract_field "$REVIEW_LIST_RESP" "code")
@@ -310,7 +311,7 @@ if [[ -z "${REPORT1_ID:-}" ]]; then
   fail "CARB-06: Cannot approve report1: no ID"
   FAILED=$((FAILED + 1))
 else
-  APPROVE_RESP=$(curl -s -X POST "$API/carbon/review" \
+  APPROVE_RESP=$(curl -s $CURL_OPTS -X POST "$API/carbon/review" \
     -H "Authorization: Bearer $TOKEN_R" \
     -H "Content-Type: application/json" \
     -d "{\"reportId\":$REPORT1_ID,\"reviewResult\":3,\"reviewComment\":\"Approved for testing\"}")
@@ -342,7 +343,7 @@ if [[ -z "${REPORT2_ID:-}" ]]; then
   fail "CARB-07: Cannot reject report2: no ID"
   FAILED=$((FAILED + 1))
 else
-  REJECT_RESP=$(curl -s -X POST "$API/carbon/review" \
+  REJECT_RESP=$(curl -s $CURL_OPTS -X POST "$API/carbon/review" \
     -H "Authorization: Bearer $TOKEN_R" \
     -H "Content-Type: application/json" \
     -d "{\"reportId\":$REPORT2_ID,\"reviewResult\":4,\"reviewComment\":\"Data incomplete\"}")
@@ -373,7 +374,7 @@ if [[ -z "${REPORT1_ID:-}" ]]; then
   fail "CARB-08/09/10: Cannot verify side effects: no report1 ID"
   FAILED=$((FAILED + 1))
 else
-  VERIFY_RESP=$(curl -s "$API/carbon/reports/$REPORT1_ID" \
+  VERIFY_RESP=$(curl -s $CURL_OPTS "$API/carbon/reports/$REPORT1_ID" \
     -H "Authorization: Bearer $TOKEN_R")
 
   VERIFY_CODE=$(extract_field "$VERIFY_RESP" "code")
@@ -404,7 +405,7 @@ if [[ -z "${REPORT1_ID:-}" ]]; then
   fail "CARB-11a: Cannot test resubmit: no report1 ID"
   FAILED=$((FAILED + 1))
 else
-  RESUBMIT_RESP=$(curl -s -X POST "$API/carbon/reports/$REPORT1_ID/submit" \
+  RESUBMIT_RESP=$(curl -s $CURL_OPTS -X POST "$API/carbon/reports/$REPORT1_ID/submit" \
     -H "Authorization: Bearer $TOKEN_E1")
 
   RESUBMIT_CODE=$(extract_field "$RESUBMIT_RESP" "code")
@@ -423,7 +424,7 @@ if [[ -z "${REPORT3_ID:-}" ]]; then
   fail "CARB-11b: Cannot test draft review: no report3 ID"
   FAILED=$((FAILED + 1))
 else
-  DRAFT_REVIEW_RESP=$(curl -s -X POST "$API/carbon/review" \
+  DRAFT_REVIEW_RESP=$(curl -s $CURL_OPTS -X POST "$API/carbon/review" \
     -H "Authorization: Bearer $TOKEN_R" \
     -H "Content-Type: application/json" \
     -d "{\"reportId\":$REPORT3_ID,\"reviewResult\":3,\"reviewComment\":\"Should fail\"}")
@@ -468,7 +469,7 @@ if [[ -z "${REPORT3_ID:-}" ]]; then
   fail "CARB-13b: Cannot test data isolation: no report3 ID"
   FAILED=$((FAILED + 1))
 else
-  ISO_E1_RESP=$(curl -s "$API/carbon/my-reports?pageNum=1&pageSize=20" \
+  ISO_E1_RESP=$(curl -s $CURL_OPTS "$API/carbon/my-reports?pageNum=1&pageSize=20" \
     -H "Authorization: Bearer $TOKEN_E1")
 
   ISO_E1_CODE=$(extract_field "$ISO_E1_RESP" "code")
@@ -490,7 +491,7 @@ if [[ -z "${REPORT3_ID:-}" ]]; then
   fail "CARB-13c: Cannot test data isolation E2: no report3 ID"
   FAILED=$((FAILED + 1))
 else
-  ISO_E2_RESP=$(curl -s "$API/carbon/my-reports?pageNum=1&pageSize=20" \
+  ISO_E2_RESP=$(curl -s $CURL_OPTS "$API/carbon/my-reports?pageNum=1&pageSize=20" \
     -H "Authorization: Bearer $TOKEN_E2")
 
   ISO_E2_CODE=$(extract_field "$ISO_E2_RESP" "code")

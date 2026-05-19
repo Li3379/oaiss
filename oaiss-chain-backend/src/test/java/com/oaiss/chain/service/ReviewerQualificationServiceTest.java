@@ -3,9 +3,11 @@ package com.oaiss.chain.service;
 import com.oaiss.chain.constant.ErrorCode;
 import com.oaiss.chain.entity.Reviewer;
 import com.oaiss.chain.entity.ReviewerQualification;
+import com.oaiss.chain.entity.User;
 import com.oaiss.chain.exception.BusinessException;
 import com.oaiss.chain.repository.ReviewerQualificationRepository;
 import com.oaiss.chain.repository.ReviewerRepository;
+import com.oaiss.chain.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -38,6 +40,9 @@ class ReviewerQualificationServiceTest {
     @Mock
     private ReviewerRepository reviewerRepository;
 
+    @Mock
+    private UserRepository userRepository;
+
     @InjectMocks
     private ReviewerQualificationService reviewerQualificationService;
 
@@ -67,6 +72,9 @@ class ReviewerQualificationServiceTest {
     @Test
     @DisplayName("签发审核员资格证-成功")
     void testIssueCertificate_success() {
+        User certUser = User.builder().userType(2).build();
+        certUser.setId(1L);
+        when(userRepository.findById(1L)).thenReturn(java.util.Optional.of(certUser));
         when(reviewerQualificationRepository.findByReviewerIdAndStatusAndDeletedFalse(1L, 1))
                 .thenReturn(Collections.emptyList());
         when(reviewerQualificationRepository.existsByCertificateNoAndDeletedFalse(anyString()))
@@ -90,6 +98,9 @@ class ReviewerQualificationServiceTest {
     @Test
     @DisplayName("签发审核员资格证-已有有效资格证时拒绝重复签发")
     void testIssueCertificate_duplicateActive_throwsException() {
+        User dupUser = User.builder().userType(2).build();
+        dupUser.setId(1L);
+        when(userRepository.findById(1L)).thenReturn(java.util.Optional.of(dupUser));
         when(reviewerQualificationRepository.findByReviewerIdAndStatusAndDeletedFalse(1L, 1))
                 .thenReturn(List.of(testQualification));
 
@@ -155,6 +166,18 @@ class ReviewerQualificationServiceTest {
         assertEquals(1, result.getTotalElements());
         verify(reviewerQualificationRepository).findByDeletedFalse(any(Pageable.class));
         verify(reviewerQualificationRepository, never()).findByStatusAndDeletedFalse(any(), any());
+    }
+
+    @Test
+    @DisplayName("签发审核员资格证-审核员不存在时抛出异常")
+    void testIssueCertificate_reviewerNotFound_throwsException() {
+        when(userRepository.findById(999L)).thenReturn(java.util.Optional.empty());
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> reviewerQualificationService.issueCertificate(999L));
+        assertEquals(ErrorCode.RESOURCE_NOT_FOUND, ex.getCode());
+
+        verify(reviewerQualificationRepository, never()).save(any());
     }
 
     @Test

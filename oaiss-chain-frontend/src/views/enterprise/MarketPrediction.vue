@@ -17,9 +17,9 @@ const chartRef = ref<HTMLElement | null>(null)
 let chartInstance: echarts.ECharts | null = null
 
 const predictionTypeOptions = [
-  { label: () => t('enterprise.marketPrediction.typeTrend'), value: 'trend' },
-  { label: () => t('enterprise.marketPrediction.typePrice'), value: 'price' },
-  { label: () => t('enterprise.marketPrediction.typeSupplyDemand'), value: 'supply-demand' },
+  { label: () => t('marketPrediction.typeTrend'), value: 'trend' },
+  { label: () => t('marketPrediction.typePrice'), value: 'price' },
+  { label: () => t('marketPrediction.typeSupplyDemand'), value: 'supply-demand' },
 ]
 
 const horizonOptions = [7, 30, 90, 180]
@@ -62,7 +62,7 @@ const fetchForecast = async () => {
     await nextTick()
     renderChart()
   } catch (error) {
-    ElMessage.error(t('enterprise.marketPrediction.loadFailed'))
+    ElMessage.error(t('marketPrediction.loadFailed'))
   } finally {
     loading.value = false
   }
@@ -79,22 +79,22 @@ function renderChart() {
   if (points.length === 0) return
 
   const option = {
-    title: { text: t('enterprise.marketPrediction.chartTitle'), left: 'center' },
+    title: { text: t('marketPrediction.chartTitle'), left: 'center' },
     tooltip: { trigger: 'axis' },
-    legend: { data: [t('enterprise.marketPrediction.price'), t('enterprise.marketPrediction.confidenceBand')], bottom: 0 },
+    legend: { data: [t('marketPrediction.price'), t('marketPrediction.confidenceBand')], bottom: 0 },
     grid: { left: 60, right: 24, top: 50, bottom: 48 },
     xAxis: { type: 'category', data: points.map(d => d.date) },
-    yAxis: { type: 'value', name: t('enterprise.marketPrediction.priceUnit') },
+    yAxis: { type: 'value', name: t('marketPrediction.priceUnit') },
     series: [
       {
-        name: t('enterprise.marketPrediction.price'),
+        name: t('marketPrediction.price'),
         type: 'line',
         data: points.map(d => d.price),
         smooth: true,
         lineStyle: { width: 3 },
       },
       {
-        name: t('enterprise.marketPrediction.confidenceBand'),
+        name: t('marketPrediction.confidenceBand'),
         type: 'line',
         data: points.map(d => d.upperBound),
         lineStyle: { opacity: 0 },
@@ -103,7 +103,7 @@ function renderChart() {
         symbol: 'none',
       },
       {
-        name: t('enterprise.marketPrediction.lowerBound'),
+        name: t('marketPrediction.lowerBound'),
         type: 'line',
         data: points.map((d, i) => d.lowerBound - points[i].upperBound),
         lineStyle: { opacity: 0 },
@@ -150,7 +150,7 @@ onBeforeUnmount(() => {
   <section class="market-prediction-page">
     <el-card class="section-card" shadow="never">
       <div class="header-row">
-        <h2 class="page-title">{{ t('enterprise.marketPrediction.title') }}</h2>
+        <h2 class="page-title">{{ t('marketPrediction.title') }}</h2>
         <el-select v-model="predictionType" style="width: 180px">
           <el-option
             v-for="opt in predictionTypeOptions"
@@ -165,7 +165,7 @@ onBeforeUnmount(() => {
     <el-row :gutter="12" class="stats-row">
       <el-col :xs="24" :sm="8">
         <el-card class="stat-card" shadow="hover">
-          <div class="stat-label">{{ t('enterprise.marketPrediction.trendDirection') }}</div>
+          <div class="stat-label">{{ t('marketPrediction.trendDirection') }}</div>
           <div class="stat-value">
             <el-tag :type="trendTagType" size="large">{{ trendDirection }}</el-tag>
           </div>
@@ -173,13 +173,13 @@ onBeforeUnmount(() => {
       </el-col>
       <el-col :xs="24" :sm="8">
         <el-card class="stat-card" shadow="hover">
-          <div class="stat-label">{{ t('enterprise.marketPrediction.modelVersion') }}</div>
+          <div class="stat-label">{{ t('marketPrediction.modelVersion') }}</div>
           <div class="stat-value model-version">{{ modelVersion }}</div>
         </el-card>
       </el-col>
       <el-col :xs="24" :sm="8">
         <el-card class="stat-card" shadow="hover">
-          <div class="stat-label">{{ t('enterprise.marketPrediction.dataPoints') }}</div>
+          <div class="stat-label">{{ t('marketPrediction.dataPoints') }}</div>
           <div class="stat-value">{{ dataPoints.length }}</div>
         </el-card>
       </el-col>
@@ -187,7 +187,7 @@ onBeforeUnmount(() => {
 
     <el-card class="section-card" shadow="never" v-loading="loading">
       <div class="horizon-row">
-        <span class="horizon-label">{{ t('enterprise.marketPrediction.horizon') }}：</span>
+        <span class="horizon-label">{{ t('marketPrediction.horizon') }}：</span>
         <el-button
           v-for="days in horizonOptions"
           :key="days"
@@ -195,7 +195,7 @@ onBeforeUnmount(() => {
           size="small"
           @click="horizonDays = days"
         >
-          {{ days }} {{ t('enterprise.marketPrediction.days') }}
+          {{ days }} {{ t('marketPrediction.days') }}
         </el-button>
       </div>
       <div ref="chartRef" class="chart-box" />

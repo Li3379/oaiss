@@ -11,7 +11,7 @@
 
 # 默认配置（Docker MySQL）
 DB_HOST_DEFAULT="localhost"
-DB_PORT_DEFAULT="3306"
+DB_PORT_DEFAULT="3307"
 DB_USERNAME_DEFAULT="root"
 DB_PASSWORD_DEFAULT="123456"
 DB_NAME_DEFAULT="oaiss_chain"
@@ -48,11 +48,12 @@ check_mysql_health() {
     fi
 }
 
-# 打印配置信息
+# 打印配置信息（密码已脱敏）
 print_db_config() {
     echo "数据库配置:"
     echo "  Host: $DB_HOST:$DB_PORT"
     echo "  User: $DB_USERNAME"
+    echo "  Password: ******"
     echo "  Database: $DB_NAME"
     echo "  Container: $MYSQL_CONTAINER"
 }

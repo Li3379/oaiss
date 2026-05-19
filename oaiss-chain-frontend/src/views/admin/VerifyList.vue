@@ -5,7 +5,10 @@
         <el-statistic :title="t('verifyList.statPending')" :value="stats.pending" />
         <el-statistic :title="t('verifyList.statApproved')" :value="stats.approved" />
         <el-statistic :title="t('verifyList.statRejected')" :value="stats.rejected" />
-        <el-statistic :title="t('verifyList.blockchainStatus')" :value="blockchainStatus" />
+        <div class="status-cell">
+          <div class="status-label">{{ t('verifyList.blockchainStatus') }}</div>
+          <el-tag :type="blockchainStatus === t('verifyList.blockchainNormal') ? 'success' : 'danger'" size="large">{{ blockchainStatus }}</el-tag>
+        </div>
       </div>
     </el-card>
 
@@ -37,7 +40,9 @@
             <el-tag :type="getStatusType(row.status)">{{ getStatusLabel(row.status) }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="createdAt" :label="t('verifyList.colSubmitTime')" min-width="180" />
+        <el-table-column prop="createdAt" :label="t('verifyList.colSubmitTime')" min-width="180">
+          <template #default="{ row }">{{ formatDateTime(row.createdAt) }}</template>
+        </el-table-column>
         <el-table-column :label="t('verifyList.colOperation')" width="200" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link @click="viewDetail(row)">{{ t('verifyList.btnView') }}</el-button>
@@ -80,7 +85,7 @@
         <el-descriptions-item :label="t('verifyList.labelOilEmission')">{{ currentReport.oilEmission }} {{ t('common.unit_ton') }}</el-descriptions-item>
         <el-descriptions-item :label="t('verifyList.labelGasEmission')">{{ currentReport.gasEmission }} {{ t('common.unit_ton') }}</el-descriptions-item>
         <el-descriptions-item :label="t('verifyList.labelElectricityEmission')">{{ currentReport.electricityEmission }} {{ t('common.unit_ton') }}</el-descriptions-item>
-        <el-descriptions-item :label="t('verifyList.colSubmitTime')">{{ currentReport.createdAt }}</el-descriptions-item>
+        <el-descriptions-item :label="t('verifyList.colSubmitTime')">{{ formatDateTime(currentReport.createdAt) }}</el-descriptions-item>
         <el-descriptions-item :label="t('verifyList.labelReviewComment')" :span="2">{{ currentReport.reviewComment || t('verifyList.noComment') }}</el-descriptions-item>
       </el-descriptions>
     </el-dialog>
@@ -93,6 +98,7 @@ import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getReportList, reviewReport } from '../../api/carbon'
 import { getStatus } from '../../api/blockchain'
+import { formatDateTime } from '../../utils/format'
 import PageContainer from '../../components/PageContainer.vue'
 
 const { t } = useI18n()
@@ -214,6 +220,17 @@ onMounted(() => {
   display: flex;
   gap: 40px;
   flex-wrap: wrap;
+  align-items: flex-start;
+}
+
+.status-cell {
+  text-align: center;
+}
+
+.status-label {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  margin-bottom: 4px;
 }
 
 .search-row {

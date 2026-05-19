@@ -56,20 +56,11 @@ public class CarbonService {
                 .orElseThrow(() -> CarbonException.submitFailed("未找到关联企业信息"));
 
         // Parse emission data JSON to calculate totals
-        BigDecimal scope1 = BigDecimal.ZERO;
-        BigDecimal scope2 = BigDecimal.ZERO;
-        BigDecimal scope3 = BigDecimal.ZERO;
-        try {
-            if (request.getEmissionData() != null) {
-                JsonNode node = objectMapper.readTree(request.getEmissionData());
-                scope1 = node.has("scope1") ? new BigDecimal(node.get("scope1").asText()) : BigDecimal.ZERO;
-                scope2 = node.has("scope2") ? new BigDecimal(node.get("scope2").asText()) : BigDecimal.ZERO;
-                scope3 = node.has("scope3") ? new BigDecimal(node.get("scope3").asText()) : BigDecimal.ZERO;
-            }
-        } catch (Exception e) {
-            log.warn("Failed to parse emission data JSON for total calculation: {}", e.getMessage());
-        }
-        BigDecimal totalEmission = scope1.add(scope2).add(scope3);
+        BigDecimal[] totals = parseEmissionTotals(request.getEmissionData());
+        BigDecimal scope1 = totals[0];
+        BigDecimal scope2 = totals[1];
+        BigDecimal scope3 = totals[2];
+        BigDecimal totalEmission = totals[3];
 
         CarbonReport report = CarbonReport.builder()
                 .reportNo(CommonUtils.generateReportId())
@@ -158,7 +149,9 @@ public class CarbonService {
             // 2. Emission rating calculation
             // Extract year from accountingPeriod (e.g., "2024-Q1" -> "2024", "2024" -> "2024")
             String ratingYear = report.getAccountingPeriod();
-            if (ratingYear != null && ratingYear.length() > 4) {
+            if (ratingYear == null || ratingYear.isEmpty()) {
+                ratingYear = String.valueOf(LocalDateTime.now().getYear());
+            } else if (ratingYear.length() > 4) {
                 ratingYear = ratingYear.substring(0, 4);
             }
             emissionRatingService.rateEnterprise(enterpriseId,
@@ -246,49 +239,56 @@ public class CarbonService {
      * 根据排放因子和活动数据计算
      */
     private void calculateEmissions(CarbonReport report) {
+        BigDecimal[] totals = parseEmissionTotals(report.getEmissionData());
+        report.setScope1Emission(totals[0]);
+        report.setScope2Emission(totals[1]);
+        report.setScope3Emission(totals[2]);
+        report.setTotalEmission(totals[3]);
+    }
+
+    /**
+     * 解析排放数据JSON，计算各范围排放量
+     * @return [scope1, scope2, scope3, total]
+     */
+    private BigDecimal[] parseEmissionTotals(String emissionData) {
+        BigDecimal scope1 = BigDecimal.ZERO;
+        BigDecimal scope2 = BigDecimal.ZERO;
+        BigDecimal scope3 = BigDecimal.ZERO;
         try {
-            JsonNode data = objectMapper.readTree(report.getEmissionData());
+            if (emissionData != null) {
+                JsonNode data = objectMapper.readTree(emissionData);
 
-            BigDecimal scope1 = BigDecimal.ZERO;
-            BigDecimal scope2 = BigDecimal.ZERO;
-            BigDecimal scope3 = BigDecimal.ZERO;
+                // 范围1: 直接排放
+                if (data.has("scope1")) {
+                    for (JsonNode item : data.get("scope1")) {
+                        BigDecimal activity = new BigDecimal(item.get("activity_data").asText("0"));
+                        BigDecimal factor = new BigDecimal(item.get("emission_factor").asText("0"));
+                        scope1 = scope1.add(activity.multiply(factor));
+                    }
+                }
 
-            // 范围1: 直接排放
-            if (data.has("scope1")) {
-                for (JsonNode item : data.get("scope1")) {
-                    BigDecimal activity = new BigDecimal(item.get("activity_data").asText("0"));
-                    BigDecimal factor = new BigDecimal(item.get("emission_factor").asText("0"));
-                    scope1 = scope1.add(activity.multiply(factor));
+                // 范围2: 间接排放（电力等）
+                if (data.has("scope2")) {
+                    for (JsonNode item : data.get("scope2")) {
+                        BigDecimal activity = new BigDecimal(item.get("activity_data").asText("0"));
+                        BigDecimal factor = new BigDecimal(item.get("emission_factor").asText("0"));
+                        scope2 = scope2.add(activity.multiply(factor));
+                    }
+                }
+
+                // 范围3: 其他间接排放
+                if (data.has("scope3")) {
+                    for (JsonNode item : data.get("scope3")) {
+                        BigDecimal activity = new BigDecimal(item.get("activity_data").asText("0"));
+                        BigDecimal factor = new BigDecimal(item.get("emission_factor").asText("0"));
+                        scope3 = scope3.add(activity.multiply(factor));
+                    }
                 }
             }
-
-            // 范围2: 间接排放（电力等）
-            if (data.has("scope2")) {
-                for (JsonNode item : data.get("scope2")) {
-                    BigDecimal activity = new BigDecimal(item.get("activity_data").asText("0"));
-                    BigDecimal factor = new BigDecimal(item.get("emission_factor").asText("0"));
-                    scope2 = scope2.add(activity.multiply(factor));
-                }
-            }
-
-            // 范围3: 其他间接排放
-            if (data.has("scope3")) {
-                for (JsonNode item : data.get("scope3")) {
-                    BigDecimal activity = new BigDecimal(item.get("activity_data").asText("0"));
-                    BigDecimal factor = new BigDecimal(item.get("emission_factor").asText("0"));
-                    scope3 = scope3.add(activity.multiply(factor));
-                }
-            }
-
-            report.setScope1Emission(scope1);
-            report.setScope2Emission(scope2);
-            report.setScope3Emission(scope3);
-            report.setTotalEmission(scope1.add(scope2).add(scope3));
-
         } catch (Exception e) {
-            log.error("Carbon emission calculation failed: {}", e.getMessage());
-            throw CarbonException.calculationFailed(e.getMessage());
+            log.warn("Failed to parse emission data JSON for total calculation: {}", e.getMessage());
         }
+        return new BigDecimal[]{scope1, scope2, scope3, scope1.add(scope2).add(scope3)};
     }
 
     /**

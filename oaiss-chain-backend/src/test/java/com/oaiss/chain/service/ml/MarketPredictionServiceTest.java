@@ -78,7 +78,7 @@ class MarketPredictionServiceTest {
         void shouldReturnForecastWhenSufficientData() {
             when(auctionOrderRepository.findTop60ByDeletedFalseOrderByCreatedAtDesc())
                     .thenReturn(sampleOrders);
-            when(mlServiceClient.post(eq("/predict/market/trend"), any(), eq(MarketForecastResponse.class)))
+            when(mlServiceClient.predictMarketTrend(any(MarketForecastRequest.class)))
                     .thenReturn(sampleResponse);
 
             MarketForecastResponse result = marketPredictionService.predictMarketTrend(30);
@@ -86,7 +86,7 @@ class MarketPredictionServiceTest {
             assertThat(result.getTrend()).isEqualTo("up");
             assertThat(result.getForecastPrices()).hasSize(3);
             assertThat(result.getModelVersion()).isEqualTo("1.0.0");
-            verify(mlServiceClient).post(eq("/predict/market/trend"), any(MarketForecastRequest.class), eq(MarketForecastResponse.class));
+            verify(mlServiceClient).predictMarketTrend(any(MarketForecastRequest.class));
         }
 
         @Test
@@ -112,13 +112,13 @@ class MarketPredictionServiceTest {
         void shouldCallPriceEndpoint() {
             when(auctionOrderRepository.findTop60ByDeletedFalseOrderByCreatedAtDesc())
                     .thenReturn(sampleOrders);
-            when(mlServiceClient.post(eq("/predict/market/price"), any(), eq(MarketForecastResponse.class)))
+            when(mlServiceClient.predictCarbonPrice(any(MarketForecastRequest.class)))
                     .thenReturn(sampleResponse);
 
             MarketForecastResponse result = marketPredictionService.predictCarbonPrice(7);
 
             assertThat(result).isNotNull();
-            verify(mlServiceClient).post(eq("/predict/market/price"), any(MarketForecastRequest.class), eq(MarketForecastResponse.class));
+            verify(mlServiceClient).predictCarbonPrice(any(MarketForecastRequest.class));
         }
     }
 
@@ -131,13 +131,13 @@ class MarketPredictionServiceTest {
         void shouldCallSupplyDemandEndpoint() {
             when(auctionOrderRepository.findTop60ByDeletedFalseOrderByCreatedAtDesc())
                     .thenReturn(sampleOrders);
-            when(mlServiceClient.post(eq("/predict/market/supply-demand"), any(), eq(MarketForecastResponse.class)))
+            when(mlServiceClient.predictSupplyDemand(any(MarketForecastRequest.class)))
                     .thenReturn(sampleResponse);
 
             MarketForecastResponse result = marketPredictionService.predictSupplyDemand(14);
 
             assertThat(result).isNotNull();
-            verify(mlServiceClient).post(eq("/predict/market/supply-demand"), any(MarketForecastRequest.class), eq(MarketForecastResponse.class));
+            verify(mlServiceClient).predictSupplyDemand(any(MarketForecastRequest.class));
         }
     }
 
@@ -150,12 +150,12 @@ class MarketPredictionServiceTest {
         void shouldCorrectlyMapOrdersToRequest() {
             when(auctionOrderRepository.findTop60ByDeletedFalseOrderByCreatedAtDesc())
                     .thenReturn(sampleOrders);
-            when(mlServiceClient.post(any(), any(), eq(MarketForecastResponse.class)))
+            when(mlServiceClient.predictMarketTrend(any(MarketForecastRequest.class)))
                     .thenReturn(sampleResponse);
 
             marketPredictionService.predictMarketTrend(30);
 
-            verify(mlServiceClient).post(eq("/predict/market/trend"), any(MarketForecastRequest.class), eq(MarketForecastResponse.class));
+            verify(mlServiceClient).predictMarketTrend(any(MarketForecastRequest.class));
         }
     }
 }

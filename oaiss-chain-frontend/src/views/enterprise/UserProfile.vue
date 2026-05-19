@@ -3,7 +3,7 @@ import { ref, onMounted, watch, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { getProfile, updateProfile, changePassword } from '../../api/user'
-import { getMyEnterpriseAdmission } from '../../api/admin'
+import { getMyEnterpriseAdmission } from '../../api/enterprise'
 import PageContainer from '../../components/PageContainer.vue'
 
 const { t } = useI18n()

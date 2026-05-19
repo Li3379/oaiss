@@ -15,12 +15,22 @@ oaiss-chain-backend/target/
 *.ear
 *.nar
 oaiss-chain-backend/.mvn/wrapper/maven-wrapper.jar
+oaiss-chain-backend/BOOT-INF/
+oaiss-chain-backend/cookies.txt
+oaiss-chain-backend/test-output.txt
+oaiss-chain-backend/test-result.txt
+
+# ----- Python -----
+__pycache__/
+*.pyc
+*.pyo
 
 # ----- Node.js / Vue / Vite -----
 node_modules/
 dist/
 dist-ssr/
 *.tsbuildinfo
+oaiss-chain-frontend/write_script.js
 
 # ----- Build artifacts -----
 build/
@@ -73,6 +83,87 @@ logs/
 .gstack/
 .planning/
 .entroly/
+
+# ----- Chrome debug (browser-harness) -----
+.chrome-debug/
+
+# ----- Graphify cache -----
+graphify-out/cache/
+
+# ----- Tool-generated docs -----
+docs/superpowers/
+
+# ----- Frontend temp screenshots -----
+oaiss-chain-frontend/current_state.png
+oaiss-chain-frontend/admin_users_page.png
+oaiss-chain-frontend/after_click.png
+
+# ----- Temporary test screenshots & logs -----
+screenshots/
+test-screenshots/
+test_screenshots/
+login_page
+00-official-home
+00-official-home-check
+tracks/
+
+# ----- Backend root temp screenshots (no extension) -----
+oaiss-chain-backend/404_page
+oaiss-chain-backend/admin_users
+oaiss-chain-backend/login_page
+oaiss-chain-backend/official_home
+oaiss-chain-backend/enterprise_home
+
+# ----- Backend root temp screenshots (.png) -----
+oaiss-chain-backend/admin-data-statistics.png
+oaiss-chain-backend/admin-system-carbon.png
+oaiss-chain-backend/admin-system-config.png
+oaiss-chain-backend/admin-system-users.png
+oaiss-chain-backend/admin-user-disabled.png
+oaiss-chain-backend/enterprise-blockchain.png
+oaiss-chain-backend/enterprise-carbon-coin.png
+oaiss-chain-backend/enterprise-carbon-neutral.png
+oaiss-chain-backend/enterprise-credit-score.png
+oaiss-chain-backend/third-party-monitor.png
+
+# ----- Temporary test scripts -----
+bh_*.py
+crud_test.py
+test_all_enterprise_pages.py
+test_bh_creditscore*.py
+test_final_verification.py
+test_fixes_verification.py
+test_other_roles.py
+test_tokens.json
+browser_*.py
+ultraqa_*.py
+skill-verify.sh
+
+# ----- Captcha temp files -----
+captcha_*.txt
+captcha_*.png
+
+# ----- QA screenshots -----
+qa-*.png
+
+# ----- Misc temp files -----
+after_login_click.png
+cap.png
+credit_score_*.png
+initial_page.png
+message_test.png
+official_home.png
+test_screenshot.png
+backend-build.log
+backend-full-log.txt
+backend-full-logs.txt
+backend-full.log
+backend-logs.txt
+backend-stdout.txt
+backend.log
+backend_full.log
+backend_full_notrunc.log
+logback-console.xml
 
 # ----- Temporary -----
 *.tmp

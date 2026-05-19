@@ -122,7 +122,7 @@ class CarbonPredictionServiceTest {
 
             when(carbonReportRepository.findByEnterpriseIdAndDeletedFalse(eq(1L), any(PageRequest.class)))
                     .thenReturn(new PageImpl<>(reports));
-            when(mlServiceClient.post(eq("/predict/emission/forecast"), any(EmissionForecastRequest.class), eq(EmissionForecastResponse.class)))
+            when(mlServiceClient.predictEmission(any(EmissionForecastRequest.class)))
                     .thenReturn(mlResponse);
 
             CarbonPredictionResponse response = carbonPredictionService.predict(request);
@@ -135,11 +135,7 @@ class CarbonPredictionServiceTest {
             assertThat(response.getGeneratedAt()).isNotNull();
             assertThat(response.getPredictions()).isNotEmpty();
 
-            // Verify ML service was called with correct endpoint and request
-            verify(mlServiceClient).post(
-                    eq("/predict/emission/forecast"),
-                    any(EmissionForecastRequest.class),
-                    eq(EmissionForecastResponse.class));
+            verify(mlServiceClient).predictEmission(any(EmissionForecastRequest.class));
         }
 
         @Test
@@ -151,7 +147,7 @@ class CarbonPredictionServiceTest {
 
             when(carbonReportRepository.findByEnterpriseIdAndDeletedFalse(eq(1L), any(PageRequest.class)))
                     .thenReturn(new PageImpl<>(reports));
-            when(mlServiceClient.post(eq("/predict/emission/forecast"), any(), eq(EmissionForecastResponse.class)))
+            when(mlServiceClient.predictEmission(any(EmissionForecastRequest.class)))
                     .thenReturn(mlResponse);
 
             CarbonPredictionResponse response = carbonPredictionService.predict(request);
@@ -171,7 +167,7 @@ class CarbonPredictionServiceTest {
 
             when(carbonReportRepository.findByEnterpriseIdAndDeletedFalse(eq(1L), any(PageRequest.class)))
                     .thenReturn(new PageImpl<>(reports));
-            when(mlServiceClient.post(eq("/predict/emission/forecast"), any(), eq(EmissionForecastResponse.class)))
+            when(mlServiceClient.predictEmission(any(EmissionForecastRequest.class)))
                     .thenReturn(mlResponse);
 
             CarbonPredictionResponse response = carbonPredictionService.predict(request);
@@ -193,15 +189,12 @@ class CarbonPredictionServiceTest {
                     .thenReturn(new PageImpl<>(reports));
 
             // Capture the request to verify horizonDays conversion
-            when(mlServiceClient.post(eq("/predict/emission/forecast"), any(EmissionForecastRequest.class), eq(EmissionForecastResponse.class)))
+            when(mlServiceClient.predictEmission(any(EmissionForecastRequest.class)))
                     .thenReturn(mlResponse);
 
             carbonPredictionService.predict(request);
 
-            verify(mlServiceClient).post(
-                    eq("/predict/emission/forecast"),
-                    any(EmissionForecastRequest.class),
-                    eq(EmissionForecastResponse.class));
+            verify(mlServiceClient).predictEmission(any(EmissionForecastRequest.class));
             // 3 months * 30 days = 90 days horizon
             // We can verify indirectly - the endpoint was called with the right types
         }
@@ -216,16 +209,13 @@ class CarbonPredictionServiceTest {
 
             when(carbonReportRepository.findByEnterpriseIdAndDeletedFalse(eq(1L), any(PageRequest.class)))
                     .thenReturn(new PageImpl<>(reports));
-            when(mlServiceClient.post(eq("/predict/emission/forecast"), any(EmissionForecastRequest.class), eq(EmissionForecastResponse.class)))
+            when(mlServiceClient.predictEmission(any(EmissionForecastRequest.class)))
                     .thenReturn(mlResponse);
 
             CarbonPredictionResponse response = carbonPredictionService.predict(request);
 
             assertThat(response).isNotNull();
-            verify(mlServiceClient).post(
-                    eq("/predict/emission/forecast"),
-                    any(EmissionForecastRequest.class),
-                    eq(EmissionForecastResponse.class));
+            verify(mlServiceClient).predictEmission(any(EmissionForecastRequest.class));
         }
     }
 
@@ -242,7 +232,7 @@ class CarbonPredictionServiceTest {
 
             when(carbonReportRepository.findByEnterpriseIdAndDeletedFalse(eq(1L), any(PageRequest.class)))
                     .thenReturn(new PageImpl<>(reports));
-            when(mlServiceClient.post(eq("/predict/emission/forecast"), any(EmissionForecastRequest.class), eq(EmissionForecastResponse.class)))
+            when(mlServiceClient.predictEmission(any(EmissionForecastRequest.class)))
                     .thenThrow(new BusinessException(6000, "ML service unavailable"));
 
             assertThatThrownBy(() -> carbonPredictionService.predict(request))
@@ -259,7 +249,7 @@ class CarbonPredictionServiceTest {
 
             when(carbonReportRepository.findByEnterpriseIdAndDeletedFalse(eq(1L), any(PageRequest.class)))
                     .thenReturn(new PageImpl<>(reports));
-            when(mlServiceClient.post(eq("/predict/emission/forecast"), any(EmissionForecastRequest.class), eq(EmissionForecastResponse.class)))
+            when(mlServiceClient.predictEmission(any(EmissionForecastRequest.class)))
                     .thenThrow(new BusinessException(6001, "ML service error"));
 
             assertThatThrownBy(() -> carbonPredictionService.predict(request))
@@ -293,7 +283,7 @@ class CarbonPredictionServiceTest {
                     .modelVersion("1.0.0")
                     .build();
 
-            when(mlServiceClient.post(eq("/predict/emission/forecast"), any(EmissionForecastRequest.class), eq(EmissionForecastResponse.class)))
+            when(mlServiceClient.predictEmission(any(EmissionForecastRequest.class)))
                     .thenReturn(mlResponse);
 
             CarbonPredictionResponse response = carbonPredictionService.predict(request);

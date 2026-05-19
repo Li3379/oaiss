@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { getCarbonReports, getStatistics } from '../../api/thirdParty'
+import { formatDateTime } from '../../utils/format'
 import PageContainer from '../../components/PageContainer.vue'
 
 const { t } = useI18n()
@@ -12,6 +13,12 @@ const statistics = ref({
   pendingReports: 0,
   approvedReports: 0,
   rejectedReports: 0,
+})
+
+const approvalRate = computed(() => {
+  const total = statistics.value.approvedReports + statistics.value.rejectedReports
+  if (total === 0) return '0%'
+  return (statistics.value.approvedReports / total * 100).toFixed(1) + '%'
 })
 
 const statsLoading = ref(false)
@@ -67,12 +74,12 @@ const onCurrentChange = (page) => {
 }
 
 const statusMap = {
-  0: { tag: 'info', text: t('monitor.statusDraft') || '草稿' },
+  0: { tag: 'info', text: t('monitor.statusDraft') },
   1: { tag: 'warning', text: t('monitor.statusPending') },
   2: { tag: 'warning', text: t('monitor.statusPending') },
   3: { tag: 'success', text: t('monitor.statusApproved') },
   4: { tag: 'danger', text: t('monitor.statusRejected') },
-  5: { tag: 'success', text: t('monitor.statusApproved') },
+  5: { tag: 'success', text: t('monitor.statusOnChain') },
 }
 
 const getStatusTag = (status) => {
@@ -125,6 +132,13 @@ onMounted(() => {
               <div class="stat-value">{{ statistics.rejectedReports }}</div>
             </div>
           </div>
+          <div class="stat-card rate">
+            <div class="stat-icon">📈</div>
+            <div class="stat-content">
+              <div class="stat-label">{{ t('monitor.statApprovalRate') || '审核通过率' }}</div>
+              <div class="stat-value">{{ approvalRate }}</div>
+            </div>
+          </div>
         </div>
       </el-card>
 
@@ -149,7 +163,9 @@ onMounted(() => {
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="submitTime" :label="t('monitor.colSubmitTime')" min-width="170" />
+          <el-table-column prop="submitTime" :label="t('monitor.colSubmitTime')" min-width="170">
+            <template #default="{ row }">{{ formatDateTime(row.submitTime || row.createdAt) }}</template>
+          </el-table-column>
         </el-table>
 
         <div class="pagination-row">
@@ -224,6 +240,11 @@ onMounted(() => {
 
 .stat-card.rejected {
   background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+  color: white;
+}
+
+.stat-card.rate {
+  background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
   color: white;
 }
 

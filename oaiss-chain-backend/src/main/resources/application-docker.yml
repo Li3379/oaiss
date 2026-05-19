@@ -1,5 +1,8 @@
 # Docker Profile配置
 spring:
+  flyway:
+    repair-on-migrate: true
+    validate-on-migrate: false
   datasource:
     url: jdbc:mysql://${DB_HOST:mysql}:${DB_PORT:3306}/oaiss_chain?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
     username: root
@@ -14,6 +17,7 @@ spring:
     redis:
       host: ${REDIS_HOST:redis}
       port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
 
 jwt:
   secret: ${JWT_SECRET}

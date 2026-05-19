@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
+import { ArrowDown } from '@element-plus/icons-vue'
 import type { LocaleType } from '../i18n'
 
 const { locale } = useI18n()
@@ -19,7 +20,7 @@ const switchLocale = (lang: LocaleType) => {
   <el-dropdown @command="switchLocale">
     <span class="language-trigger">
       {{ locale === 'zh-CN' ? '中文' : 'English' }}
-      <el-icon class="el-icon--right"><arrow-down /></el-icon>
+      <el-icon class="el-icon--right"><ArrowDown /></el-icon>
     </span>
     <template #dropdown>
       <el-dropdown-menu>

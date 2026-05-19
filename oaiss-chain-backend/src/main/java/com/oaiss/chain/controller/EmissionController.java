@@ -6,6 +6,9 @@ import com.oaiss.chain.dto.CarbonPredictionRequest;
 import com.oaiss.chain.dto.CarbonPredictionResponse;
 import com.oaiss.chain.dto.EmissionRatingRequest;
 import com.oaiss.chain.entity.EmissionRating;
+import com.oaiss.chain.entity.Enterprise;
+import com.oaiss.chain.repository.EnterpriseRepository;
+import com.oaiss.chain.security.JwtUserDetails;
 import com.oaiss.chain.service.CarbonPredictionService;
 import com.oaiss.chain.service.EmissionRatingService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -16,6 +19,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
@@ -36,6 +40,18 @@ public class EmissionController {
 
     private final EmissionRatingService ratingService;
     private final CarbonPredictionService predictionService;
+    private final EnterpriseRepository enterpriseRepository;
+
+    @GetMapping("/my-rating")
+    @Operation(summary = "我的评级", description = "获取当前登录企业用户的碳排放评级记录")
+    @SecurityRequirement(name = "Bearer Authentication")
+    @PreAuthorize("hasRole('ENTERPRISE')")
+    public ApiResponse<List<EmissionRating>> getMyRating(
+            @Parameter(hidden = true) @AuthenticationPrincipal JwtUserDetails currentUser) {
+        Enterprise enterprise = enterpriseRepository.findByUserId(currentUser.getUserId())
+                .orElseThrow(() -> new com.oaiss.chain.exception.BusinessException(4004, "未找到关联企业信息"));
+        return ApiResponse.success(ratingService.getEnterpriseRatings(enterprise.getId()));
+    }
 
     @GetMapping("/ratings/{enterpriseId}")
     @Operation(summary = "企业评级历史", description = "获取指定企业历年碳排放评级记录，包括评级等级、碳排放量、排名变化等")

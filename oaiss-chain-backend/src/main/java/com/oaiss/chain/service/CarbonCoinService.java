@@ -180,7 +180,8 @@ public class CarbonCoinService {
      * 查询交易流水
      */
     public Page<CarbonCoinTransaction> getTransactions(Long userId, Integer txType, Integer page, Integer size) {
-        PageRequest pageable = PageRequest.of(page - 1, size);
+        int safePage = Math.max(page, 1);
+        PageRequest pageable = PageRequest.of(safePage - 1, size);
         if (txType != null) {
             return transactionRepository.findByUserIdAndTxTypeOrderByCreatedAtDesc(userId, txType, pageable);
         }

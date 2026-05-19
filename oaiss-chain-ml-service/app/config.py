@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     model_dir: str = "/app/models"
     log_level: str = "INFO"
     app_name: str = "OAISS Chain ML Service"
+    ml_service_secret: str = ""
 
     model_config = {"env_prefix": "", "case_sensitive": False}
 

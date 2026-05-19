@@ -7,7 +7,7 @@ carbon emission time-series forecasting.
 
 import logging
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 
 from app.schemas.emission import EmissionForecastRequest, EmissionForecastResponse
 from app.services.emission_service import EmissionService
@@ -16,10 +16,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/predict/emission", tags=["emission"])
 
-
-def get_emission_service() -> EmissionService:
-    """Dependency injection for EmissionService."""
-    return EmissionService()
+emission_service = EmissionService()
 
 
 @router.post(
@@ -33,7 +30,6 @@ def get_emission_service() -> EmissionService:
 )
 def predict_emission(
     request: EmissionForecastRequest,
-    service: EmissionService = Depends(get_emission_service),
 ) -> EmissionForecastResponse:
     """Predict future carbon emissions using Prophet regression."""
     logger.info(
@@ -44,4 +40,4 @@ def predict_emission(
         len(request.dates),
         request.sector,
     )
-    return service.predict(request)
+    return emission_service.predict(request)

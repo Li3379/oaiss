@@ -110,7 +110,7 @@ onMounted(() => {
           <span class="card-header">{{ t('creditScore.scoreHistory') }}</span>
         </template>
         <el-table :data="historyData" border v-loading="historyLoading">
-          <el-table-column :label="t('common.total')" width="80">
+          <el-table-column :label="t('common.colIndex')" width="80">
             <template #default="scope">
               {{ (currentPage - 1) * pageSize + scope.$index + 1 }}
             </template>
@@ -130,7 +130,7 @@ onMounted(() => {
             </template>
           </el-table-column>
           <el-table-column prop="eventDescription" :label="t('creditScore.colReason')" min-width="200" show-overflow-tooltip />
-          <el-table-column prop="createdAt" :label="t('creditScore.colTime')" min-width="170" />
+          <el-table-column prop="triggeredAt" :label="t('creditScore.colTime')" min-width="170" />
         </el-table>
 
         <div class="pagination-row">

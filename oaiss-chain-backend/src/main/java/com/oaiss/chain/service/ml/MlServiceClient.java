@@ -32,7 +32,7 @@ public class MlServiceClient {
     public MarketForecastResponse predictMarketTrend(MarketForecastRequest request) {
         return timedCall("market_trend", () ->
                 webClient.post()
-                        .uri("/market/trend")
+                        .uri("/predict/market/trend")
                         .bodyValue(request)
                         .retrieve()
                         .bodyToMono(MarketForecastResponse.class)
@@ -48,14 +48,14 @@ public class MlServiceClient {
                             meterRegistry.counter("ml.service.degraded", "endpoint", "market_trend").increment();
                             return fallbackMarketForecast();
                         })
-                        .block(Duration.ofSeconds(35))
+                        .block(Duration.ofSeconds(10))
         );
     }
 
     public MarketForecastResponse predictCarbonPrice(MarketForecastRequest request) {
         return timedCall("market_price", () ->
                 webClient.post()
-                        .uri("/market/price")
+                        .uri("/predict/market/price")
                         .bodyValue(request)
                         .retrieve()
                         .bodyToMono(MarketForecastResponse.class)
@@ -71,14 +71,14 @@ public class MlServiceClient {
                             meterRegistry.counter("ml.service.degraded", "endpoint", "market_price").increment();
                             return fallbackMarketForecast();
                         })
-                        .block(Duration.ofSeconds(35))
+                        .block(Duration.ofSeconds(10))
         );
     }
 
     public MarketForecastResponse predictSupplyDemand(MarketForecastRequest request) {
         return timedCall("supply_demand", () ->
                 webClient.post()
-                        .uri("/market/supply-demand")
+                        .uri("/predict/market/supply-demand")
                         .bodyValue(request)
                         .retrieve()
                         .bodyToMono(MarketForecastResponse.class)
@@ -94,14 +94,14 @@ public class MlServiceClient {
                             meterRegistry.counter("ml.service.degraded", "endpoint", "supply_demand").increment();
                             return fallbackMarketForecast();
                         })
-                        .block(Duration.ofSeconds(35))
+                        .block(Duration.ofSeconds(10))
         );
     }
 
     public EnterpriseInferenceResponse inferEnterprise(EnterpriseInferenceRequest request) {
         return timedCall("enterprise_inference", () ->
                 webClient.post()
-                        .uri("/enterprise/inference")
+                        .uri("/api/v1/predict/enterprise/")
                         .bodyValue(request)
                         .retrieve()
                         .bodyToMono(EnterpriseInferenceResponse.class)
@@ -117,14 +117,14 @@ public class MlServiceClient {
                             meterRegistry.counter("ml.service.degraded", "endpoint", "enterprise_inference").increment();
                             return fallbackEnterpriseInference(request.getEnterpriseId());
                         })
-                        .block(Duration.ofSeconds(35))
+                        .block(Duration.ofSeconds(10))
         );
     }
 
     public EmissionForecastResponse predictEmission(EmissionForecastRequest request) {
         return timedCall("emission_predict", () ->
                 webClient.post()
-                        .uri("/emission/predict")
+                        .uri("/predict/emission/forecast")
                         .bodyValue(request)
                         .retrieve()
                         .bodyToMono(EmissionForecastResponse.class)
@@ -140,7 +140,7 @@ public class MlServiceClient {
                             meterRegistry.counter("ml.service.degraded", "endpoint", "emission_predict").increment();
                             return fallbackEmissionForecast(request.getEnterpriseId());
                         })
-                        .block(Duration.ofSeconds(35))
+                        .block(Duration.ofSeconds(10))
         );
     }
 
