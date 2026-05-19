@@ -76,4 +76,11 @@ public class AuctionOrder extends BaseEntity {
      */
     @Column(name = "matched_at")
     private LocalDateTime matchedAt;
+
+    /**
+     * 乐观锁版本号
+     */
+    @Version
+    @Builder.Default
+    private Long version = 0L;
 }

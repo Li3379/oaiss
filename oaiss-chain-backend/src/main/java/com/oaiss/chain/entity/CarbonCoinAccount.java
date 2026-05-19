@@ -57,4 +57,11 @@ public class CarbonCoinAccount extends BaseEntity {
     @Column(name = "status", nullable = false)
     @Builder.Default
     private Integer status = 1;
+
+    /**
+     * 乐观锁版本号
+     */
+    @Version
+    @Builder.Default
+    private Long version = 0L;
 }
