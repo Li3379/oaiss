@@ -1,5 +1,0 @@
-uid=3_0 RootWebArea "test3" url="http://localhost:5173/enterprise/trading-market"
-  uid=3_1 heading "404" level="1"
-  uid=3_2 StaticText "抱歉，您访问的页面不存在"
-  uid=3_3 button "返回首页"
-  uid=3_4 button "返回上页"

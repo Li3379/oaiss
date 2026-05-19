@@ -1,5 +1,0 @@
-uid=1_0 RootWebArea "test3" url="http://localhost:5173/enterprise/company-dashboard"
-  uid=1_1 heading "404" level="1"
-  uid=1_2 StaticText "抱歉，您访问的页面不存在"
-  uid=1_3 button "返回首页"
-  uid=1_4 button "返回上页"
