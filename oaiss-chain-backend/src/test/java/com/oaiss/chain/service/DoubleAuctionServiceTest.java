@@ -350,12 +350,16 @@ class DoubleAuctionServiceTest {
     // ==================== C6: Matching Engine Concurrent Lock ====================
 
     @Test
-    @DisplayName("executeMatching方法应使用synchronized防止并发撮合")
-    void testExecuteMatchingIsSynchronized() throws Exception {
-        // Verify the method has the synchronized modifier
+    @DisplayName("executeMatching方法应使用@DistributedLock防止并发撮合")
+    void testExecuteMatchingHasDistributedLock() throws Exception {
+        // Verify the method has @DistributedLock annotation instead of synchronized
         var method = DoubleAuctionService.class.getMethod("executeMatching");
-        int modifiers = method.getModifiers();
-        assertTrue(java.lang.reflect.Modifier.isSynchronized(modifiers),
-                "executeMatching() must be synchronized to prevent concurrent matching");
+        var annotation = method.getAnnotation(com.oaiss.chain.annotation.DistributedLock.class);
+        assertNotNull(annotation,
+                "executeMatching() must have @DistributedLock annotation for distributed concurrency control");
+        assertEquals("'auction:matching'", annotation.key(),
+                "@DistributedLock key must be 'auction:matching'");
+        assertFalse(java.lang.reflect.Modifier.isSynchronized(method.getModifiers()),
+                "executeMatching() must NOT be synchronized — use @DistributedLock instead");
     }
 }

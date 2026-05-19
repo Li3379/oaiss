@@ -1,5 +1,6 @@
 package com.oaiss.chain.service;
 
+import com.oaiss.chain.annotation.DistributedLock;
 import com.oaiss.chain.dto.AuctionOrderRequest;
 import com.oaiss.chain.dto.AuctionOrderResponse;
 import com.oaiss.chain.dto.MatchingResultResponse;
@@ -142,8 +143,9 @@ public class DoubleAuctionService {
      *
      * @return 撮合结果列表
      */
+    @DistributedLock(key = "'auction:matching'", expireTime = 30, waitTime = 0)
     @Transactional
-    public synchronized List<MatchingResultResponse> executeMatching() {
+    public List<MatchingResultResponse> executeMatching() {
         List<Integer> activeStatuses = Arrays.asList(
                 AuctionOrderStatusEnum.PENDING.getCode(),
                 AuctionOrderStatusEnum.PARTIALLY_MATCHED.getCode()
