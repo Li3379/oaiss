@@ -1,19 +1,16 @@
-version: '3.8'
-
 services:
   mysql:
     image: mysql:8.0
     container_name: oaiss-mysql
     environment:
-      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-123456}
+      MYSQL_ROOT_PASSWORD: Oa1ssDb2026Pr0dSecureP4ss
       MYSQL_DATABASE: oaiss_chain
       MYSQL_CHARSET: utf8mb4
       MYSQL_COLLATION: utf8mb4_unicode_ci
     ports:
-      - "3306:3306"
+      - "127.0.0.1:3306:3306"
     volumes:
       - mysql-data:/var/lib/mysql
-      - ./oaiss-chain-backend/src/main/resources/db/migration:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       interval: 10s
@@ -23,18 +20,19 @@ services:
   redis:
     image: redis:7-alpine
     container_name: oaiss-redis
+    command: redis-server --requirepass ${REDIS_PASSWORD:-oaiss_redis_dev_2026}
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     volumes:
       - redis-data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-oaiss_redis_dev_2026}", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
 
   minio:
-    image: minio/minio:latest
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
     container_name: oaiss-minio
     command: server /data --console-address ":9001"
     environment:
@@ -51,16 +49,18 @@ services:
       context: ./oaiss-chain-backend
       dockerfile: Dockerfile
     container_name: oaiss-backend
+    restart: unless-stopped
     ports:
       - "8080:8080"
     environment:
       SPRING_PROFILES_ACTIVE: docker
       DB_HOST: mysql
       DB_PORT: 3306
-      DB_PASSWORD: ${DB_PASSWORD:-123456}
+      DB_PASSWORD: Oa1ssDb2026Pr0dSecureP4ss
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      JWT_SECRET: ${JWT_SECRET:-change-this-to-a-secure-secret-at-least-256-bits-long}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-oaiss_redis_dev_2026}
+      JWT_SECRET: Oa1ss2026Pr0dS3cur3JwtK3yF0rHmacSha256S1gn1ngD0ck3r
       MINIO_ENDPOINT: http://minio:9000
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
@@ -78,6 +78,7 @@ services:
       context: ./oaiss-chain-frontend
       dockerfile: Dockerfile
     container_name: oaiss-frontend
+    restart: unless-stopped
     ports:
       - "5173:80"
     depends_on:
@@ -96,7 +97,7 @@ services:
     volumes:
       - ./oaiss-chain-ml-service/app/models:/app/models:ro
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')"]
       interval: 30s
       timeout: 10s
       retries: 3

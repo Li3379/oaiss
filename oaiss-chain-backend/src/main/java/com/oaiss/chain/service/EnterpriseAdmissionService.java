@@ -1,7 +1,9 @@
 package com.oaiss.chain.service;
 
+import com.oaiss.chain.annotation.DistributedLock;
 import com.oaiss.chain.constant.ErrorCode;
 import com.oaiss.chain.entity.EnterpriseAdmission;
+import com.oaiss.chain.enums.QualificationStatusEnum;
 import com.oaiss.chain.exception.BusinessException;
 import com.oaiss.chain.repository.EnterpriseAdmissionRepository;
 import com.oaiss.chain.repository.EnterpriseRepository;
@@ -14,10 +16,10 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.security.SecureRandom;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
-import java.util.Random;
 
 /**
  * 企业准入证书 Service
@@ -34,7 +36,7 @@ public class EnterpriseAdmissionService {
 
     private static final int MAX_CERT_NO_RETRIES = 3;
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("yyyyMMdd");
-    private static final Random RANDOM = new Random();
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     /**
      * 签发准入证书
@@ -42,6 +44,7 @@ public class EnterpriseAdmissionService {
      * @param enterpriseId 企业ID
      * @return 签发的准入证书
      */
+    @DistributedLock(key = "'cert:enterprise:' + #enterpriseId")
     @Transactional
     public EnterpriseAdmission issueCertificate(Long enterpriseId) {
         // 1. Verify enterprise exists
@@ -49,7 +52,7 @@ public class EnterpriseAdmissionService {
                 .orElseThrow(() -> BusinessException.notFound("error.enterprise.notFound"));
 
         // 2. Check duplicate ACTIVE (D-07)
-        enterpriseAdmissionRepository.findFirstByEnterpriseIdAndStatusAndDeletedFalse(enterpriseId, 1)
+        enterpriseAdmissionRepository.findFirstByEnterpriseIdAndStatusAndDeletedFalse(enterpriseId, QualificationStatusEnum.ACTIVE.getCode())
                 .ifPresent(existing -> {
                     throw BusinessException.of(ErrorCode.PARAM_ERROR, "error.admission.alreadyActive");
                 });
@@ -62,7 +65,7 @@ public class EnterpriseAdmissionService {
                 .enterpriseId(enterpriseId)
                 .certificateNo(certNo)
                 .issuedDate(LocalDate.now())
-                .status(1)
+                .status(QualificationStatusEnum.ACTIVE.getCode())
                 .build();
         admission = enterpriseAdmissionRepository.save(admission);
         log.info("Enterprise admission issued: {} for enterprise {}", certNo, enterpriseId);
@@ -81,7 +84,7 @@ public class EnterpriseAdmissionService {
                 .findFirstByEnterpriseIdAndStatusAndDeletedFalse(enterpriseId, 1)
                 .orElseThrow(() -> BusinessException.notFound("error.admission.notFound"));
 
-        admission.setStatus(2); // REVOKED
+        admission.setStatus(QualificationStatusEnum.REVOKED.getCode());
         enterpriseAdmissionRepository.save(admission);
         log.info("Enterprise admission revoked for enterprise {}", enterpriseId);
     }
@@ -95,6 +98,8 @@ public class EnterpriseAdmissionService {
      * @return 分页结果
      */
     public Page<EnterpriseAdmission> listCertificates(Integer status, Integer page, Integer size) {
+        if (page == null || page < 1) page = 1;
+        if (size == null || size < 1) size = 10;
         Pageable pageable = PageRequest.of(page - 1, size, Sort.by(Sort.Direction.DESC, "createdAt"));
         if (status != null) {
             return enterpriseAdmissionRepository.findByStatusAndDeletedFalse(status, pageable);
@@ -119,7 +124,7 @@ public class EnterpriseAdmissionService {
         for (int i = 0; i < MAX_CERT_NO_RETRIES; i++) {
             String certNo = String.format("EA-%s-%06d",
                     DATE_FORMAT.format(LocalDate.now()),
-                    RANDOM.nextInt(1000000));
+                    SECURE_RANDOM.nextInt(1000000));
             if (!enterpriseAdmissionRepository.existsByCertificateNoAndDeletedFalse(certNo)) {
                 return certNo;
             }

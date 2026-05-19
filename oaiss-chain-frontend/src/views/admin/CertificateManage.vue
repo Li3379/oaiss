@@ -179,7 +179,7 @@ onMounted(() => {
             </el-button>
           </div>
           <el-table :data="admissionList" border v-loading="admissionLoading">
-            <el-table-column prop="id" label="ID" width="80" />
+            <el-table-column prop="id" :label="t('certificateManage.colId')" width="80" />
             <el-table-column prop="enterpriseId" :label="t('certificateManage.colEnterpriseId')" min-width="120" />
             <el-table-column prop="certificateNo" :label="t('certificateManage.colCertificateNo')" min-width="180" />
             <el-table-column prop="issuedDate" :label="t('certificateManage.colIssuedDate')" min-width="120" />
@@ -219,10 +219,10 @@ onMounted(() => {
             </el-button>
           </div>
           <el-table :data="qualificationList" border v-loading="qualificationLoading">
-            <el-table-column prop="id" label="ID" width="80" />
+            <el-table-column prop="id" :label="t('certificateManage.colId')" width="80" />
             <el-table-column prop="reviewerId" :label="t('certificateManage.colReviewerId')" min-width="120" />
             <el-table-column prop="certificateNo" :label="t('certificateManage.colCertificateNo')" min-width="180" />
-            <el-table-column prop="qualificationType" label="Qualification Type" min-width="150" />
+            <el-table-column prop="qualificationType" :label="$t('certificateManage.colQualificationType')" min-width="150" />
             <el-table-column prop="issuedDate" :label="t('certificateManage.colIssuedDate')" min-width="120" />
             <el-table-column prop="status" :label="t('certificateManage.colStatus')" min-width="100">
               <template #default="{ row }">

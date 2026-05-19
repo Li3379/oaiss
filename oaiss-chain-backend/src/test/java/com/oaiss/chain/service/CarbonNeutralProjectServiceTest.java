@@ -105,7 +105,7 @@ class CarbonNeutralProjectServiceTest {
     @Test
     @DisplayName("创建项目成功")
     void testCreateProjectSuccess() {
-        when(enterpriseRepository.findByUserId(1L)).thenReturn(Optional.of(testEnterprise));
+        when(enterpriseRepository.findByUserIdAndDeletedFalse(1L)).thenReturn(Optional.of(testEnterprise));
         when(projectRepository.save(any())).thenReturn(testProject);
 
         CarbonNeutralProjectResponse response = service.createProject(testUser, projectRequest);
@@ -118,7 +118,7 @@ class CarbonNeutralProjectServiceTest {
     @Test
     @DisplayName("创建项目失败-未找到企业")
     void testCreateProjectFailNoEnterprise() {
-        when(enterpriseRepository.findByUserId(1L)).thenReturn(Optional.empty());
+        when(enterpriseRepository.findByUserIdAndDeletedFalse(1L)).thenReturn(Optional.empty());
 
         assertThrows(BusinessException.class, () -> service.createProject(testUser, projectRequest));
     }
@@ -127,7 +127,7 @@ class CarbonNeutralProjectServiceTest {
     @DisplayName("更新项目成功")
     void testUpdateProjectSuccess() {
         when(projectRepository.findById(1L)).thenReturn(Optional.of(testProject));
-        when(enterpriseRepository.findByUserId(1L)).thenReturn(Optional.of(testEnterprise));
+        when(enterpriseRepository.findByUserIdAndDeletedFalse(1L)).thenReturn(Optional.of(testEnterprise));
         when(projectRepository.save(any())).thenReturn(testProject);
 
         CarbonNeutralProjectResponse response = service.updateProject(testUser, 1L, projectRequest);
@@ -149,7 +149,7 @@ class CarbonNeutralProjectServiceTest {
     void testUpdateProjectFailNoPermission() {
         testProject.setOwnerId(2L);
         when(projectRepository.findById(1L)).thenReturn(Optional.of(testProject));
-        when(enterpriseRepository.findByUserId(1L)).thenReturn(Optional.of(testEnterprise));
+        when(enterpriseRepository.findByUserIdAndDeletedFalse(1L)).thenReturn(Optional.of(testEnterprise));
 
         assertThrows(BusinessException.class, () -> service.updateProject(testUser, 1L, projectRequest));
     }
@@ -159,7 +159,7 @@ class CarbonNeutralProjectServiceTest {
     void testUpdateProjectFailInvalidStatus() {
         testProject.setStatus(CarbonNeutralProjectService.STATUS_PENDING);
         when(projectRepository.findById(1L)).thenReturn(Optional.of(testProject));
-        when(enterpriseRepository.findByUserId(1L)).thenReturn(Optional.of(testEnterprise));
+        when(enterpriseRepository.findByUserIdAndDeletedFalse(1L)).thenReturn(Optional.of(testEnterprise));
 
         assertThrows(BusinessException.class, () -> service.updateProject(testUser, 1L, projectRequest));
     }
@@ -168,7 +168,7 @@ class CarbonNeutralProjectServiceTest {
     @DisplayName("提交审核成功")
     void testSubmitForReviewSuccess() {
         when(projectRepository.findById(1L)).thenReturn(Optional.of(testProject));
-        when(enterpriseRepository.findByUserId(1L)).thenReturn(Optional.of(testEnterprise));
+        when(enterpriseRepository.findByUserIdAndDeletedFalse(1L)).thenReturn(Optional.of(testEnterprise));
         when(projectRepository.save(any())).thenReturn(testProject);
 
         CarbonNeutralProjectResponse response = service.submitForReview(testUser, 1L);
@@ -215,7 +215,7 @@ class CarbonNeutralProjectServiceTest {
     void testStartImplementationSuccess() {
         testProject.setStatus(CarbonNeutralProjectService.STATUS_APPROVED);
         when(projectRepository.findById(1L)).thenReturn(Optional.of(testProject));
-        when(enterpriseRepository.findByUserId(1L)).thenReturn(Optional.of(testEnterprise));
+        when(enterpriseRepository.findByUserIdAndDeletedFalse(1L)).thenReturn(Optional.of(testEnterprise));
         when(projectRepository.save(any())).thenReturn(testProject);
 
         CarbonNeutralProjectResponse response = service.startImplementation(testUser, 1L);
@@ -228,7 +228,7 @@ class CarbonNeutralProjectServiceTest {
     void testSubmitForVerificationSuccess() {
         testProject.setStatus(CarbonNeutralProjectService.STATUS_IMPLEMENTING);
         when(projectRepository.findById(1L)).thenReturn(Optional.of(testProject));
-        when(enterpriseRepository.findByUserId(1L)).thenReturn(Optional.of(testEnterprise));
+        when(enterpriseRepository.findByUserIdAndDeletedFalse(1L)).thenReturn(Optional.of(testEnterprise));
         when(projectRepository.save(any())).thenReturn(testProject);
 
         CarbonNeutralProjectResponse response = service.submitForVerification(testUser, 1L, 2L);
@@ -273,9 +273,10 @@ class CarbonNeutralProjectServiceTest {
     void testUseCreditsSuccess() {
         testProject.setIssuedCredits(BigDecimal.valueOf(1000));
         when(projectRepository.findById(1L)).thenReturn(Optional.of(testProject));
+        when(enterpriseRepository.findByUserIdAndDeletedFalse(1L)).thenReturn(Optional.of(testEnterprise));
         when(projectRepository.save(any())).thenReturn(testProject);
 
-        CarbonNeutralProjectResponse response = service.useCredits(1L, BigDecimal.valueOf(100));
+        CarbonNeutralProjectResponse response = service.useCredits(testUser, 1L, BigDecimal.valueOf(100));
 
         assertNotNull(response);
     }
@@ -285,15 +286,16 @@ class CarbonNeutralProjectServiceTest {
     void testUseCreditsFailInsufficient() {
         testProject.setIssuedCredits(BigDecimal.valueOf(100));
         when(projectRepository.findById(1L)).thenReturn(Optional.of(testProject));
+        when(enterpriseRepository.findByUserIdAndDeletedFalse(1L)).thenReturn(Optional.of(testEnterprise));
 
-        assertThrows(BusinessException.class, () -> service.useCredits(1L, BigDecimal.valueOf(200)));
+        assertThrows(BusinessException.class, () -> service.useCredits(testUser, 1L, BigDecimal.valueOf(200)));
     }
 
     @Test
     @DisplayName("更新监测数据成功")
     void testUpdateMonitoringSuccess() {
         when(projectRepository.findById(1L)).thenReturn(Optional.of(testProject));
-        when(enterpriseRepository.findByUserId(1L)).thenReturn(Optional.of(testEnterprise));
+        when(enterpriseRepository.findByUserIdAndDeletedFalse(1L)).thenReturn(Optional.of(testEnterprise));
         when(projectRepository.save(any())).thenReturn(testProject);
 
         CarbonNeutralProjectResponse response = service.updateMonitoring(testUser, 1L, "New Data");
@@ -306,7 +308,7 @@ class CarbonNeutralProjectServiceTest {
     void testApplyForCertificationSuccess() {
         testProject.setVerificationStatus(CarbonNeutralProjectService.VERIFY_STATUS_VERIFIED);
         when(projectRepository.findById(1L)).thenReturn(Optional.of(testProject));
-        when(enterpriseRepository.findByUserId(1L)).thenReturn(Optional.of(testEnterprise));
+        when(enterpriseRepository.findByUserIdAndDeletedFalse(1L)).thenReturn(Optional.of(testEnterprise));
         when(projectRepository.save(any())).thenReturn(testProject);
 
         CarbonNeutralProjectResponse response = service.applyForCertification(testUser, 1L, "CERT_ORG");
@@ -329,8 +331,9 @@ class CarbonNeutralProjectServiceTest {
     @Test
     @DisplayName("终止项目成功")
     void testTerminateProjectSuccess() {
+        testProject.setStatus(CarbonNeutralProjectService.STATUS_IMPLEMENTING);
         when(projectRepository.findById(1L)).thenReturn(Optional.of(testProject));
-        when(enterpriseRepository.findByUserId(1L)).thenReturn(Optional.of(testEnterprise));
+        when(enterpriseRepository.findByUserIdAndDeletedFalse(1L)).thenReturn(Optional.of(testEnterprise));
         when(projectRepository.save(any())).thenReturn(testProject);
 
         CarbonNeutralProjectResponse response = service.terminateProject(testUser, 1L, "Reason");
@@ -377,7 +380,7 @@ class CarbonNeutralProjectServiceTest {
     void testGetMyProjectsSuccess() {
         List<CarbonNeutralProject> projects = List.of(testProject);
         Page<CarbonNeutralProject> page = new PageImpl<>(projects);
-        when(enterpriseRepository.findByUserId(1L)).thenReturn(Optional.of(testEnterprise));
+        when(enterpriseRepository.findByUserIdAndDeletedFalse(1L)).thenReturn(Optional.of(testEnterprise));
         when(projectRepository.findByOwnerIdAndDeletedFalse(anyLong(), any(Pageable.class))).thenReturn(page);
         when(enterpriseRepository.findById(1L)).thenReturn(Optional.of(testEnterprise));
 
@@ -406,7 +409,7 @@ class CarbonNeutralProjectServiceTest {
     void testSubmitForReviewFailMissingName() {
         testProject.setProjectName(null);
         when(projectRepository.findById(1L)).thenReturn(Optional.of(testProject));
-        when(enterpriseRepository.findByUserId(1L)).thenReturn(Optional.of(testEnterprise));
+        when(enterpriseRepository.findByUserIdAndDeletedFalse(1L)).thenReturn(Optional.of(testEnterprise));
 
         assertThrows(BusinessException.class, () -> service.submitForReview(testUser, 1L));
     }
@@ -416,7 +419,7 @@ class CarbonNeutralProjectServiceTest {
     void testSubmitForReviewFailMissingType() {
         testProject.setProjectType(null);
         when(projectRepository.findById(1L)).thenReturn(Optional.of(testProject));
-        when(enterpriseRepository.findByUserId(1L)).thenReturn(Optional.of(testEnterprise));
+        when(enterpriseRepository.findByUserIdAndDeletedFalse(1L)).thenReturn(Optional.of(testEnterprise));
 
         assertThrows(BusinessException.class, () -> service.submitForReview(testUser, 1L));
     }
@@ -426,7 +429,7 @@ class CarbonNeutralProjectServiceTest {
     void testSubmitForReviewFailInvalidReduction() {
         testProject.setExpectedReduction(BigDecimal.ZERO);
         when(projectRepository.findById(1L)).thenReturn(Optional.of(testProject));
-        when(enterpriseRepository.findByUserId(1L)).thenReturn(Optional.of(testEnterprise));
+        when(enterpriseRepository.findByUserIdAndDeletedFalse(1L)).thenReturn(Optional.of(testEnterprise));
 
         assertThrows(BusinessException.class, () -> service.submitForReview(testUser, 1L));
     }

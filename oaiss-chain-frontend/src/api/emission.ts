@@ -1,6 +1,10 @@
 import request from './request'
 import type { EmissionRating, EmissionRatingRequest, CarbonPredictionRequest, CarbonPredictionResponse, PageRequest } from '../types'
 
+export function getMyRating(): Promise<EmissionRating[]> {
+  return request.get('/emission/my-rating')
+}
+
 export function getEnterpriseRatings(enterpriseId: number): Promise<EmissionRating[]> {
   return request.get(`/emission/ratings/${enterpriseId}`)
 }

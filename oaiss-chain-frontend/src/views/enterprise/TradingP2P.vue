@@ -45,7 +45,8 @@ const getStatusTagType = (status) => {
     0: "warning",
     1: "primary",
     2: "success",
-    3: "info"
+    3: "info",
+    4: "danger"
   }
   return statusMap[status] || "info"
 }
@@ -171,7 +172,7 @@ onMounted(() => {
         </el-form-item>
 
         <el-form-item :label="t('ordersManage.colTradeType')">
-          <el-select v-model="searchForm.identity" placeholder="Identity" clearable>
+          <el-select v-model="searchForm.identity" :placeholder="t('tradingP2P.colTradeType')" clearable>
             <el-option v-for="item in identityOptions" :key="item" :label="t(item)" :value="item" />
           </el-select>
         </el-form-item>
@@ -188,7 +189,7 @@ onMounted(() => {
     </el-card>
 
     <el-card class="section-card" shadow="never">
-      <el-table :data="tableData" border v-loading="loading" empty-text="No data">
+      <el-table :data="tableData" border v-loading="loading" :empty-text="t('tradingP2P.emptyText')">
         <el-table-column :label="t('tradingMarket.colIndex')" width="80">
           <template #default="scope">
             {{ (page - 1) * pageSize + scope.$index + 1 }}

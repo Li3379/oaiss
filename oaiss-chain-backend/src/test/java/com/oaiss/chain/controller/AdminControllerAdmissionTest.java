@@ -1,15 +1,12 @@
 package com.oaiss.chain.controller;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.oaiss.chain.entity.EnterpriseAdmission;
+import com.oaiss.chain.entity.ReviewerQualification;
 import com.oaiss.chain.repository.AccountPermissionListRepository;
-import com.oaiss.chain.repository.ReviewerRepository;
 import com.oaiss.chain.repository.UserRepository;
 import com.oaiss.chain.security.JwtTokenProvider;
-import com.oaiss.chain.security.JwtUserDetails;
 import com.oaiss.chain.service.EnterpriseAdmissionService;
 import com.oaiss.chain.service.ReviewerQualificationService;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -17,8 +14,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -31,12 +26,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 /**
- * AdminController 企业准入证书端点单元测试
+ * AdminController 企业准入证书和审核员资格证管理端点单元测试
  *
- * Note: @WebMvcTest does not load SecurityConfig (which has @EnableMethodSecurity),
- * so @PreAuthorize annotations are not enforced in these tests. The /my endpoint
- * test verifies controller logic (null enterpriseId handling) rather than role enforcement.
- * Role enforcement is validated by the service-layer tests and integration tests.
+ * Note: /my endpoints have been moved to EnterpriseController and ReviewerController
+ * to avoid class-level @PreAuthorize("hasRole('ADMIN')") AND conflict (CR-01 fix).
  */
 @WebMvcTest(value = AdminController.class,
         excludeAutoConfiguration = {
@@ -65,11 +58,8 @@ class AdminControllerAdmissionTest {
     @MockBean
     private ReviewerQualificationService reviewerQualificationService;
 
-    @MockBean
-    private ReviewerRepository reviewerRepository;
-
     private EnterpriseAdmission testAdmission;
-    private JwtUserDetails enterpriseUser;
+    private ReviewerQualification testQualification;
 
     @BeforeEach
     void setUp() {
@@ -81,21 +71,15 @@ class AdminControllerAdmissionTest {
                 .build();
         testAdmission.setId(1L);
 
-        enterpriseUser = JwtUserDetails.builder()
-                .userId(20L)
-                .username("enterprise_user")
-                .enterpriseId(1L)
-                .roles(List.of("ENTERPRISE"))
-                .enabled(true)
-                .accountNonExpired(true)
-                .accountNonLocked(true)
-                .credentialsNonExpired(true)
+        testQualification = ReviewerQualification.builder()
+                .reviewerId(1L)
+                .qualificationType("碳排放审核资质")
+                .certificateNo("RQ-20260515-123456")
+                .issuingAuthority("OAISS管理中心")
+                .issuedDate(LocalDate.now())
+                .status(1)
                 .build();
-    }
-
-    @AfterEach
-    void tearDown() {
-        SecurityContextHolder.clearContext();
+        testQualification.setId(1L);
     }
 
     @Test
@@ -112,40 +96,26 @@ class AdminControllerAdmissionTest {
     }
 
     @Test
-    @DisplayName("查看自身准入证书-企业用户成功")
-    void testGetMyAdmission_asEnterprise_returns200() throws Exception {
-        // Set SecurityContextHolder so @AuthenticationPrincipal can resolve
-        SecurityContextHolder.getContext().setAuthentication(
-                new UsernamePasswordAuthenticationToken(enterpriseUser, null, enterpriseUser.getAuthorities()));
+    @DisplayName("签发审核员资格证-管理员成功签发")
+    void testIssueQualification_asAdmin_returns200() throws Exception {
+        when(reviewerQualificationService.issueCertificate(1L)).thenReturn(testQualification);
 
-        when(enterpriseAdmissionService.getMyCertificate(1L)).thenReturn(List.of(testAdmission));
-
-        mockMvc.perform(get("/admin/enterprise-admission/my"))
+        mockMvc.perform(post("/admin/reviewer-qualification/1/issue"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
-                .andExpect(jsonPath("$.data[0].certificateNo").value("EA-20260515-123456"));
+                .andExpect(jsonPath("$.data.certificateNo").value("RQ-20260515-123456"));
 
-        verify(enterpriseAdmissionService).getMyCertificate(1L);
+        verify(reviewerQualificationService).issueCertificate(1L);
     }
 
     @Test
-    @DisplayName("查看自身准入证书-无企业ID时返回错误")
-    void testGetMyAdmission_noEnterpriseId_returns400() throws Exception {
-        // Admin user has no enterpriseId, so controller throws BusinessException
-        JwtUserDetails adminUser = JwtUserDetails.builder()
-                .userId(10L)
-                .username("admin")
-                .roles(List.of("ADMIN"))
-                .enabled(true)
-                .build();
+    @DisplayName("吊销准入证书-管理员成功吊销")
+    void testRevokeAdmission_asAdmin_returns200() throws Exception {
+        doNothing().when(enterpriseAdmissionService).revokeCertificate(1L);
 
-        SecurityContextHolder.getContext().setAuthentication(
-                new UsernamePasswordAuthenticationToken(adminUser, null, adminUser.getAuthorities()));
+        mockMvc.perform(delete("/admin/enterprise-admission/1"))
+                .andExpect(status().isOk());
 
-        mockMvc.perform(get("/admin/enterprise-admission/my"))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value(1001));
-
-        verify(enterpriseAdmissionService, never()).getMyCertificate(any());
+        verify(enterpriseAdmissionService).revokeCertificate(1L);
     }
 }

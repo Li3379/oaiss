@@ -2,7 +2,7 @@
 import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useI18n } from 'vue-i18n'
-import { getEnterpriseRatings, getIndustryRankings, predictEmission } from '../../api/emission'
+import { getMyRating, getEnterpriseRatings, getIndustryRankings, predictEmission } from '../../api/emission'
 import PageContainer from '../../components/PageContainer.vue'
 
 const { t } = useI18n()
@@ -30,14 +30,9 @@ const predictForm = ref({
 const loadRatings = async () => {
   try {
     ratingsLoading.value = true
-    const enterpriseId = localStorage.getItem('enterpriseId') || ''
-    if (!enterpriseId) {
-      ratings.value = []
-      return
-    }
-    const result = await getEnterpriseRatings(enterpriseId)
-    ratings.value = result?.items || []
-    ratingsTotal.value = result?.total || 0
+    const result = await getMyRating()
+    ratings.value = Array.isArray(result) ? result : []
+    ratingsTotal.value = ratings.value.length
   } catch (error) {
     ElMessage.error(t('emissionData.loadRatingFailed'))
   } finally {

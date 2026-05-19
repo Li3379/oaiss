@@ -46,6 +46,7 @@ public class EnterpriseAdmission extends BaseEntity {
 
     /**
      * 证书状态（1-有效, 2-已吊销）
+     * @see com.oaiss.chain.enums.QualificationStatusEnum
      */
     @Column(name = "status", nullable = false)
     @Builder.Default

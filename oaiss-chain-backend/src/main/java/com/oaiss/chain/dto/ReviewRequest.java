@@ -1,6 +1,5 @@
 package com.oaiss.chain.dto;
 
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -33,6 +32,5 @@ public class ReviewRequest {
     /**
      * 审核意见
      */
-    @NotBlank(message = "审核意见不能为空")
     private String reviewComment;
 }

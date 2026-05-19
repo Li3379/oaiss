@@ -1,5 +1,7 @@
 package com.oaiss.chain.dto;
 
+import com.fasterxml.jackson.databind.PropertyNamingStrategies;
+import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import lombok.Builder;
@@ -14,6 +16,7 @@ import java.util.List;
  */
 @Data
 @Builder
+@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
 public class MarketForecastRequest {
 
     @NotEmpty(message = "Historical dates must not be empty")

@@ -112,38 +112,40 @@ const onCurrentChange = (page) => {
 
 const getTransactionTypeTag = (type) => {
   const map = {
-    'RECHARGE': 'success',
-    'TRANSFER_IN': 'success',
-    'TRANSFER_OUT': 'danger',
-    'PURCHASE': 'warning',
-    'SALE': 'primary',
-    'FROZEN': 'danger',
-    'UNFROZEN': 'success',
+    1: 'success',
+    2: 'success',
+    3: 'danger',
+    4: 'danger',
+    5: 'warning',
+    6: 'primary',
+    7: 'danger',
+    8: 'success',
   }
   return map[type] || 'info'
 }
 
 const getTransactionTypeText = (type) => {
   const map = {
-    'RECHARGE': t('carbonCoin.txTypeRecharge'),
-    'TRANSFER_IN': t('carbonCoin.txTypeTransferIn'),
-    'TRANSFER_OUT': t('carbonCoin.txTypeTransferOut'),
-    'PURCHASE': t('carbonCoin.txTypeBuy'),
-    'SALE': t('carbonCoin.txTypeSell'),
-    'FROZEN': t('carbonCoin.txTypeFreeze'),
-    'UNFROZEN': t('carbonCoin.txTypeUnfreeze'),
+    1: t('carbonCoin.txTypeRecharge'),
+    2: t('carbonCoin.txTypeTransferIn'),
+    3: t('carbonCoin.txTypeTransferOut'),
+    4: t('carbonCoin.txTypeTransferOut'),
+    5: t('carbonCoin.txTypeBuy'),
+    6: t('carbonCoin.txTypeSell'),
+    7: t('carbonCoin.txTypeFreeze'),
+    8: t('carbonCoin.txTypeUnfreeze'),
   }
-  return map[type] || type
+  return map[type] || t('common.status')
 }
 
 
 const getAmountClass = (type) => {
-  const positiveTypes = ['RECHARGE', 'TRANSFER_IN', 'SALE']
+  const positiveTypes = [1, 2, 6]
   return positiveTypes.includes(type) ? 'amount-positive' : 'amount-negative'
 }
 
 const formatAmount = (type, amount) => {
-  const positiveTypes = ['RECHARGE', 'TRANSFER_IN', 'SALE']
+  const positiveTypes = [1, 2, 6]
   const prefix = positiveTypes.includes(type) ? '+' : ''
   return prefix + amount
 }
@@ -194,27 +196,27 @@ onMounted(() => {
           <span class="card-header">{{ t('carbonCoin.txRecord') }}</span>
         </template>
         <el-table :data="transactionData" border v-loading="transactionLoading">
-          <el-table-column :label="t('common.total')" width="80">
+          <el-table-column :label="t('common.colIndex')" width="80">
             <template #default="scope">
               {{ (currentPage - 1) * pageSize + scope.$index + 1 }}
             </template>
           </el-table-column>
-          <el-table-column prop="transactionNo" :label="t('carbonCoin.colTxNo')" min-width="180" />
-          <el-table-column prop="transactionType" :label="t('carbonCoin.colTxType')" min-width="120">
+          <el-table-column prop="txNo" :label="t('carbonCoin.colTxNo')" min-width="180" />
+          <el-table-column prop="txType" :label="t('carbonCoin.colTxType')" min-width="120">
             <template #default="{ row }">
-              <el-tag :type="getTransactionTypeTag(row.transactionType)">
-                {{ getTransactionTypeText(row.transactionType) }}
+              <el-tag :type="getTransactionTypeTag(row.txType)">
+                {{ getTransactionTypeText(row.txType) }}
               </el-tag>
             </template>
           </el-table-column>
           <el-table-column prop="amount" :label="t('carbonCoin.colAmount')" min-width="120">
             <template #default="{ row }">
-              <span :class="getAmountClass(row.transactionType)">
-                {{ formatAmount(row.transactionType, row.amount) }}
+              <span :class="getAmountClass(row.txType)">
+                {{ formatAmount(row.txType, row.amount) }}
               </span>
             </template>
           </el-table-column>
-          <el-table-column prop="balance" :label="t('carbonCoin.colBalanceAfter')" min-width="120" />
+          <el-table-column prop="balanceAfter" :label="t('carbonCoin.colBalanceAfter')" min-width="120" />
           <el-table-column prop="remark" :label="t('carbonCoin.colRemark')" min-width="200" show-overflow-tooltip />
           <el-table-column prop="createdAt" :label="t('carbonCoin.colTime')" min-width="170" />
         </el-table>

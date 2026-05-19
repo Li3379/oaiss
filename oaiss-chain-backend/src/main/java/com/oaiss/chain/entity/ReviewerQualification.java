@@ -55,7 +55,8 @@ public class ReviewerQualification extends BaseEntity {
     private java.time.LocalDate expiryDate;
 
     /**
-     * 资质状态（0-无效, 1-有效）
+     * 资质状态（1-有效, 2-已吊销）
+     * @see com.oaiss.chain.enums.QualificationStatusEnum
      */
     @Column(name = "status", nullable = false)
     @Builder.Default

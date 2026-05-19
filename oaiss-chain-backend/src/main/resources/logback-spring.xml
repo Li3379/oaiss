@@ -102,17 +102,19 @@
             <discardingThreshold>0</discardingThreshold>
         </appender>
 
-	<logger name="com.oaiss.chain" level="INFO" additivity="false">
-		<appender-ref ref="ASYNC_JSON_FILE"/>
-		<!-- <appender-ref ref="ASYNC_LOGSTASH"/> Disabled: Logstash not available in docker environment -->
-		<appender-ref ref="ERROR_FILE"/>
-	</logger>
+        <logger name="com.oaiss.chain" level="INFO" additivity="false">
+            <appender-ref ref="ASYNC_JSON_FILE"/>
+            <appender-ref ref="CONSOLE"/>
+            <appender-ref ref="ERROR_FILE"/>
+        </logger>
+        <logger name="org.springframework.security" level="WARN"/>
+        <logger name="org.hibernate.SQL" level="WARN"/>
 
-	<root level="INFO">
-		<appender-ref ref="ASYNC_JSON_FILE"/>
-		<!-- <appender-ref ref="ASYNC_LOGSTASH"/> Disabled: Logstash not available in docker environment -->
-		<appender-ref ref="ERROR_FILE"/>
-	</root>
+        <root level="INFO">
+            <appender-ref ref="ASYNC_JSON_FILE"/>
+            <appender-ref ref="CONSOLE"/>
+            <appender-ref ref="ERROR_FILE"/>
+        </root>
     </springProfile>
 
     <!-- ==================== Test Profile ==================== -->

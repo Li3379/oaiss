@@ -3,7 +3,11 @@ package com.oaiss.chain.controller;
 import com.oaiss.chain.dto.ApiResponse;
 import com.oaiss.chain.entity.CarbonReport;
 import com.oaiss.chain.entity.Reviewer;
+import com.oaiss.chain.entity.ReviewerQualification;
+import com.oaiss.chain.exception.BusinessException;
+import com.oaiss.chain.repository.ReviewerRepository;
 import com.oaiss.chain.security.JwtUserDetails;
+import com.oaiss.chain.service.ReviewerQualificationService;
 import com.oaiss.chain.service.ReviewerService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -16,6 +20,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -32,6 +37,23 @@ import java.util.Map;
 public class ReviewerController {
 
     private final ReviewerService reviewerService;
+    private final ReviewerQualificationService reviewerQualificationService;
+    private final ReviewerRepository reviewerRepository;
+
+    @GetMapping("/qualification/my")
+    @Operation(summary = "查看自身资格证", description = "审核员查看自身的资格证列表。")
+    @ApiResponses(value = {
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "查询成功"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "无权限，仅审核员可访问")
+    })
+    @SecurityRequirement(name = "Bearer Authentication")
+    public ApiResponse<List<ReviewerQualification>> getMyQualification(
+            @AuthenticationPrincipal JwtUserDetails currentUser) {
+        Reviewer reviewer = reviewerRepository.findByUserId(currentUser.getUserId())
+                .orElseThrow(() -> BusinessException.notFound("error.reviewer.notFound"));
+        List<ReviewerQualification> qualifications = reviewerQualificationService.getMyCertificate(reviewer.getId());
+        return ApiResponse.success(qualifications);
+    }
 
     @GetMapping("/info")
     @Operation(summary = "获取审核员信息", description = "获取当前登录审核员的详细信息")

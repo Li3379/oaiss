@@ -29,6 +29,7 @@ ACCOUNTS=(
   "enterprise003:admin123:1:ENTERPRISE"
   "reviewer001:admin123:2:REVIEWER"
   "thirdparty001:admin123:3:THIRD_PARTY"
+  "authenticator001:admin123:5:AUTHENTICATOR"
 )
 
 for entry in "${ACCOUNTS[@]}"; do

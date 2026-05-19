@@ -685,7 +685,8 @@ class CarbonNeutralProjectControllerTest {
                 .availableCredits(new BigDecimal("850.00"))
                 .build();
 
-        when(projectService.useCredits(eq(1L), any(BigDecimal.class)))
+        setAuthentication(normalUser);
+        when(projectService.useCredits(any(JwtUserDetails.class), eq(1L), any(BigDecimal.class)))
                 .thenReturn(creditsUsedResponse);
 
         // When & Then
@@ -697,14 +698,15 @@ class CarbonNeutralProjectControllerTest {
                 .andExpect(jsonPath("$.data.usedCredits").value(100))
                 .andExpect(jsonPath("$.data.availableCredits").value(850));
 
-        verify(projectService, times(1)).useCredits(eq(1L), any(BigDecimal.class));
+        verify(projectService, times(1)).useCredits(any(JwtUserDetails.class), eq(1L), any(BigDecimal.class));
     }
 
     @Test
     @DisplayName("使用碳信用失败-可用碳信用不足")
     void testUseCreditsInsufficient() throws Exception {
         // Given
-        when(projectService.useCredits(eq(1L), any(BigDecimal.class)))
+        setAuthentication(normalUser);
+        when(projectService.useCredits(any(JwtUserDetails.class), eq(1L), any(BigDecimal.class)))
                 .thenThrow(new BusinessException(3004, "可用碳信用不足"));
 
         // When & Then
@@ -715,7 +717,7 @@ class CarbonNeutralProjectControllerTest {
                 .andExpect(jsonPath("$.code").value(3004))
                 .andExpect(jsonPath("$.message").value("可用碳信用不足"));
 
-        verify(projectService, times(1)).useCredits(eq(1L), any(BigDecimal.class));
+        verify(projectService, times(1)).useCredits(any(JwtUserDetails.class), eq(1L), any(BigDecimal.class));
     }
 
     // ==================== PUT /carbon-neutral/{id}/monitoring Tests ====================

@@ -4,7 +4,7 @@ FastAPI router for carbon market prediction endpoints.
 
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, HTTPException, status
 
 from app.schemas.market import MarketForecastRequest, MarketForecastResponse
 from app.services.market_service import MarketService
@@ -13,10 +13,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/predict/market", tags=["market-prediction"])
 
-
-def get_market_service() -> MarketService:
-    """Dependency provider for MarketService."""
-    return MarketService()
+market_service = MarketService()
 
 
 @router.post(
@@ -31,7 +28,6 @@ def get_market_service() -> MarketService:
 )
 def predict_trend(
     request: MarketForecastRequest,
-    service: MarketService = Depends(get_market_service),
 ) -> MarketForecastResponse:
     """Predict carbon market trend direction and forecast prices."""
     logger.info(
@@ -40,7 +36,7 @@ def predict_trend(
         request.horizon_days,
     )
     try:
-        return service.predict(request)
+        return market_service.predict(request)
     except HTTPException:
         raise
     except Exception as exc:
@@ -63,7 +59,6 @@ def predict_trend(
 )
 def predict_price(
     request: MarketForecastRequest,
-    service: MarketService = Depends(get_market_service),
 ) -> MarketForecastResponse:
     """Predict carbon price with confidence intervals."""
     logger.info(
@@ -72,7 +67,7 @@ def predict_price(
         request.horizon_days,
     )
     try:
-        return service.predict(request)
+        return market_service.predict(request)
     except HTTPException:
         raise
     except Exception as exc:
@@ -95,7 +90,6 @@ def predict_price(
 )
 def predict_supply_demand(
     request: MarketForecastRequest,
-    service: MarketService = Depends(get_market_service),
 ) -> MarketForecastResponse:
     """Predict supply and demand volume trends."""
     logger.info(
@@ -104,7 +98,7 @@ def predict_supply_demand(
         request.horizon_days,
     )
     try:
-        return service.predict(request)
+        return market_service.predict(request)
     except HTTPException:
         raise
     except Exception as exc:

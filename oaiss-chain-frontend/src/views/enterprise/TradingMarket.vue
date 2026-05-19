@@ -142,20 +142,20 @@ const getDirectionType = (direction) => {
 
 const getStatusLabel = (status) => {
   const statusMap = {
-    1: t('tradingMarket.statusPending'),
-    2: t('tradingMarket.statusPartial'),
-    3: t('tradingMarket.statusMatched'),
-    4: t('tradingMarket.statusCancelled'),
+    0: t('tradingMarket.statusPending'),
+    1: t('tradingMarket.statusPartial'),
+    2: t('tradingMarket.statusMatched'),
+    3: t('tradingMarket.statusCancelled'),
   }
   return statusMap[status] || t('tradingMarket.statusUnknown')
 }
 
 const getStatusType = (status) => {
   const typeMap = {
-    1: 'info',
-    2: 'warning',
-    3: 'success',
-    4: 'info',
+    0: 'info',
+    1: 'warning',
+    2: 'success',
+    3: 'info',
   }
   return typeMap[status] || 'info'
 }

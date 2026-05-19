@@ -112,8 +112,7 @@ class EnterpriseInferenceServiceTest {
                 .riskFactors(Collections.emptyList())
                 .modelVersion("1.0.0")
                 .build();
-        when(mlServiceClient.post(anyString(), any(EnterpriseInferenceRequest.class),
-                eq(EnterpriseInferenceResponse.class))).thenReturn(mlResponse);
+        when(mlServiceClient.inferEnterprise(any(EnterpriseInferenceRequest.class))).thenReturn(mlResponse);
 
         // Act
         EnterpriseInferenceResponse response = service.inferEnterprise(enterpriseId);
@@ -124,8 +123,7 @@ class EnterpriseInferenceServiceTest {
         assertEquals("compliant", response.getComplianceStatus());
         assertEquals(0.92, response.getConfidence());
         assertFalse(response.getIsAnomaly());
-        verify(mlServiceClient).post(eq("/api/v1/predict/enterprise"),
-                any(EnterpriseInferenceRequest.class), eq(EnterpriseInferenceResponse.class));
+        verify(mlServiceClient).inferEnterprise(any(EnterpriseInferenceRequest.class));
     }
 
     @Test
@@ -162,15 +160,13 @@ class EnterpriseInferenceServiceTest {
                 .riskFactors(List.of("High compliance flag count"))
                 .modelVersion("1.0.0")
                 .build();
-        when(mlServiceClient.post(anyString(), any(EnterpriseInferenceRequest.class),
-                eq(EnterpriseInferenceResponse.class))).thenReturn(mlResponse);
+        when(mlServiceClient.inferEnterprise(any(EnterpriseInferenceRequest.class))).thenReturn(mlResponse);
 
         EnterpriseInferenceResponse response = service.inferEnterprise(enterpriseId);
 
         assertNotNull(response);
         assertTrue(response.getIsAnomaly());
-        verify(mlServiceClient).post(eq("/api/v1/predict/enterprise"),
-                any(EnterpriseInferenceRequest.class), eq(EnterpriseInferenceResponse.class));
+        verify(mlServiceClient).inferEnterprise(any(EnterpriseInferenceRequest.class));
     }
 
     @Test
@@ -201,8 +197,7 @@ class EnterpriseInferenceServiceTest {
                 .riskFactors(Collections.emptyList())
                 .modelVersion("1.0.0")
                 .build();
-        when(mlServiceClient.post(anyString(), any(EnterpriseInferenceRequest.class),
-                eq(EnterpriseInferenceResponse.class))).thenReturn(mlResponse);
+        when(mlServiceClient.inferEnterprise(any(EnterpriseInferenceRequest.class))).thenReturn(mlResponse);
 
         EnterpriseInferenceResponse response = service.inferEnterprise(enterpriseId);
 
