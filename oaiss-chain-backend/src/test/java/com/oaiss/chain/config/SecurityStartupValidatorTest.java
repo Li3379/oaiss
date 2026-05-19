@@ -30,6 +30,8 @@ class SecurityStartupValidatorTest {
         setField(validator, "jwtSecret",
                 "oaiss-chain-dev-jwt-secret-key-must-be-at-least-256-bits-long");
         setField(validator, "dbPassword", "strongDbPassword123!");
+        setField(validator, "minioAccessKey", "strong-access-key");
+        setField(validator, "minioSecretKey", "strong-secret-key");
 
         // When & Then
         assertThrows(SecurityException.class, validator::validateOnStartup);
@@ -43,6 +45,8 @@ class SecurityStartupValidatorTest {
         SecurityStartupValidator validator = new SecurityStartupValidator(environment);
         setField(validator, "jwtSecret", "a-very-strong-and-unique-jwt-secret-key-that-is-at-least-256-bits");
         setField(validator, "dbPassword", "123456");
+        setField(validator, "minioAccessKey", "strong-access-key");
+        setField(validator, "minioSecretKey", "strong-secret-key");
 
         // When & Then
         assertThrows(SecurityException.class, validator::validateOnStartup);
@@ -56,6 +60,8 @@ class SecurityStartupValidatorTest {
         SecurityStartupValidator validator = new SecurityStartupValidator(environment);
         setField(validator, "jwtSecret", "a-very-strong-and-unique-jwt-secret-key-that-is-at-least-256-bits");
         setField(validator, "dbPassword", "strongDbPassword123!");
+        setField(validator, "minioAccessKey", "strong-access-key");
+        setField(validator, "minioSecretKey", "strong-secret-key");
 
         // When & Then - should not throw
         assertDoesNotThrow(validator::validateOnStartup);
@@ -70,6 +76,8 @@ class SecurityStartupValidatorTest {
         setField(validator, "jwtSecret",
                 "dev-only-jwt-secret-key-must-be-at-least-256-bits-long-for-hmac-sha");
         setField(validator, "dbPassword", "123456");
+        setField(validator, "minioAccessKey", "minioadmin");
+        setField(validator, "minioSecretKey", "minioadmin");
 
         // When & Then - should NOT throw, just warn
         assertDoesNotThrow(validator::validateOnStartup);
@@ -84,6 +92,8 @@ class SecurityStartupValidatorTest {
         setField(validator, "jwtSecret",
                 "oaiss-chain-dev-jwt-secret-key-must-be-at-least-256-bits-long");
         setField(validator, "dbPassword", "123456");
+        setField(validator, "minioAccessKey", "minioadmin");
+        setField(validator, "minioSecretKey", "minioadmin");
 
         // When & Then - should NOT throw
         assertDoesNotThrow(validator::validateOnStartup);
@@ -96,8 +106,36 @@ class SecurityStartupValidatorTest {
         SecurityStartupValidator validator = new SecurityStartupValidator(environment);
         setField(validator, "jwtSecret", "a-very-strong-and-unique-jwt-secret-key-that-is-at-least-256-bits");
         setField(validator, "dbPassword", "password");
+        setField(validator, "minioAccessKey", "strong-access-key");
+        setField(validator, "minioSecretKey", "strong-secret-key");
 
         assertThrows(SecurityException.class, validator::validateOnStartup);
+    }
+
+    @Test
+    @DisplayName("生产环境+弱MinIO凭证应抛出SecurityException")
+    void validateOnStartup_productionWithWeakMinioCredentials_shouldThrow() {
+        when(environment.getActiveProfiles()).thenReturn(new String[]{"docker"});
+        SecurityStartupValidator validator = new SecurityStartupValidator(environment);
+        setField(validator, "jwtSecret", "a-very-strong-and-unique-jwt-secret-key-that-is-at-least-256-bits");
+        setField(validator, "dbPassword", "strongDbPassword123!");
+        setField(validator, "minioAccessKey", "minioadmin");
+        setField(validator, "minioSecretKey", "minioadmin");
+
+        assertThrows(SecurityException.class, validator::validateOnStartup);
+    }
+
+    @Test
+    @DisplayName("开发环境+弱MinIO凭证应仅警告不阻止启动")
+    void validateOnStartup_devWithWeakMinioCredentials_shouldOnlyWarn() {
+        when(environment.getActiveProfiles()).thenReturn(new String[]{"dev"});
+        SecurityStartupValidator validator = new SecurityStartupValidator(environment);
+        setField(validator, "jwtSecret", "a-very-strong-and-unique-jwt-secret-key-that-is-at-least-256-bits");
+        setField(validator, "dbPassword", "strongDbPassword123!");
+        setField(validator, "minioAccessKey", "minioadmin");
+        setField(validator, "minioSecretKey", "minioadmin");
+
+        assertDoesNotThrow(validator::validateOnStartup);
     }
 
     private void setField(Object target, String fieldName, String value) {
