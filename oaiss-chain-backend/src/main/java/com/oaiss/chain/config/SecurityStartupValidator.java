@@ -30,6 +30,10 @@ public class SecurityStartupValidator {
             "123456", "password", "root", "admin", "test"
     );
 
+    private static final Set<String> WEAK_MINIO_CREDENTIALS = Set.of(
+            "minioadmin", "minio", "admin", "accesskey", "secretkey"
+    );
+
     private static final Set<String> PRODUCTION_PROFILES = Set.of(
             "docker", "prod", "production"
     );
@@ -39,6 +43,12 @@ public class SecurityStartupValidator {
 
     @Value("${spring.datasource.password:}")
     private String dbPassword;
+
+    @Value("${minio.access-key:}")
+    private String minioAccessKey;
+
+    @Value("${minio.secret-key:}")
+    private String minioSecretKey;
 
     private final Environment environment;
 
@@ -52,6 +62,7 @@ public class SecurityStartupValidator {
 
         validateJwtSecret(isProduction);
         validateDbPassword(isProduction);
+        validateMinioCredentials(isProduction);
 
         if (isProduction) {
             log.info("Security startup validation PASSED for production environment");
@@ -73,6 +84,17 @@ public class SecurityStartupValidator {
         if (WEAK_DB_PASSWORDS.contains(dbPassword)) {
             String message = "SECURITY WARNING: Database password is using a weak default value. "
                     + "Set DB_PASSWORD environment variable to a strong password.";
+            if (isProduction) {
+                throw new SecurityException("FATAL: " + message);
+            }
+            log.warn(message);
+        }
+    }
+
+    private void validateMinioCredentials(boolean isProduction) {
+        if (WEAK_MINIO_CREDENTIALS.contains(minioAccessKey) || WEAK_MINIO_CREDENTIALS.contains(minioSecretKey)) {
+            String message = "SECURITY WARNING: MinIO credentials are using weak default values. "
+                    + "Set MINIO_ACCESS_KEY and MINIO_SECRET_KEY environment variables to strong values.";
             if (isProduction) {
                 throw new SecurityException("FATAL: " + message);
             }
