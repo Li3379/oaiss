@@ -99,4 +99,11 @@ public class Enterprise extends BaseEntity {
     @Column(name = "cert_status", nullable = false)
     @Builder.Default
     private Integer certStatus = 0;
+
+    /**
+     * 乐观锁版本号
+     */
+    @Version
+    @Builder.Default
+    private Long version = 0L;
 }
