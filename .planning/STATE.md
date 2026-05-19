@@ -2,19 +2,19 @@
 
 **Milestone:** v2.0 安全与性能加固
 **Created:** 2026-05-19
-**Status:** PLANNED
+**Status:** IN PROGRESS
 
 ## Current Phase
 
 **Phase:** 13 - 并发安全与凭据加固
-**Phase Status:** Planned (3 plans, all Wave 1)
+**Phase Status:** In Progress (1/3 plans complete)
 **Next Action:** Execute `/gsd:execute-phase 13`
 
 ## Phase Progress
 
 | Phase | Status | Plans Complete | Last Updated |
 |-------|--------|----------------|--------------|
-| 13. 并发安全与凭据加固 | Planned | 0/3 | 2026-05-19 |
+| 13. 并发安全与凭据加固 | In Progress | 1/3 | 2026-05-19 |
 | 14. 性能优化与代码质量 | Not started | 0/? | — |
 | 15. DevOps 与回归验证 | Not started | 0/? | — |
 
@@ -31,9 +31,9 @@ All 3 plans are Wave 1 (no inter-dependencies) and can be executed in parallel.
 ## Active Requirements
 
 ### Priority A — CRITICAL (6 items)
-- [ ] CON-01: DoubleAuctionService synchronized → @DistributedLock
-- [ ] CON-02: 金融实体加 @Version 乐观锁
-- [ ] CON-03: executeMatching() 事务边界重构
+- [x] CON-01: DoubleAuctionService synchronized -> @DistributedLock
+- [x] CON-02: 金融实体加 @Version 乐观锁
+- [x] CON-03: executeMatching() 事务边界重构
 - [ ] SEC-07: docker-compose.yml 凭据外部化
 - [ ] SEC-08: 移除 DB_PASSWORD:123456 默认值
 - [ ] SEC-09: MinIO 移除 minioadmin 默认凭据
