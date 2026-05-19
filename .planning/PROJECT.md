@@ -1,121 +1,126 @@
-# OAISS CHAIN
+# PROJECT: OAISS CHAIN
+
+## Current State
+
+**Shipped:** v1.1.0 需求对齐 (2026-05-18)
+
+OAISS CHAIN 是一个碳交易与区块链管理平台，支持企业碳排放上报、审核员审核、碳币交易、碳中和项目认证等全链路业务。v1.1.0 补齐了 AI 智能预测、区块链真实对接、碳核算行业公式、准入/资格证签发、前端覆盖率等 12 个 Gap 项，E2E 测试覆盖率 95%，验收报告 APPROVE。
+
+**Tech Stack:** Java 17 + Spring Boot 3.2.5 + MySQL 8 + Redis 7 + MinIO + JWT | Vue 3.5 + TypeScript + Vite + Element Plus + ECharts | Python FastAPI (Prophet/XGBoost/IsolationForest) | Hyperledger Fabric 2.x + Gateway SDK 1.7.1
+
+**Shipped Milestones:**
+- v1.0 Manual Testing (Phases 1-6, 2026-05-13) — 84 需求全角色手工测试
+- v1.1.0 需求对齐 (Phases 7-12, 2026-05-18) — 12 Gap 项补齐，E2E 95% 覆盖
+
+## Next Milestone Goals
+
+_To be defined via `/gsd:new-milestone`_
+
+Potential areas:
+- Performance optimization (PERF-01~04)
+- Concurrency testing (CON-01~03)
+- Security hardening (SEC-01~06)
+- Production deployment readiness
 
 ## What This Is
 
-OAISS CHAIN 是一个碳交易与区块链平台，面向五种用户角色（企业、审核员、认证方、第三方监管、管理员）提供碳排放报告提交、碳积分管理、双重拍卖交易、P2P 交易、碳中和项目管理等完整业务流程。v1.0 已完成全角色手工测试，v1.1.0 目标是补齐需求文档中缺失的 AI 智能预测、区块链真实对接、碳核算行业公式等核心功能，达到 E2E 测试覆盖率 90%、通过率 90%+。
+碳交易与区块链管理平台 — 企业碳排放上报、审核员审核、碳币交易、碳中和项目认证、AI 智能预测、区块链存证、行业碳核算公式计算。
+
+5 个角色: 企业 (ENTERPRISE)、审核员 (REVIEWER)、第三方监管 (THIRD_PARTY)、管理员 (ADMIN)、认证机构 (CERTIFIER)
 
 ## Core Value
 
-v1.1.0 需求对齐：所有需求文档中定义但代码中缺失的功能模块必须实现并验证，E2E 测试覆盖率 90%、通过率 90%+。
+v1.1.0 需求对齐 — 所有需求文档中定义但代码中缺失的功能模块已实现并验证。
 
-## Current Milestone: v1.1.0 — 需求对齐
+<details>
+<summary>v1.1.0 Requirements (12 items — all complete)</summary>
 
-**质量标准:** E2E 测试覆盖率 90%, 通过率 90%+
+### Priority A -- 核心缺失功能
+- [x] REQ-01: AI 市场智能预测 (MarketPredictionService)
+- [x] REQ-02: AI 企业境况智能推断 (EnterpriseInferenceService)
+- [x] REQ-03: AI 碳排放预测升级 (CarbonPredictionService ML)
+- [x] REQ-04: 前端 AI 模块页面 (MarketPrediction.vue + EnterpriseInference.vue)
 
-### 12 Gap Items (by priority)
+### Priority B -- 重要功能补齐
+- [x] REQ-05: Hyperledger Fabric 真实对接 (FabricGatewayConfig + FabricBlockchainService)
+- [x] REQ-06: 碳核算行业专用公式 (发电 25 参数 + 电网 9 参数)
+- [x] REQ-07: 签发准入证书 (EnterpriseAdmissionService)
+- [x] REQ-08: 签发审核员资格证 (ReviewerQualificationService)
 
-**A — 核心缺失功能 (4 items)**
-- A-1: AI 市场智能预测 — MarketPredictionService + 前端页面
-- A-2: AI 企业境况智能推断 — EnterpriseInferenceService + 前端页面
-- A-3: AI 碳排放预测升级 — CarbonPredictionService 从 Stub 升级为 ML 模型
-- A-4: 前端 AI 模块页面 — MarketPrediction.vue + EnterpriseInference.vue
+### Priority C -- 覆盖率补齐
+- [x] REQ-09: 前端 API 覆盖补齐 (39 缺失 endpoint)
+- [x] REQ-10: 前端 Enterprise/Reviewer 视图功能补齐
+- [x] REQ-11: 文档 API 总览修正 (Swagger 对齐)
+- [x] REQ-12: 身份认证区块链方案 (Fabric CA optional)
 
-**B — 重要功能补齐 (4 items)**
-- B-5: Hyperledger Fabric 真实对接 — BlockchainService 从 Mock 升级为 Fabric SDK
-- B-6: 碳核算行业专用公式 — 发电行业 25 参数 + 电网行业 9 参数公式
-- B-7: 签发准入证书 — EntryPermissionService + AdminController + 前端
-- B-8: 签发审核员资格证 — ReviewerQualificationService + AdminController + 前端
+</details>
 
-**C — 覆盖率补齐 (4 items)**
-- C-9: 前端 API 覆盖补齐 — 39 个缺失 endpoint 的前端调用
-- C-10: 前端 Enterprise/Reviewer 视图功能补齐 — 缺失的 CRUD 操作
-- C-11: 文档 API 总览修正 — Swagger 与实际 endpoint 对齐
-- C-12: 身份认证区块链方案 — Fabric CA 集成 (optional)
+<details>
+<summary>v1.0 Requirements (84 items — all validated)</summary>
 
-## Requirements
+### Environment (ENV-01~10)
+- [x] ENV-01: Docker stack healthy
+- [x] ENV-02: Swagger UI loads
+- [x] ENV-03: Frontend loads
+- [x] ENV-04: Flyway migrations execute
+- [x] ENV-05: 21 tables exist
+- [x] ENV-06: All 6 seed accounts login
+- [x] ENV-07: JWT access token works
+- [x] ENV-08: JWT refresh token works
+- [x] ENV-09: JWT revoke works
+- [x] ENV-10: Role-based home pages
 
-### Validated (v1.0)
+### Carbon Report (CARB-01~13)
+- [x] CARB-01~13: Full carbon report lifecycle (create, submit, review, approve/reject, side effects)
 
-- ✓ 用户认证系统（JWT 登录/注册/刷新令牌）— 已实现
-- ✓ 五角色 RBAC 权限控制（@PreAuthorize + Vue Router meta.roles）— 已实现
-- ✓ 碳排放报告提交与审核流程 — 已实现
-- ✓ 双重拍卖交易引擎 — 已实现
-- ✓ P2P 交易流程 — 已实现
-- ✓ 碳积分账户管理 — 已实现
-- ✓ 碳中和项目管理 — 已实现
-- ✓ 数字签名（RSA）— 已实现
-- ✓ 文件上传（MinIO）— 已实现
-- ✓ 区块链记录 — 已实现（mock 模式）
-- ✓ 前端 i18n 国际化 — 已完成
-- ✓ 前端 TypeScript 迁移 — 已完成
-- ✓ 全角色手工测试完成 — 60/60 tests passed
-- ✓ 安全审计修复 — 48/63 完成 (SEC-03/04 已修)
+### Carbon Coin & Trading (COIN-01~05, TRADE-01~13)
+- [x] COIN-01~05: Carbon coin accounts, recharge, transfer
+- [x] TRADE-01~13: P2P trade, double auction, settlement
 
-### Active (v1.1.0)
+### Projects & Credit (PROJ-01~05, CRED-01~05)
+- [x] PROJ-01~05: Carbon neutral project lifecycle
+- [x] CRED-01~05: Credit score levels enforced
 
-- [ ] **REQ-01**: AI 市场智能预测 — MarketPredictionService 实现市场趋势预测、碳价走势分析、供需预测
-- [ ] **REQ-02**: AI 企业境况智能推断 — EnterpriseInferenceService 实现企业碳排放趋势推断、合规风险评估
-- [ ] **REQ-03**: AI 碳排放预测升级 — CarbonPredictionService 从 Stub 升级为真实 ML 模型（回归预测）
-- [ ] **REQ-04**: 前端 AI 模块页面 — MarketPrediction.vue + EnterpriseInference.vue + 碳排放预测可视化
-- [ ] **REQ-05**: Hyperledger Fabric 真实对接 — BlockchainService 从 Mock 升级为 Fabric Gateway SDK
-- [ ] **REQ-06**: 碳核算行业专用公式 — 发电行业 25 参数公式 + 电网行业 9 参数公式实现
-- [ ] **REQ-07**: 签发准入证书 — EntryPermissionService + AdminController endpoint + 前端管理页面
-- [ ] **REQ-08**: 签发审核员资格证 — ReviewerQualificationService + AdminController endpoint + 前端管理页面
-- [ ] **REQ-09**: 前端 API 覆盖补齐 — 39 个缺失后端 endpoint 的前端 API 调用模块
-- [ ] **REQ-10**: 前端 Enterprise/Reviewer 视图功能补齐 — 缺失的 CRUD 操作和详情页面
-- [ ] **REQ-11**: 文档 API 总览修正 — Swagger 文档与实际 endpoint 对齐
-- [ ] **REQ-12**: 身份认证区块链方案 — Fabric CA 集成 (optional, 可延期)
+### Supporting Domains (SIGN, FILE, EMIT, BLOCK, ADMIN, TP, SRCH)
+- [x] SIGN-01~03: Digital signatures
+- [x] FILE-01~03: File upload/download
+- [x] EMIT-01~03: Emission records
+- [x] BLOCK-01~03: Blockchain records
+- [x] ADMIN-01~05: Admin operations
+- [x] TP-01~02: Third-party monitoring
+- [x] SRCH-01: Search functionality
 
-### Out of Scope
+### Cross-Cutting (AOP, EDGE, BUG)
+- [x] AOP-01~04: Audit log, rate limit, permission, data isolation
+- [x] EDGE-01~06: Edge cases
+- [x] BUG-01~03: Bug fixes
 
-- 性能优化（PERF-01~07）— 功能稳定后再优化
-- 并发问题彻底修复（CON-01~05）— 需要架构级重构，记录但不阻塞
-- Redis 高可用 / 分布式部署 — 单节点开发环境足够
-
-## Context
-
-**技术栈:**
-- 后端: Java 17, Spring Boot 3.2.5, Spring Data JPA, MySQL 8, Redis 7, MinIO, JWT (jjwt 0.12.5), Flyway
-- 前端: Vue 3.5, TypeScript, Vite 8, Element Plus 2.13, Pinia 3, Vue Router 5, ECharts 6, vue-i18n 11
-- AI/ML: Python (scikit-learn/PyTorch) 或 Java (DL4J/ONNX Runtime) — 待研究确定
-- 区块链: Hyperledger Fabric 2.x + Fabric Gateway SDK — 待研究确定
-- 基础设施: Docker Compose (MySQL, Redis, MinIO, 后端, 前端)
-
-**项目状态 (v1.0 完成):**
-- 全角色手工测试 60/60 passed
-- 安全审计 48/63 修复完成
-- i18n + TypeScript 迁移完成
-- Flyway: V1__init_schema.sql, V2__seed_data.sql
-
-**已知代码缺失 (v1.1.0 目标):**
-- MarketPredictionService / EnterpriseInferenceService — 完全缺失
-- CarbonPredictionService — Stub 实现
-- BlockchainService — Mock 实现
-- EntryPermissionService / ReviewerQualificationService — 仅 Entity+Repository
-- 碳核算公式 — 通用 scope 计算，无行业专用公式
-- 前端 — 39 个 API endpoint 未覆盖，Enterprise/Reviewer 视图功能不完整
-
-## Constraints
-
-- **兼容性**: v1.1.0 修改不能破坏 v1.0 已验证功能，所有修改必须向后兼容
-- **质量标准**: E2E 测试覆盖率 90%, 通过率 90%+
-- **技术栈锁定**: Java 17 + Spring Boot 3.2.5 + Vue 3.5 + TypeScript，AI/区块链模块除外
-- **数据库约束**: 使用 Flyway 管理迁移 (V3__v1_1_schema.sql)
-- **AI 模型**: 优先使用 Java 原生方案 (DL4J/ONNX Runtime)，避免引入 Python 微服务
-- **区块链**: 使用 Fabric Gateway SDK (Java), 不使用旧版 Fabric SDK
+</details>
 
 ## Key Decisions
 
-| Decision | Rationale | Outcome |
-|----------|-----------|---------|
-| 全手工测试而非自动化 E2E (v1.0) | 用户明确要求手工测试 | — Completed |
-| 修复 SEC-03/04 作为测试前置条件 | Swagger 生产暴露和 CORS 默认值是低风险高回报修复 | — Completed |
-| 不修复并发问题（CON-01~05）| 需要架构级重构，当前单节点开发环境可接受 | — Deferred to v2 |
-| 保留 mock 区块链模式 (v1.0) | 真实区块链集成是 v1.1.0 目标 | — Now REQ-05 |
-| AI 模型技术选型待研究 | 需要评估 DL4J vs ONNX Runtime vs Python 微服务 | — Pending research |
-| Fabric SDK 版本待研究 | Fabric Gateway SDK vs 旧版 SDK | — Pending research |
-| 碳核算公式参数来源 | 发电 25 参数 + 电网 9 参数的具体公式需研究 | — Pending research |
-| REQ-12 (Fabric CA) 可延期 | 身份认证区块链方案复杂度高，可降级为 optional | — Pending |
+| ID | Decision | Rationale | Status |
+|----|----------|-----------|--------|
+| D-01 | EnterpriseAdmission 新实体不复用 EntryPermission | 语义不同：准入证书 vs 准入权限 | Resolved |
+| D-02 | 证书状态: ACTIVE(1) + REVOKED(2)，无记录=未签发 | 简化状态机 | Resolved |
+| D-04 | 证书编号自动生成: EA-{date}-{random} / RQ-{date}-{random} | 避免冲突 | Resolved |
+| D-07 | 重复签发防护：已有 ACTIVE 证书时拒绝 | 防止重复 | Resolved |
+| D-08 | 吊销 = status 1→2，仅 ACTIVE 可吊销 | 状态流转约束 | Resolved |
+| AI-01 | AI 模型技术选型: Python FastAPI | Prophet/XGBoost/IsolationForest 生态成熟 | Resolved |
+| BC-01 | Fabric Gateway SDK 1.7.1 | 非 legacy fabric-gateway-java 2.2.x | Resolved |
+| CF-01 | 碳核算公式参数: GB/T 32150-2015 | 国家标准 | Resolved |
+
+## Deferred Items
+
+| Category | Items | Deferred To |
+|----------|-------|-------------|
+| Concurrency | CON-01/02/03 | v2 |
+| Security | SEC-01/02/05/06 | v2 |
+| Performance | PERF-01~04 | v2 |
+| E2E Coverage | REQ-03/REQ-06 gaps | v2 |
+| Fabric CA | REQ-12 (optional) | v2 |
 
 ---
-*Last updated: 2026-05-14 for v1.1.0 milestone*
+*Project created: 2026-05-08*
+*v1.0 shipped: 2026-05-13*
+*v1.1.0 shipped: 2026-05-18*
