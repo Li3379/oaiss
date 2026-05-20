@@ -17,7 +17,7 @@ public interface AuthenticatorRepository extends JpaRepository<Authenticator, Lo
     /**
      * 根据用户ID查找
      */
-    Optional<Authenticator> findByUserId(Long userId);
+    Optional<Authenticator> findByUserIdAndDeletedFalse(Long userId);
 
     /**
      * 根据机构编码查找

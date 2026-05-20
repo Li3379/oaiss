@@ -19,7 +19,7 @@ public interface ThirdPartyOrgRepository extends JpaRepository<ThirdPartyOrg, Lo
     /**
      * 根据用户ID查找
      */
-    Optional<ThirdPartyOrg> findByUserId(Long userId);
+    Optional<ThirdPartyOrg> findByUserIdAndDeletedFalse(Long userId);
 
     /**
      * 根据机构编码查找

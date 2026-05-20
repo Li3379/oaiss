@@ -41,7 +41,7 @@ public class ThirdPartyService {
      */
     @Transactional(readOnly = true)
     public ThirdPartyOrg getCurrentOrg(JwtUserDetails currentUser) {
-        return thirdPartyOrgRepository.findByUserId(currentUser.getUserId())
+        return thirdPartyOrgRepository.findByUserIdAndDeletedFalse(currentUser.getUserId())
                 .orElseThrow(() -> new BusinessException(
                         ErrorCode.RESOURCE_NOT_FOUND, "第三方机构信息不存在"));
     }

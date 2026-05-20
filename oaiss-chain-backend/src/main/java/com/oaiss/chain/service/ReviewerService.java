@@ -36,7 +36,7 @@ public class ReviewerService {
      */
     @Transactional(readOnly = true)
     public Reviewer getReviewerInfo(Long userId) {
-        return reviewerRepository.findByUserId(userId)
+        return reviewerRepository.findByUserIdAndDeletedFalse(userId)
                 .filter(r -> !r.getDeleted())
                 .orElseThrow(() -> new RuntimeException("审核员信息不存在"));
     }

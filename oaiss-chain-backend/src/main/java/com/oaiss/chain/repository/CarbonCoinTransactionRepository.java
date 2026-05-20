@@ -16,10 +16,10 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface CarbonCoinTransactionRepository extends JpaRepository<CarbonCoinTransaction, Long> {
 
-    Page<CarbonCoinTransaction> findByUserIdOrderByCreatedAtDesc(Long userId, Pageable pageable);
+    Page<CarbonCoinTransaction> findByUserIdAndDeletedFalseOrderByCreatedAtDesc(Long userId, Pageable pageable);
 
-    Page<CarbonCoinTransaction> findByUserIdAndTxTypeOrderByCreatedAtDesc(Long userId, Integer txType, Pageable pageable);
+    Page<CarbonCoinTransaction> findByUserIdAndTxTypeAndDeletedFalseOrderByCreatedAtDesc(Long userId, Integer txType, Pageable pageable);
 
-    @Query("SELECT COALESCE(SUM(t.amount), 0) FROM CarbonCoinTransaction t WHERE t.userId = :userId AND t.txType = :txType")
+    @Query("SELECT COALESCE(SUM(t.amount), 0) FROM CarbonCoinTransaction t WHERE t.userId = :userId AND t.txType = :txType AND t.deleted = false")
     java.math.BigDecimal sumAmountByUserIdAndTxType(@Param("userId") Long userId, @Param("txType") Integer txType);
 }

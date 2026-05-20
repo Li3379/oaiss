@@ -49,7 +49,7 @@ public class ReviewerController {
     @SecurityRequirement(name = "Bearer Authentication")
     public ApiResponse<List<ReviewerQualification>> getMyQualification(
             @AuthenticationPrincipal JwtUserDetails currentUser) {
-        Reviewer reviewer = reviewerRepository.findByUserId(currentUser.getUserId())
+        Reviewer reviewer = reviewerRepository.findByUserIdAndDeletedFalse(currentUser.getUserId())
                 .orElseThrow(() -> BusinessException.notFound("error.reviewer.notFound"));
         List<ReviewerQualification> qualifications = reviewerQualificationService.getMyCertificate(reviewer.getId());
         return ApiResponse.success(qualifications);

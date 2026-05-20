@@ -51,7 +51,7 @@ public class CarbonCoinService {
      */
     @Transactional
     public CarbonCoinAccountResponse getOrCreateAccount(Long userId) {
-        CarbonCoinAccount account = accountRepository.findByUserId(userId)
+        CarbonCoinAccount account = accountRepository.findByUserIdAndDeletedFalse(userId)
                 .orElseGet(() -> {
                     CarbonCoinAccount newAccount = CarbonCoinAccount.builder()
                             .userId(userId)
@@ -144,7 +144,7 @@ public class CarbonCoinService {
         validateAccountActive(fromAccount);
         validateBalance(fromAccount, request.getAmount());
 
-        CarbonCoinAccount toAccount = accountRepository.findByUserId(request.getCounterpartId())
+        CarbonCoinAccount toAccount = accountRepository.findByUserIdAndDeletedFalse(request.getCounterpartId())
                 .orElseThrow(() -> new BusinessException(4003, "对方账户不存在"));
         validateAccountActive(toAccount);
 
@@ -184,15 +184,15 @@ public class CarbonCoinService {
         int safePage = Math.max(page, 1);
         PageRequest pageable = PageRequest.of(safePage - 1, size);
         if (txType != null) {
-            return transactionRepository.findByUserIdAndTxTypeOrderByCreatedAtDesc(userId, txType, pageable);
+            return transactionRepository.findByUserIdAndTxTypeAndDeletedFalseOrderByCreatedAtDesc(userId, txType, pageable);
         }
-        return transactionRepository.findByUserIdOrderByCreatedAtDesc(userId, pageable);
+        return transactionRepository.findByUserIdAndDeletedFalseOrderByCreatedAtDesc(userId, pageable);
     }
 
     // ==================== 私有方法 ====================
 
     private CarbonCoinAccount getAccountEntity(Long userId) {
-        return accountRepository.findByUserId(userId)
+        return accountRepository.findByUserIdAndDeletedFalse(userId)
                 .orElseThrow(() -> new BusinessException(4002, "碳币账户不存在"));
     }
 
