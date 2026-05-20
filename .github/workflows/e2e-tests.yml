@@ -1,6 +1,12 @@
 name: E2E Tests
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'oaiss-chain-backend/**'
+      - 'oaiss-chain-frontend/**'
+      - '.github/workflows/e2e-tests.yml'
   pull_request:
     paths:
       - 'oaiss-chain-backend/**'
@@ -37,6 +43,19 @@ jobs:
           --health-timeout=5s
           --health-retries=5
 
+      minio:
+        image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+        env:
+          MINIO_ROOT_USER: minio-test-access
+          MINIO_ROOT_PASSWORD: minio-test-secret-key
+        ports:
+          - 9000:9000
+        options: >-
+          --health-cmd="curl -f http://localhost:9000/minio/health/live"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
     env:
       DB_HOST: 127.0.0.1
       DB_PORT: 3306
@@ -44,9 +63,12 @@ jobs:
       DB_PASSWORD: root
       REDIS_HOST: 127.0.0.1
       REDIS_PORT: 6379
+      REDIS_PASSWORD: ""
       JWT_SECRET: e2e-test-jwt-secret-key-minimum-32-characters
-      MINIO_ACCESS_KEY: minioadmin
-      MINIO_SECRET_KEY: minioadmin
+      SPRING_PROFILES_ACTIVE: docker
+      MINIO_ENDPOINT: http://localhost:9000
+      MINIO_ACCESS_KEY: minio-test-access
+      MINIO_SECRET_KEY: minio-test-secret-key
       API_BASE_URL: http://localhost:8080/api/v1
 
     steps:
