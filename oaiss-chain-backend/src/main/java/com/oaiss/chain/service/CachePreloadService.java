@@ -9,6 +9,9 @@ import org.springframework.context.event.EventListener;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
+import org.springframework.data.redis.core.RedisCallback;
+import org.springframework.data.redis.core.ScanOptions;
+
 import java.util.Collection;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -184,10 +187,18 @@ public class CachePreloadService {
         long totalKeys = 0;
         
         for (String cacheName : cacheNames) {
-            Set<String> keys = redisTemplate.keys(cacheName + "*");
-            if (keys != null) {
-                totalKeys += keys.size();
-            }
+            Long keyCount = redisTemplate.execute((RedisCallback<Long>) connection -> {
+                long count = 0;
+                try (var cursor = connection.keyCommands().scan(
+                        ScanOptions.scanOptions().match(cacheName + "*").count(100).build())) {
+                    while (cursor.hasNext()) {
+                        cursor.next();
+                        count++;
+                    }
+                }
+                return count;
+            });
+            totalKeys += keyCount != null ? keyCount : 0L;
         }
         
         return new CacheStatistics(totalCaches, totalKeys);
