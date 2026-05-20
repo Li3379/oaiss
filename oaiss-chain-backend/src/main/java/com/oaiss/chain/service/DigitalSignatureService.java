@@ -5,6 +5,7 @@ import com.oaiss.chain.dto.SignatureResult;
 import com.oaiss.chain.entity.RsaKeyPair;
 import com.oaiss.chain.exception.BlockchainException;
 import com.oaiss.chain.repository.RsaKeyPairRepository;
+import com.oaiss.chain.util.AesGcmEncryptor;
 import com.oaiss.chain.util.RsaKeyUtil;
 import com.oaiss.chain.annotation.DistributedLock;
 import lombok.RequiredArgsConstructor;
@@ -32,6 +33,7 @@ import java.time.LocalDateTime;
 public class DigitalSignatureService {
 
     private final RsaKeyPairRepository rsaKeyPairRepository;
+    private final AesGcmEncryptor aesGcmEncryptor;
 
     /**
      * 密钥有效期（年）
@@ -87,11 +89,11 @@ public class DigitalSignatureService {
                     .orElse(0);
             Integer newVersion = latestVersion + 1;
 
-            // 创建密钥对实体
+            // 创建密钥对实体（私钥加密存储）
             RsaKeyPair rsaKeyPairEntity = RsaKeyPair.builder()
                     .userId(userId)
                     .publicKey(publicKeyBase64)
-                    .privateKey(privateKeyBase64)
+                    .privateKey(aesGcmEncryptor.encrypt(privateKeyBase64))
                     .keyStatus(KEY_STATUS_ACTIVE)
                     .expiresAt(LocalDateTime.now().plusYears(KEY_EXPIRY_YEARS))
                     .keyVersion(newVersion)
@@ -167,8 +169,8 @@ public class DigitalSignatureService {
         validateKeyStatus(keyPair);
 
         try {
-            // 解码私钥
-            PrivateKey privateKey = RsaKeyUtil.decodePrivateKey(keyPair.getPrivateKey());
+            // 解密并解码私钥
+            PrivateKey privateKey = RsaKeyUtil.decodePrivateKey(aesGcmEncryptor.decrypt(keyPair.getPrivateKey()));
 
             // 使用SHA256withRSA签名
             String signature = RsaKeyUtil.sign(reportData, privateKey);
@@ -197,6 +199,7 @@ public class DigitalSignatureService {
      * @return 验签是否成功
      * @throws BlockchainException 如果验签过程出错
      */
+    @Transactional(readOnly = true)
     public boolean verifySignature(Long userId, String reportData, String signature) {
         log.info("Verifying signature for user: {}", userId);
 
@@ -290,8 +293,8 @@ public class DigitalSignatureService {
         validateKeyStatus(keyPair);
 
         try {
-            // 解码私钥
-            PrivateKey privateKey = RsaKeyUtil.decodePrivateKey(keyPair.getPrivateKey());
+            // 解密并解码私钥
+            PrivateKey privateKey = RsaKeyUtil.decodePrivateKey(aesGcmEncryptor.decrypt(keyPair.getPrivateKey()));
 
             // 解密数据
             String decryptedData = RsaKeyUtil.decrypt(encryptedData, privateKey);
@@ -327,8 +330,8 @@ public class DigitalSignatureService {
         validateKeyStatus(keyPair);
 
         try {
-            // 解码私钥
-            PrivateKey privateKey = RsaKeyUtil.decodePrivateKey(keyPair.getPrivateKey());
+            // 解密并解码私钥
+            PrivateKey privateKey = RsaKeyUtil.decodePrivateKey(aesGcmEncryptor.decrypt(keyPair.getPrivateKey()));
 
             // 解密数据
             String decryptedData = RsaKeyUtil.decrypt(encryptedData, privateKey);
