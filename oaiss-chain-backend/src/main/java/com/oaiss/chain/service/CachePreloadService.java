@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 
 import org.springframework.data.redis.core.RedisCallback;
 import org.springframework.data.redis.core.ScanOptions;
+import org.springframework.scheduling.annotation.Async;
 
 import java.util.Collection;
 import java.util.Set;
@@ -37,6 +38,7 @@ public class CachePreloadService {
      * 应用启动完成后执行缓存预热
      * Execute cache preload after application is ready
      */
+    @Async("cachePreloadExecutor")
     @EventListener(ApplicationReadyEvent.class)
     public void preloadCacheOnStartup() {
         log.info("=== 开始缓存预热 (Starting Cache Preload) ===");
