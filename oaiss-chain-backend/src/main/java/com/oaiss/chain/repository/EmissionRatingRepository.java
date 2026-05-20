@@ -15,9 +15,9 @@ import java.util.Optional;
 @Repository
 public interface EmissionRatingRepository extends JpaRepository<EmissionRating, Long> {
 
-    List<EmissionRating> findByEnterpriseIdOrderByRatingYearDesc(Long enterpriseId);
+    List<EmissionRating> findByEnterpriseIdAndDeletedFalseOrderByRatingYearDesc(Long enterpriseId);
 
-    Optional<EmissionRating> findByEnterpriseIdAndRatingYear(Long enterpriseId, String ratingYear);
+    Optional<EmissionRating> findByEnterpriseIdAndRatingYearAndDeletedFalse(Long enterpriseId, String ratingYear);
 
-    List<EmissionRating> findByRatingYearOrderByTotalEmissionAsc(String ratingYear);
+    List<EmissionRating> findByRatingYearAndDeletedFalseOrderByTotalEmissionAsc(String ratingYear);
 }

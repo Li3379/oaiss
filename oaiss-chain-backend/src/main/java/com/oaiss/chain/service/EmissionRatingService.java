@@ -43,7 +43,7 @@ public class EmissionRatingService {
      */
     @Transactional(readOnly = true)
     public List<EmissionRating> getEnterpriseRatings(Long enterpriseId) {
-        return ratingRepository.findByEnterpriseIdOrderByRatingYearDesc(enterpriseId);
+        return ratingRepository.findByEnterpriseIdAndDeletedFalseOrderByRatingYearDesc(enterpriseId);
     }
 
     /**
@@ -62,7 +62,7 @@ public class EmissionRatingService {
 
         // 已存在则更新，否则新建
         EmissionRating rating = ratingRepository
-                .findByEnterpriseIdAndRatingYear(enterpriseId, year)
+                .findByEnterpriseIdAndRatingYearAndDeletedFalse(enterpriseId, year)
                 .map(existing -> {
                     existing.setTotalEmission(totalEmission);
                     existing.setEmissionIntensity(intensity);
@@ -89,7 +89,7 @@ public class EmissionRatingService {
      */
     @Transactional(readOnly = true)
     public List<EmissionRating> getIndustryRanking(String year) {
-        return ratingRepository.findByRatingYearOrderByTotalEmissionAsc(year);
+        return ratingRepository.findByRatingYearAndDeletedFalseOrderByTotalEmissionAsc(year);
     }
 
     // ==================== 私有方法 ====================

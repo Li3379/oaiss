@@ -14,7 +14,7 @@ import java.util.Optional;
 @Repository
 public interface CarbonCoinAccountRepository extends JpaRepository<CarbonCoinAccount, Long> {
 
-    Optional<CarbonCoinAccount> findByUserId(Long userId);
+    Optional<CarbonCoinAccount> findByUserIdAndDeletedFalse(Long userId);
 
-    boolean existsByUserId(Long userId);
+    boolean existsByUserIdAndDeletedFalse(Long userId);
 }

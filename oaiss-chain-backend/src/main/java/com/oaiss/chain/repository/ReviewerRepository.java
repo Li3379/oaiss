@@ -19,7 +19,7 @@ public interface ReviewerRepository extends JpaRepository<Reviewer, Long> {
     /**
      * 根据用户ID查找审核员
      */
-    Optional<Reviewer> findByUserId(Long userId);
+    Optional<Reviewer> findByUserIdAndDeletedFalse(Long userId);
 
     /**
      * 根据资质编号查找
