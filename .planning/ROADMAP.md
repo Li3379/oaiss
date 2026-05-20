@@ -110,8 +110,11 @@ Plans:
 **Goal**: 解决性能瓶颈 (Redis SCAN、缓存异步、订单分页、外键索引)，补全事务注解和软删除过滤
 **Depends on**: Phase 13
 **Requirements**: PERF-02~05, SEC-01~02, QUAL-01~02
-**Plans**: TBD (via `/gsd:plan-phase 14`)
+**Plans**: 2 plans
 **Priority**: HIGH — 生产负载就绪
+Plans:
+- [ ] 14-01-PLAN.md — Performance Optimization: Redis SCAN, @Async cache preload, V6 FK indexes (PERF-02, PERF-03, PERF-04, PERF-05)
+- [ ] 14-02-PLAN.md — Security & Code Quality: RSA key encryption, CSRF ADR, readOnly=true, AndDeletedFalse (SEC-01, SEC-02, QUAL-01, QUAL-02)
 
 ### Phase 15: DevOps 与回归验证
 **Goal**: 建立 CI/CD 管道，修正 dev profile，全量 E2E 回归测试通过
@@ -138,8 +141,8 @@ Plans:
 | 10. 准入与资格证 | v1.1.0 | 3/3 | Complete | 2026-05-15 |
 | 11. 前端覆盖率补齐 | v1.1.0 | 4/4 | Complete | 2026-05-16 |
 | 12. E2E 测试与验收 | v1.1.0 | 6/6 | Complete | 2026-05-17 |
-| 13. 并发安全与凭据加固 | v2.0 | 0/3 | Planned | — |
-| 14. 性能优化与代码质量 | v2.0 | 0/? | Pending | — |
+| 13. 并发安全与凭据加固 | v2.0 | 3/3 | Complete | 2026-05-19 |
+| 14. 性能优化与代码质量 | v2.0 | 0/2 | Pending | — |
 | 15. DevOps 与回归验证 | v2.0 | 0/? | Pending | — |
 
 ## Known Issues & Deferred Items
