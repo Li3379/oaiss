@@ -38,7 +38,7 @@ class EmissionRatingServiceTest {
     @Test
     @DisplayName("获取企业评级历史 - 成功")
     void getEnterpriseRatings_ShouldReturnList() {
-        when(ratingRepository.findByEnterpriseIdOrderByRatingYearDesc(1L)).thenReturn(List.of(buildRating("2025")));
+        when(ratingRepository.findByEnterpriseIdAndDeletedFalseOrderByRatingYearDesc(1L)).thenReturn(List.of(buildRating("2025")));
         List<EmissionRating> result = emissionRatingService.getEnterpriseRatings(1L);
         assertEquals(1, result.size());
     }
@@ -48,7 +48,7 @@ class EmissionRatingServiceTest {
     @Test
     @DisplayName("评级 - A级(<1000吨)")
     void rateEnterprise_LevelA() {
-        when(ratingRepository.findByEnterpriseIdAndRatingYear(1L, "2025")).thenReturn(Optional.empty());
+        when(ratingRepository.findByEnterpriseIdAndRatingYearAndDeletedFalse(1L, "2025")).thenReturn(Optional.empty());
         when(ratingRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         EmissionRating rating = emissionRatingService.rateEnterprise(
@@ -62,7 +62,7 @@ class EmissionRatingServiceTest {
     @Test
     @DisplayName("评级 - B级(1000-5000吨)")
     void rateEnterprise_LevelB() {
-        when(ratingRepository.findByEnterpriseIdAndRatingYear(1L, "2025")).thenReturn(Optional.empty());
+        when(ratingRepository.findByEnterpriseIdAndRatingYearAndDeletedFalse(1L, "2025")).thenReturn(Optional.empty());
         when(ratingRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         EmissionRating rating = emissionRatingService.rateEnterprise(
@@ -75,7 +75,7 @@ class EmissionRatingServiceTest {
     @Test
     @DisplayName("评级 - C级(5000-20000吨)")
     void rateEnterprise_LevelC() {
-        when(ratingRepository.findByEnterpriseIdAndRatingYear(1L, "2025")).thenReturn(Optional.empty());
+        when(ratingRepository.findByEnterpriseIdAndRatingYearAndDeletedFalse(1L, "2025")).thenReturn(Optional.empty());
         when(ratingRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         EmissionRating rating = emissionRatingService.rateEnterprise(
@@ -88,7 +88,7 @@ class EmissionRatingServiceTest {
     @Test
     @DisplayName("评级 - D级(20000-50000吨)")
     void rateEnterprise_LevelD() {
-        when(ratingRepository.findByEnterpriseIdAndRatingYear(1L, "2025")).thenReturn(Optional.empty());
+        when(ratingRepository.findByEnterpriseIdAndRatingYearAndDeletedFalse(1L, "2025")).thenReturn(Optional.empty());
         when(ratingRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         EmissionRating rating = emissionRatingService.rateEnterprise(
@@ -101,7 +101,7 @@ class EmissionRatingServiceTest {
     @Test
     @DisplayName("评级 - E级(>50000吨)")
     void rateEnterprise_LevelE() {
-        when(ratingRepository.findByEnterpriseIdAndRatingYear(1L, "2025")).thenReturn(Optional.empty());
+        when(ratingRepository.findByEnterpriseIdAndRatingYearAndDeletedFalse(1L, "2025")).thenReturn(Optional.empty());
         when(ratingRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         EmissionRating rating = emissionRatingService.rateEnterprise(
@@ -114,7 +114,7 @@ class EmissionRatingServiceTest {
     @Test
     @DisplayName("评级 - 已存在时抛出异常")
     void rateEnterprise_AlreadyExists_ShouldThrow() {
-        when(ratingRepository.findByEnterpriseIdAndRatingYear(1L, "2025"))
+        when(ratingRepository.findByEnterpriseIdAndRatingYearAndDeletedFalse(1L, "2025"))
                 .thenReturn(Optional.of(buildRating("2025")));
 
         assertThrows(BusinessException.class, () ->
@@ -124,7 +124,7 @@ class EmissionRatingServiceTest {
     @Test
     @DisplayName("评级 - revenue为null时intensity为null")
     void rateEnterprise_NullRevenue_IntensityIsNull() {
-        when(ratingRepository.findByEnterpriseIdAndRatingYear(1L, "2025")).thenReturn(Optional.empty());
+        when(ratingRepository.findByEnterpriseIdAndRatingYearAndDeletedFalse(1L, "2025")).thenReturn(Optional.empty());
         when(ratingRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         EmissionRating rating = emissionRatingService.rateEnterprise(1L, "2025", new BigDecimal("500"), null, 1L);
@@ -134,7 +134,7 @@ class EmissionRatingServiceTest {
     @Test
     @DisplayName("评级 - revenue为0时intensity为null")
     void rateEnterprise_ZeroRevenue_IntensityIsNull() {
-        when(ratingRepository.findByEnterpriseIdAndRatingYear(1L, "2025")).thenReturn(Optional.empty());
+        when(ratingRepository.findByEnterpriseIdAndRatingYearAndDeletedFalse(1L, "2025")).thenReturn(Optional.empty());
         when(ratingRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         EmissionRating rating = emissionRatingService.rateEnterprise(1L, "2025", new BigDecimal("500"), BigDecimal.ZERO, 1L);
@@ -146,7 +146,7 @@ class EmissionRatingServiceTest {
     @Test
     @DisplayName("获取行业排名 - 成功")
     void getIndustryRanking_ShouldReturnList() {
-        when(ratingRepository.findByRatingYearOrderByTotalEmissionAsc("2025"))
+        when(ratingRepository.findByRatingYearAndDeletedFalseOrderByTotalEmissionAsc("2025"))
                 .thenReturn(List.of(buildRating("2025")));
         List<EmissionRating> result = emissionRatingService.getIndustryRanking("2025");
         assertEquals(1, result.size());

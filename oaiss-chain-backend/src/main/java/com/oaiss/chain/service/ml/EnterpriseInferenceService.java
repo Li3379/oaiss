@@ -88,7 +88,7 @@ public class EnterpriseInferenceService {
 
         // Emission rating: use latest EmissionRating ratingScore / 20 as proxy
         double emissionRating = emissionRatingRepository
-                .findByEnterpriseIdOrderByRatingYearDesc(enterpriseId)
+                .findByEnterpriseIdAndDeletedFalseOrderByRatingYearDesc(enterpriseId)
                 .stream()
                 .findFirst()
                 .map(EmissionRating::getRatingScore)

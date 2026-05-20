@@ -71,7 +71,7 @@ class CarbonCoinServiceTest {
     @DisplayName("获取或创建账户-已存在")
     void testGetOrCreateAccountExisting() {
         // Given
-        when(accountRepository.findByUserId(1L)).thenReturn(Optional.of(testAccount));
+        when(accountRepository.findByUserIdAndDeletedFalse(1L)).thenReturn(Optional.of(testAccount));
 
         // When
         CarbonCoinAccountResponse response = carbonCoinService.getOrCreateAccount(1L);
@@ -96,7 +96,7 @@ class CarbonCoinServiceTest {
                 .build();
         newAccount.setId(3L);
 
-        when(accountRepository.findByUserId(3L)).thenReturn(Optional.empty());
+        when(accountRepository.findByUserIdAndDeletedFalse(3L)).thenReturn(Optional.empty());
         when(accountRepository.save(any(CarbonCoinAccount.class))).thenReturn(newAccount);
 
         // When
@@ -116,7 +116,7 @@ class CarbonCoinServiceTest {
         request.setAmount(new BigDecimal("500.00"));
         request.setRemark("测试充值");
 
-        when(accountRepository.findByUserId(1L)).thenReturn(Optional.of(testAccount));
+        when(accountRepository.findByUserIdAndDeletedFalse(1L)).thenReturn(Optional.of(testAccount));
         when(accountRepository.save(any(CarbonCoinAccount.class))).thenReturn(testAccount);
         when(transactionRepository.save(any(CarbonCoinTransaction.class))).thenReturn(new CarbonCoinTransaction());
 
@@ -137,7 +137,7 @@ class CarbonCoinServiceTest {
         CarbonCoinRechargeRequest request = new CarbonCoinRechargeRequest();
         request.setAmount(new BigDecimal("500.00"));
 
-        when(accountRepository.findByUserId(1L)).thenReturn(Optional.of(testAccount));
+        when(accountRepository.findByUserIdAndDeletedFalse(1L)).thenReturn(Optional.of(testAccount));
 
         // When & Then
         assertThrows(BusinessException.class, () -> carbonCoinService.recharge(1L, request));
@@ -148,7 +148,7 @@ class CarbonCoinServiceTest {
     @DisplayName("购买碳配额成功")
     void testBuyQuotaSuccess() {
         // Given
-        when(accountRepository.findByUserId(1L)).thenReturn(Optional.of(testAccount));
+        when(accountRepository.findByUserIdAndDeletedFalse(1L)).thenReturn(Optional.of(testAccount));
         when(accountRepository.save(any(CarbonCoinAccount.class))).thenReturn(testAccount);
         when(transactionRepository.save(any(CarbonCoinTransaction.class))).thenReturn(new CarbonCoinTransaction());
 
@@ -166,7 +166,7 @@ class CarbonCoinServiceTest {
     @DisplayName("购买碳配额失败-余额不足")
     void testBuyQuotaFailInsufficientBalance() {
         // Given
-        when(accountRepository.findByUserId(1L)).thenReturn(Optional.of(testAccount));
+        when(accountRepository.findByUserIdAndDeletedFalse(1L)).thenReturn(Optional.of(testAccount));
 
         // When & Then - trying to buy more than balance (1000)
         assertThrows(BusinessException.class, () -> 
@@ -178,7 +178,7 @@ class CarbonCoinServiceTest {
     @DisplayName("出售碳配额成功")
     void testSellQuotaSuccess() {
         // Given
-        when(accountRepository.findByUserId(1L)).thenReturn(Optional.of(testAccount));
+        when(accountRepository.findByUserIdAndDeletedFalse(1L)).thenReturn(Optional.of(testAccount));
         when(accountRepository.save(any(CarbonCoinAccount.class))).thenReturn(testAccount);
         when(transactionRepository.save(any(CarbonCoinTransaction.class))).thenReturn(new CarbonCoinTransaction());
 
@@ -201,8 +201,8 @@ class CarbonCoinServiceTest {
         request.setAmount(new BigDecimal("100.00"));
         request.setRemark("测试转账");
 
-        when(accountRepository.findByUserId(1L)).thenReturn(Optional.of(testAccount));
-        when(accountRepository.findByUserId(2L)).thenReturn(Optional.of(counterpartAccount));
+        when(accountRepository.findByUserIdAndDeletedFalse(1L)).thenReturn(Optional.of(testAccount));
+        when(accountRepository.findByUserIdAndDeletedFalse(2L)).thenReturn(Optional.of(counterpartAccount));
         when(accountRepository.save(any(CarbonCoinAccount.class))).thenReturn(testAccount);
         when(transactionRepository.save(any(CarbonCoinTransaction.class))).thenReturn(new CarbonCoinTransaction());
 
@@ -236,7 +236,7 @@ class CarbonCoinServiceTest {
         request.setCounterpartId(2L);
         request.setAmount(new BigDecimal("2000.00")); // More than balance (1000)
 
-        when(accountRepository.findByUserId(1L)).thenReturn(Optional.of(testAccount));
+        when(accountRepository.findByUserIdAndDeletedFalse(1L)).thenReturn(Optional.of(testAccount));
 
         // When & Then
         assertThrows(BusinessException.class, () -> carbonCoinService.transfer(1L, request));
@@ -251,8 +251,8 @@ class CarbonCoinServiceTest {
         request.setCounterpartId(999L);
         request.setAmount(new BigDecimal("100.00"));
 
-        when(accountRepository.findByUserId(1L)).thenReturn(Optional.of(testAccount));
-        when(accountRepository.findByUserId(999L)).thenReturn(Optional.empty());
+        when(accountRepository.findByUserIdAndDeletedFalse(1L)).thenReturn(Optional.of(testAccount));
+        when(accountRepository.findByUserIdAndDeletedFalse(999L)).thenReturn(Optional.empty());
 
         // When & Then
         assertThrows(BusinessException.class, () -> carbonCoinService.transfer(1L, request));
@@ -277,7 +277,7 @@ class CarbonCoinServiceTest {
         tx2.setId(2L);
 
         Page<CarbonCoinTransaction> page = new PageImpl<>(Arrays.asList(tx1, tx2));
-        when(transactionRepository.findByUserIdOrderByCreatedAtDesc(eq(1L), any(PageRequest.class)))
+        when(transactionRepository.findByUserIdAndDeletedFalseOrderByCreatedAtDesc(eq(1L), any(PageRequest.class)))
                 .thenReturn(page);
 
         // When
@@ -300,7 +300,7 @@ class CarbonCoinServiceTest {
         tx.setId(1L);
 
         Page<CarbonCoinTransaction> page = new PageImpl<>(Arrays.asList(tx));
-        when(transactionRepository.findByUserIdAndTxTypeOrderByCreatedAtDesc(eq(1L), eq(1), any(PageRequest.class)))
+        when(transactionRepository.findByUserIdAndTxTypeAndDeletedFalseOrderByCreatedAtDesc(eq(1L), eq(1), any(PageRequest.class)))
                 .thenReturn(page);
 
         // When

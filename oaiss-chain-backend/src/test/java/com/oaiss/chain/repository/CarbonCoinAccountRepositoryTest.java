@@ -50,7 +50,7 @@ class CarbonCoinAccountRepositoryTest {
     }
 
     @Nested
-    @DisplayName("findByUserId 测试")
+    @DisplayName("findByUserIdAndDeletedFalse 测试")
     class FindByUserIdTests {
 
         @Test
@@ -60,7 +60,7 @@ class CarbonCoinAccountRepositoryTest {
             entityManager.persistAndFlush(testAccount);
 
             // When
-            var result = carbonCoinAccountRepository.findByUserId(1L);
+            var result = carbonCoinAccountRepository.findByUserIdAndDeletedFalse(1L);
 
             // Then
             assertThat(result).isPresent();
@@ -72,7 +72,7 @@ class CarbonCoinAccountRepositoryTest {
         @DisplayName("根据用户ID查找 - 当账户不存在时 - 应返回空")
         void findByUserId_WhenAccountNotExists_ShouldReturnEmpty() {
             // When
-            var result = carbonCoinAccountRepository.findByUserId(999L);
+            var result = carbonCoinAccountRepository.findByUserIdAndDeletedFalse(999L);
 
             // Then
             assertThat(result).isEmpty();
@@ -80,7 +80,7 @@ class CarbonCoinAccountRepositoryTest {
     }
 
     @Nested
-    @DisplayName("existsByUserId 测试")
+    @DisplayName("existsByUserIdAndDeletedFalse 测试")
     class ExistsByUserIdTests {
 
         @Test
@@ -90,7 +90,7 @@ class CarbonCoinAccountRepositoryTest {
             entityManager.persistAndFlush(testAccount);
 
             // When
-            boolean exists = carbonCoinAccountRepository.existsByUserId(1L);
+            boolean exists = carbonCoinAccountRepository.existsByUserIdAndDeletedFalse(1L);
 
             // Then
             assertThat(exists).isTrue();
@@ -100,7 +100,7 @@ class CarbonCoinAccountRepositoryTest {
         @DisplayName("检查用户账户是否存在 - 当不存在时 - 应返回false")
         void existsByUserId_WhenNotExists_ShouldReturnFalse() {
             // When
-            boolean exists = carbonCoinAccountRepository.existsByUserId(999L);
+            boolean exists = carbonCoinAccountRepository.existsByUserIdAndDeletedFalse(999L);
 
             // Then
             assertThat(exists).isFalse();
