@@ -1,5 +1,10 @@
 # OAISS Chain Backend CI/CD Pipeline
 # Triggers on push to main/develop and pull requests
+#
+# Required GitHub Secrets:
+# - DOCKER_USERNAME: Docker Hub username for image push
+# - DOCKER_PASSWORD: Docker Hub access token
+# - SLACK_WEBHOOK: (optional) Slack webhook URL for build notifications
 
 name: OAISS Chain Backend CI/CD
 
@@ -116,24 +121,33 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
-      - name: Run OWASP Dependency Check
-        run: mvn org.owasp:dependency-check-maven:check -B
+      - name: Build JAR for scanning
+        run: mvn clean package -DskipTests -B
         working-directory: ${{ env.WORKING_DIRECTORY }}
-        continue-on-error: true
 
-      - name: Upload OWASP report
+      - name: Run Trivy vulnerability scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: ${{ env.WORKING_DIRECTORY }}/target
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '0'
+
+      - name: Upload Trivy scan results
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: owasp-report
-          path: ${{ env.WORKING_DIRECTORY }}/target/dependency-check-report.html
+          name: trivy-report
+          path: trivy-results.sarif
 
   # ==================== Docker Build ====================
   docker-build:
     name: Docker Build
     runs-on: ubuntu-latest
     needs: [build, code-quality]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
 
     steps:
       - name: Checkout code
@@ -217,7 +231,7 @@ jobs:
   notify:
     name: Send Notification
     runs-on: ubuntu-latest
-    needs: [build, docker-build]
+    needs: [build]
     if: always()
 
     steps:
