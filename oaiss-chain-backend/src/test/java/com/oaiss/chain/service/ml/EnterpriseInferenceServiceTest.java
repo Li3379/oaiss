@@ -99,7 +99,7 @@ class EnterpriseInferenceServiceTest {
         when(creditScoreRepository.findByEnterpriseIdAndDeletedFalse(enterpriseId))
                 .thenReturn(Optional.of(creditScore));
 
-        when(emissionRatingRepository.findByEnterpriseIdOrderByRatingYearDesc(enterpriseId))
+        when(emissionRatingRepository.findByEnterpriseIdAndDeletedFalseOrderByRatingYearDesc(enterpriseId))
                 .thenReturn(Collections.emptyList());
         when(transactionRepository.countByUserIdRelated(enterpriseId)).thenReturn(5L);
 
@@ -147,7 +147,7 @@ class EnterpriseInferenceServiceTest {
                 .thenReturn(List.of(rejected, approved));
         when(creditScoreRepository.findByEnterpriseIdAndDeletedFalse(enterpriseId))
                 .thenReturn(Optional.empty());
-        when(emissionRatingRepository.findByEnterpriseIdOrderByRatingYearDesc(enterpriseId))
+        when(emissionRatingRepository.findByEnterpriseIdAndDeletedFalseOrderByRatingYearDesc(enterpriseId))
                 .thenReturn(Collections.emptyList());
         when(transactionRepository.countByUserIdRelated(enterpriseId)).thenReturn(0L);
 
@@ -184,7 +184,7 @@ class EnterpriseInferenceServiceTest {
                 .thenReturn(List.of(report));
         when(creditScoreRepository.findByEnterpriseIdAndDeletedFalse(enterpriseId))
                 .thenReturn(Optional.empty());
-        when(emissionRatingRepository.findByEnterpriseIdOrderByRatingYearDesc(enterpriseId))
+        when(emissionRatingRepository.findByEnterpriseIdAndDeletedFalseOrderByRatingYearDesc(enterpriseId))
                 .thenReturn(Collections.emptyList());
         when(transactionRepository.countByUserIdRelated(enterpriseId)).thenReturn(2L);
 

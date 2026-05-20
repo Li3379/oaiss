@@ -67,7 +67,7 @@ class ThirdPartyServiceTest {
     @Test
     @DisplayName("获取当前机构 - 成功")
     void getCurrentOrg_ShouldReturnOrg() {
-        when(thirdPartyOrgRepository.findByUserId(1L)).thenReturn(Optional.of(testOrg));
+        when(thirdPartyOrgRepository.findByUserIdAndDeletedFalse(1L)).thenReturn(Optional.of(testOrg));
         ThirdPartyOrg org = thirdPartyService.getCurrentOrg(currentUser);
         assertEquals("测试机构", org.getOrgName());
     }
@@ -75,7 +75,7 @@ class ThirdPartyServiceTest {
     @Test
     @DisplayName("获取当前机构 - 不存在抛出异常")
     void getCurrentOrg_NotFound_ShouldThrow() {
-        when(thirdPartyOrgRepository.findByUserId(1L)).thenReturn(Optional.empty());
+        when(thirdPartyOrgRepository.findByUserIdAndDeletedFalse(1L)).thenReturn(Optional.empty());
         assertThrows(BusinessException.class, () -> thirdPartyService.getCurrentOrg(currentUser));
     }
 
@@ -84,7 +84,7 @@ class ThirdPartyServiceTest {
     @Test
     @DisplayName("查询碳报告 - 有过滤条件")
     void queryCarbonReports_WithFilters() {
-        when(thirdPartyOrgRepository.findByUserId(1L)).thenReturn(Optional.of(testOrg));
+        when(thirdPartyOrgRepository.findByUserIdAndDeletedFalse(1L)).thenReturn(Optional.of(testOrg));
         when(carbonReportRepository.search(anyLong(), anyInt(), anyString(), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(Collections.emptyList()));
 
@@ -99,7 +99,7 @@ class ThirdPartyServiceTest {
     @Test
     @DisplayName("查询碳报告 - 无过滤条件")
     void queryCarbonReports_WithoutFilters() {
-        when(thirdPartyOrgRepository.findByUserId(1L)).thenReturn(Optional.of(testOrg));
+        when(thirdPartyOrgRepository.findByUserIdAndDeletedFalse(1L)).thenReturn(Optional.of(testOrg));
         when(carbonReportRepository.findByDeletedFalse(any(Pageable.class)))
                 .thenReturn(new PageImpl<>(Collections.emptyList()));
 
@@ -114,7 +114,7 @@ class ThirdPartyServiceTest {
     @DisplayName("查询碳报告 - 机构被禁用抛出异常")
     void queryCarbonReports_OrgDisabled_ShouldThrow() {
         testOrg.setStatus(0);
-        when(thirdPartyOrgRepository.findByUserId(1L)).thenReturn(Optional.of(testOrg));
+        when(thirdPartyOrgRepository.findByUserIdAndDeletedFalse(1L)).thenReturn(Optional.of(testOrg));
         assertThrows(BusinessException.class, () ->
                 thirdPartyService.queryCarbonReports(currentUser, null, null, null, 1, 10));
     }
@@ -124,7 +124,7 @@ class ThirdPartyServiceTest {
     @Test
     @DisplayName("获取统计数据 - 成功")
     void getStatistics_ShouldReturnStats() {
-        when(thirdPartyOrgRepository.findByUserId(1L)).thenReturn(Optional.of(testOrg));
+        when(thirdPartyOrgRepository.findByUserIdAndDeletedFalse(1L)).thenReturn(Optional.of(testOrg));
         when(carbonReportRepository.findByDeletedFalse(any(Pageable.class)))
                 .thenReturn(new PageImpl<>(Collections.emptyList()));
         when(carbonReportRepository.findByStatusAndDeletedFalse(eq(1), any(Pageable.class)))
@@ -146,7 +146,7 @@ class ThirdPartyServiceTest {
     @Test
     @DisplayName("更新联系方式 - 两个字段都更新")
     void updateContact_BothFields() {
-        when(thirdPartyOrgRepository.findByUserId(1L)).thenReturn(Optional.of(testOrg));
+        when(thirdPartyOrgRepository.findByUserIdAndDeletedFalse(1L)).thenReturn(Optional.of(testOrg));
         when(thirdPartyOrgRepository.save(any())).thenReturn(testOrg);
 
         ApiResponse<Void> result = thirdPartyService.updateContact(currentUser, "李四", "13900139000");
@@ -158,7 +158,7 @@ class ThirdPartyServiceTest {
     @Test
     @DisplayName("更新联系方式 - 只更新联系人")
     void updateContact_OnlyContactPerson() {
-        when(thirdPartyOrgRepository.findByUserId(1L)).thenReturn(Optional.of(testOrg));
+        when(thirdPartyOrgRepository.findByUserIdAndDeletedFalse(1L)).thenReturn(Optional.of(testOrg));
         when(thirdPartyOrgRepository.save(any())).thenReturn(testOrg);
 
         thirdPartyService.updateContact(currentUser, "王五", null);
@@ -168,7 +168,7 @@ class ThirdPartyServiceTest {
     @Test
     @DisplayName("更新联系方式 - 只更新电话")
     void updateContact_OnlyContactPhone() {
-        when(thirdPartyOrgRepository.findByUserId(1L)).thenReturn(Optional.of(testOrg));
+        when(thirdPartyOrgRepository.findByUserIdAndDeletedFalse(1L)).thenReturn(Optional.of(testOrg));
         when(thirdPartyOrgRepository.save(any())).thenReturn(testOrg);
 
         thirdPartyService.updateContact(currentUser, null, "13700137000");

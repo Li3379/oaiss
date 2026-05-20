@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -65,4 +66,12 @@ public interface RsaKeyPairRepository extends JpaRepository<RsaKeyPair, Long> {
      * @return 密钥对（如果存在）
      */
     Optional<RsaKeyPair> findByUserIdAndKeyVersionAndDeletedFalse(Long userId, Integer keyVersion);
+
+    /**
+     * 查找所有未加密的密钥对
+     * Find all key pairs where the private key is not yet encrypted
+     *
+     * @return 未加密的密钥对列表
+     */
+    List<RsaKeyPair> findByEncryptedAndDeletedFalse(Integer encrypted);
 }

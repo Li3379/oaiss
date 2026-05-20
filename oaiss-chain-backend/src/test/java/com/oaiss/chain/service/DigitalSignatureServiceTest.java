@@ -5,6 +5,7 @@ import com.oaiss.chain.dto.SignatureResult;
 import com.oaiss.chain.entity.RsaKeyPair;
 import com.oaiss.chain.exception.BlockchainException;
 import com.oaiss.chain.repository.RsaKeyPairRepository;
+import com.oaiss.chain.util.AesGcmEncryptor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -30,6 +31,9 @@ class DigitalSignatureServiceTest {
     @Mock
     private RsaKeyPairRepository rsaKeyPairRepository;
 
+    @Mock
+    private AesGcmEncryptor aesGcmEncryptor;
+
     @InjectMocks
     private DigitalSignatureService digitalSignatureService;
 
@@ -37,6 +41,11 @@ class DigitalSignatureServiceTest {
 
     @BeforeEach
     void setUp() {
+        // Identity mock: encrypt/decrypt pass through unchanged
+        // (tests set plaintext keys directly; real encryption is tested in AesGcmEncryptorTest)
+        lenient().when(aesGcmEncryptor.encrypt(anyString())).thenAnswer(inv -> inv.getArgument(0));
+        lenient().when(aesGcmEncryptor.decrypt(anyString())).thenAnswer(inv -> inv.getArgument(0));
+
         testKeyPair = RsaKeyPair.builder()
                 .userId(1L)
                 .publicKey("test-public-key-base64")
@@ -54,7 +63,7 @@ class DigitalSignatureServiceTest {
     @DisplayName("获取密钥对成功")
     void testGetKeyPairSuccess() {
         // Given
-        when(rsaKeyPairRepository.findByUserIdAndDeletedFalse(1L)).thenReturn(Optional.of(testKeyPair));
+        when(rsaKeyPairRepository.findLatestByUserId(1L)).thenReturn(Optional.of(testKeyPair));
 
         // When
         RsaKeyPairResponse response = digitalSignatureService.getKeyPair(1L);
@@ -63,14 +72,14 @@ class DigitalSignatureServiceTest {
         assertNotNull(response);
         assertEquals(1L, response.getUserId());
         assertEquals(1, response.getKeyStatus());
-        verify(rsaKeyPairRepository, times(1)).findByUserIdAndDeletedFalse(1L);
+        verify(rsaKeyPairRepository, times(1)).findLatestByUserId(1L);
     }
 
     @Test
     @DisplayName("获取密钥对失败-不存在")
     void testGetKeyPairFailNotFound() {
         // Given
-        when(rsaKeyPairRepository.findByUserIdAndDeletedFalse(1L)).thenReturn(Optional.empty());
+        when(rsaKeyPairRepository.findLatestByUserId(1L)).thenReturn(Optional.empty());
 
         // When & Then
         assertThrows(BlockchainException.class, () -> digitalSignatureService.getKeyPair(1L));
@@ -81,7 +90,7 @@ class DigitalSignatureServiceTest {
     void testGetKeyPairFailRevoked() {
         // Given
         testKeyPair.setKeyStatus(0); // Revoked
-        when(rsaKeyPairRepository.findByUserIdAndDeletedFalse(1L)).thenReturn(Optional.of(testKeyPair));
+        when(rsaKeyPairRepository.findLatestByUserId(1L)).thenReturn(Optional.of(testKeyPair));
 
         // When & Then
         assertThrows(BlockchainException.class, () -> digitalSignatureService.getKeyPair(1L));
@@ -92,7 +101,7 @@ class DigitalSignatureServiceTest {
     void testGetKeyPairFailExpired() {
         // Given
         testKeyPair.setExpiresAt(LocalDateTime.now().minusDays(1)); // Expired
-        when(rsaKeyPairRepository.findByUserIdAndDeletedFalse(1L)).thenReturn(Optional.of(testKeyPair));
+        when(rsaKeyPairRepository.findLatestByUserId(1L)).thenReturn(Optional.of(testKeyPair));
         when(rsaKeyPairRepository.save(any(RsaKeyPair.class))).thenReturn(testKeyPair);
 
         // When & Then
@@ -103,7 +112,7 @@ class DigitalSignatureServiceTest {
     @DisplayName("撤销密钥对成功")
     void testRevokeKeyPairSuccess() {
         // Given
-        when(rsaKeyPairRepository.findByUserIdAndDeletedFalse(1L)).thenReturn(Optional.of(testKeyPair));
+        when(rsaKeyPairRepository.findLatestByUserId(1L)).thenReturn(Optional.of(testKeyPair));
         when(rsaKeyPairRepository.save(any(RsaKeyPair.class))).thenReturn(testKeyPair);
 
         // When
@@ -117,7 +126,7 @@ class DigitalSignatureServiceTest {
     @DisplayName("撤销密钥对-不存在时无操作")
     void testRevokeKeyPairNotFound() {
         // Given
-        when(rsaKeyPairRepository.findByUserIdAndDeletedFalse(1L)).thenReturn(Optional.empty());
+        when(rsaKeyPairRepository.findLatestByUserId(1L)).thenReturn(Optional.empty());
 
         // When
         digitalSignatureService.revokeKeyPair(1L);
@@ -131,7 +140,6 @@ class DigitalSignatureServiceTest {
     void testGenerateKeyPairWithExistingKey() {
         // Given
         when(rsaKeyPairRepository.existsByUserIdAndDeletedFalse(1L)).thenReturn(true);
-        when(rsaKeyPairRepository.findByUserIdAndDeletedFalse(1L)).thenReturn(Optional.of(testKeyPair));
         when(rsaKeyPairRepository.findLatestByUserId(1L)).thenReturn(Optional.of(testKeyPair));
         when(rsaKeyPairRepository.save(any(RsaKeyPair.class))).thenAnswer(invocation -> {
             RsaKeyPair keyPair = invocation.getArgument(0);
@@ -152,7 +160,7 @@ class DigitalSignatureServiceTest {
     @DisplayName("签名失败-密钥不存在")
     void testSignReportFailKeyNotFound() {
         // Given
-        when(rsaKeyPairRepository.findByUserIdAndDeletedFalse(1L)).thenReturn(Optional.empty());
+        when(rsaKeyPairRepository.findLatestByUserId(1L)).thenReturn(Optional.empty());
 
         // When & Then
         assertThrows(BlockchainException.class, () -> digitalSignatureService.signReport(1L, "test-data"));
@@ -162,10 +170,10 @@ class DigitalSignatureServiceTest {
     @DisplayName("验签失败-密钥不存在")
     void testVerifySignatureFailKeyNotFound() {
         // Given
-        when(rsaKeyPairRepository.findByUserIdAndDeletedFalse(1L)).thenReturn(Optional.empty());
+        when(rsaKeyPairRepository.findLatestByUserId(1L)).thenReturn(Optional.empty());
 
         // When & Then
-        assertThrows(BlockchainException.class, () -> 
+        assertThrows(BlockchainException.class, () ->
             digitalSignatureService.verifySignature(1L, "test-data", "test-signature"));
     }
 
@@ -174,10 +182,10 @@ class DigitalSignatureServiceTest {
     void testVerifySignatureFailKeyRevoked() {
         // Given
         testKeyPair.setKeyStatus(0); // Revoked
-        when(rsaKeyPairRepository.findByUserIdAndDeletedFalse(1L)).thenReturn(Optional.of(testKeyPair));
+        when(rsaKeyPairRepository.findLatestByUserId(1L)).thenReturn(Optional.of(testKeyPair));
 
         // When & Then
-        assertThrows(BlockchainException.class, () -> 
+        assertThrows(BlockchainException.class, () ->
             digitalSignatureService.verifySignature(1L, "test-data", "test-signature"));
     }
 
@@ -185,10 +193,10 @@ class DigitalSignatureServiceTest {
     @DisplayName("加密失败-密钥不存在")
     void testEncryptForReviewerFailKeyNotFound() {
         // Given
-        when(rsaKeyPairRepository.findByUserIdAndDeletedFalse(1L)).thenReturn(Optional.empty());
+        when(rsaKeyPairRepository.findLatestByUserId(1L)).thenReturn(Optional.empty());
 
         // When & Then
-        assertThrows(BlockchainException.class, () -> 
+        assertThrows(BlockchainException.class, () ->
             digitalSignatureService.encryptForReviewer("test-data", 1L));
     }
 
@@ -196,10 +204,10 @@ class DigitalSignatureServiceTest {
     @DisplayName("解密失败-密钥不存在")
     void testDecryptForReviewerFailKeyNotFound() {
         // Given
-        when(rsaKeyPairRepository.findByUserIdAndDeletedFalse(1L)).thenReturn(Optional.empty());
+        when(rsaKeyPairRepository.findLatestByUserId(1L)).thenReturn(Optional.empty());
 
         // When & Then
-        assertThrows(BlockchainException.class, () -> 
+        assertThrows(BlockchainException.class, () ->
             digitalSignatureService.decryptForReviewer("encrypted-data", 1L));
     }
 
@@ -236,7 +244,7 @@ class DigitalSignatureServiceTest {
         testKeyPair.setPublicKey(publicKeyBase64);
         testKeyPair.setPrivateKey(privateKeyBase64);
         
-        when(rsaKeyPairRepository.findByUserIdAndDeletedFalse(1L)).thenReturn(Optional.of(testKeyPair));
+        when(rsaKeyPairRepository.findLatestByUserId(1L)).thenReturn(Optional.of(testKeyPair));
 
         // When
         SignatureResult result = digitalSignatureService.signReport(1L, "test-report-data");
@@ -262,7 +270,7 @@ class DigitalSignatureServiceTest {
         testKeyPair.setPublicKey(publicKeyBase64);
         testKeyPair.setPrivateKey(privateKeyBase64);
         
-        when(rsaKeyPairRepository.findByUserIdAndDeletedFalse(1L)).thenReturn(Optional.of(testKeyPair));
+        when(rsaKeyPairRepository.findLatestByUserId(1L)).thenReturn(Optional.of(testKeyPair));
 
         // When
         boolean isValid = digitalSignatureService.verifySignature(1L, testData, signature);
@@ -285,7 +293,7 @@ class DigitalSignatureServiceTest {
         testKeyPair.setPublicKey(publicKeyBase64);
         testKeyPair.setPrivateKey(privateKeyBase64);
         
-        when(rsaKeyPairRepository.findByUserIdAndDeletedFalse(1L)).thenReturn(Optional.of(testKeyPair));
+        when(rsaKeyPairRepository.findLatestByUserId(1L)).thenReturn(Optional.of(testKeyPair));
 
         // When - Verify with tampered data
         boolean isValid = digitalSignatureService.verifySignature(1L, "tampered-data", signature);
@@ -310,7 +318,7 @@ class DigitalSignatureServiceTest {
         testKeyPair.setKeyStatus(2); // Expired status
         testKeyPair.setExpiresAt(LocalDateTime.now().minusDays(1));
         
-        when(rsaKeyPairRepository.findByUserIdAndDeletedFalse(1L)).thenReturn(Optional.of(testKeyPair));
+        when(rsaKeyPairRepository.findLatestByUserId(1L)).thenReturn(Optional.of(testKeyPair));
 
         // When
         boolean isValid = digitalSignatureService.verifySignature(1L, testData, signature);
@@ -330,7 +338,7 @@ class DigitalSignatureServiceTest {
         testKeyPair.setPublicKey(publicKeyBase64);
         testKeyPair.setPrivateKey(privateKeyBase64);
         
-        when(rsaKeyPairRepository.findByUserIdAndDeletedFalse(1L)).thenReturn(Optional.of(testKeyPair));
+        when(rsaKeyPairRepository.findLatestByUserId(1L)).thenReturn(Optional.of(testKeyPair));
 
         // When
         String encryptedData = digitalSignatureService.encryptForReviewer("sensitive-data", 1L);
@@ -354,7 +362,7 @@ class DigitalSignatureServiceTest {
         testKeyPair.setPublicKey(publicKeyBase64);
         testKeyPair.setPrivateKey(privateKeyBase64);
         
-        when(rsaKeyPairRepository.findByUserIdAndDeletedFalse(1L)).thenReturn(Optional.of(testKeyPair));
+        when(rsaKeyPairRepository.findLatestByUserId(1L)).thenReturn(Optional.of(testKeyPair));
 
         // When
         String decryptedData = digitalSignatureService.decryptForReviewer(encryptedData, 1L);
@@ -377,7 +385,7 @@ class DigitalSignatureServiceTest {
         testKeyPair.setPublicKey(publicKeyBase64);
         testKeyPair.setPrivateKey(privateKeyBase64);
         
-        when(rsaKeyPairRepository.findByUserIdAndDeletedFalse(1L)).thenReturn(Optional.of(testKeyPair));
+        when(rsaKeyPairRepository.findLatestByUserId(1L)).thenReturn(Optional.of(testKeyPair));
 
         // When
         String decryptedData = digitalSignatureService.decryptForEnterprise(encryptedData, 1L);
@@ -390,7 +398,7 @@ class DigitalSignatureServiceTest {
     @DisplayName("企业解密失败-密钥不存在")
     void testDecryptForEnterpriseFailKeyNotFound() {
         // Given
-        when(rsaKeyPairRepository.findByUserIdAndDeletedFalse(1L)).thenReturn(Optional.empty());
+        when(rsaKeyPairRepository.findLatestByUserId(1L)).thenReturn(Optional.empty());
 
         // When & Then
         assertThrows(BlockchainException.class, () -> 
@@ -402,7 +410,7 @@ class DigitalSignatureServiceTest {
     void testDecryptForEnterpriseFailKeyRevoked() {
         // Given
         testKeyPair.setKeyStatus(0); // Revoked
-        when(rsaKeyPairRepository.findByUserIdAndDeletedFalse(1L)).thenReturn(Optional.of(testKeyPair));
+        when(rsaKeyPairRepository.findLatestByUserId(1L)).thenReturn(Optional.of(testKeyPair));
 
         // When & Then
         assertThrows(BlockchainException.class, () -> 
@@ -414,7 +422,7 @@ class DigitalSignatureServiceTest {
     void testSignReportFailKeyRevoked() {
         // Given
         testKeyPair.setKeyStatus(0); // Revoked
-        when(rsaKeyPairRepository.findByUserIdAndDeletedFalse(1L)).thenReturn(Optional.of(testKeyPair));
+        when(rsaKeyPairRepository.findLatestByUserId(1L)).thenReturn(Optional.of(testKeyPair));
 
         // When & Then
         assertThrows(BlockchainException.class, () -> digitalSignatureService.signReport(1L, "test-data"));
@@ -425,7 +433,7 @@ class DigitalSignatureServiceTest {
     void testEncryptForReviewerFailKeyRevoked() {
         // Given
         testKeyPair.setKeyStatus(0); // Revoked
-        when(rsaKeyPairRepository.findByUserIdAndDeletedFalse(1L)).thenReturn(Optional.of(testKeyPair));
+        when(rsaKeyPairRepository.findLatestByUserId(1L)).thenReturn(Optional.of(testKeyPair));
 
         // When & Then
         assertThrows(BlockchainException.class, () -> 
@@ -437,7 +445,7 @@ class DigitalSignatureServiceTest {
     void testDecryptForReviewerFailKeyRevoked() {
         // Given
         testKeyPair.setKeyStatus(0); // Revoked
-        when(rsaKeyPairRepository.findByUserIdAndDeletedFalse(1L)).thenReturn(Optional.of(testKeyPair));
+        when(rsaKeyPairRepository.findLatestByUserId(1L)).thenReturn(Optional.of(testKeyPair));
 
         // When & Then
         assertThrows(BlockchainException.class, () -> 
@@ -449,7 +457,7 @@ class DigitalSignatureServiceTest {
     void testGetKeyPairStatusRevoked() {
         // Given
         testKeyPair.setKeyStatus(0); // Revoked
-        when(rsaKeyPairRepository.findByUserIdAndDeletedFalse(1L)).thenReturn(Optional.of(testKeyPair));
+        when(rsaKeyPairRepository.findLatestByUserId(1L)).thenReturn(Optional.of(testKeyPair));
 
         // When & Then
         assertThrows(BlockchainException.class, () -> digitalSignatureService.getKeyPair(1L));
@@ -460,7 +468,7 @@ class DigitalSignatureServiceTest {
     void testGetKeyPairStatusExpiredMarked() {
         // Given
         testKeyPair.setKeyStatus(2); // Expired status
-        when(rsaKeyPairRepository.findByUserIdAndDeletedFalse(1L)).thenReturn(Optional.of(testKeyPair));
+        when(rsaKeyPairRepository.findLatestByUserId(1L)).thenReturn(Optional.of(testKeyPair));
 
         // When & Then
         assertThrows(BlockchainException.class, () -> digitalSignatureService.getKeyPair(1L));

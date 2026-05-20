@@ -77,6 +77,14 @@ public class RsaKeyPair extends BaseEntity {
     private Integer keyUsage = 3;
 
     /**
+     * 私钥是否已加密
+     * 0-未加密(明文), 1-已加密(AES-256-GCM)
+     */
+    @Column(name = "encrypted", nullable = false)
+    @Builder.Default
+    private Integer encrypted = 0;
+
+    /**
      * 备注信息
      */
     @Column(name = "remark", length = 500)
