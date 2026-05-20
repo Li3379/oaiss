@@ -41,6 +41,7 @@ public class EmissionRatingService {
     /**
      * 获取企业评级历史
      */
+    @Transactional(readOnly = true)
     public List<EmissionRating> getEnterpriseRatings(Long enterpriseId) {
         return ratingRepository.findByEnterpriseIdOrderByRatingYearDesc(enterpriseId);
     }
@@ -86,6 +87,7 @@ public class EmissionRatingService {
     /**
      * 获取行业排名
      */
+    @Transactional(readOnly = true)
     public List<EmissionRating> getIndustryRanking(String year) {
         return ratingRepository.findByRatingYearOrderByTotalEmissionAsc(year);
     }

@@ -8,6 +8,7 @@ import org.springframework.cache.CacheManager;
 import org.springframework.context.event.EventListener;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import org.springframework.data.redis.core.RedisCallback;
 import org.springframework.data.redis.core.ScanOptions;
@@ -183,6 +184,7 @@ public class CachePreloadService {
      * 获取缓存统计信息
      * Get cache statistics
      */
+    @Transactional(readOnly = true)
     public CacheStatistics getCacheStatistics() {
         Collection<String> cacheNames = cacheManager.getCacheNames();
         int totalCaches = cacheNames.size();

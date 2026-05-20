@@ -33,6 +33,7 @@ public class UserService {
     /**
      * 获取当前用户信息
      */
+    @Transactional(readOnly = true)
     public UserInfoResponse getCurrentUserInfo(JwtUserDetails currentUser) {
         User user = userRepository.findByIdAndDeletedFalse(currentUser.getUserId())
                 .orElseThrow(() -> new BusinessException(
@@ -44,6 +45,7 @@ public class UserService {
     /**
      * 根据用户ID获取信息
      */
+    @Transactional(readOnly = true)
     public UserInfoResponse getUserById(Long userId) {
         User user = userRepository.findByIdAndDeletedFalse(userId)
                 .orElseThrow(() -> new BusinessException(

@@ -29,6 +29,7 @@ public class EnterpriseService {
     /**
      * 获取当前登录企业的信息
      */
+    @Transactional(readOnly = true)
     public Enterprise getEnterpriseInfo(Long userId) {
         return enterpriseRepository.findByUserIdAndDeletedFalse(userId)
                 .orElseThrow(() -> new RuntimeException("企业信息不存在"));
@@ -37,6 +38,7 @@ public class EnterpriseService {
     /**
      * 获取企业碳配额信息
      */
+    @Transactional(readOnly = true)
     public Map<String, Object> getQuotaInfo(Long userId) {
         Enterprise enterprise = enterpriseRepository.findByUserIdAndDeletedFalse(userId)
                 .orElseThrow(() -> new RuntimeException("企业信息不存在"));
@@ -85,6 +87,7 @@ public class EnterpriseService {
     /**
      * 根据ID获取企业信息
      */
+    @Transactional(readOnly = true)
     public Enterprise getEnterpriseById(Long enterpriseId) {
         return enterpriseRepository.findById(enterpriseId)
                 .filter(e -> !e.getDeleted())

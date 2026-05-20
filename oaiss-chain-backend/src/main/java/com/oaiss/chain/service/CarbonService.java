@@ -179,6 +179,7 @@ public class CarbonService {
     /**
      * 获取报告详情
      */
+    @Transactional(readOnly = true)
     public CarbonReportResponse getReport(Long reportId) {
         CarbonReport report = carbonReportRepository.findById(reportId)
                 .orElseThrow(() -> CarbonException.reportNotFound(reportId));
