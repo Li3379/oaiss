@@ -39,6 +39,7 @@ public class ThirdPartyService {
     /**
      * 获取当前第三方机构信息
      */
+    @Transactional(readOnly = true)
     public ThirdPartyOrg getCurrentOrg(JwtUserDetails currentUser) {
         return thirdPartyOrgRepository.findByUserId(currentUser.getUserId())
                 .orElseThrow(() -> new BusinessException(

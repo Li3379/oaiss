@@ -208,6 +208,7 @@ public class TradeService {
     /**
      * 获取交易详情（含权限校验）
      */
+    @Transactional(readOnly = true)
     public TradeResponse getTrade(Long tradeId, JwtUserDetails currentUser) {
         Transaction trade = transactionRepository.findById(tradeId)
                 .orElseThrow(() -> TradeException.tradeNotFound(tradeId));

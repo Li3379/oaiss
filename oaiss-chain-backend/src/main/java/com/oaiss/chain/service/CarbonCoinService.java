@@ -179,6 +179,7 @@ public class CarbonCoinService {
     /**
      * 查询交易流水
      */
+    @Transactional(readOnly = true)
     public Page<CarbonCoinTransaction> getTransactions(Long userId, Integer txType, Integer page, Integer size) {
         int safePage = Math.max(page, 1);
         PageRequest pageable = PageRequest.of(safePage - 1, size);

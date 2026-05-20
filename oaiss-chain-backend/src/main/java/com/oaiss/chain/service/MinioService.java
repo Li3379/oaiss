@@ -10,6 +10,7 @@ import io.minio.messages.Item;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.InputStream;
@@ -234,6 +235,7 @@ public class MinioService {
      * @param objectName 对象名称
      * @return 是否存在
      */
+    @Transactional(readOnly = true)
     public boolean fileExists(String objectName) {
         try {
             minioClient.statObject(StatObjectArgs.builder()
@@ -252,6 +254,7 @@ public class MinioService {
      * @param objectName 对象名称
      * @return 文件信息
      */
+    @Transactional(readOnly = true)
     public FileInfo getFileInfo(String objectName) {
         try {
             StatObjectResponse stat = minioClient.statObject(StatObjectArgs.builder()
@@ -277,6 +280,7 @@ public class MinioService {
      * @param objectName 对象名称
      * @return 预签名URL
      */
+    @Transactional(readOnly = true)
     public String getPresignedUrl(String objectName) {
         try {
             return minioClient.getPresignedObjectUrl(GetPresignedObjectUrlArgs.builder()
@@ -319,6 +323,7 @@ public class MinioService {
      * @param size 每页大小
      * @return 文件列表（带分页信息）
      */
+    @Transactional(readOnly = true)
     public FileListResult listFiles(String prefix, Integer page, Integer size) {
         try {
             if (page == null || page < 1) page = 1;

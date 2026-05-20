@@ -262,6 +262,7 @@ public class CreditScoreService {
     /**
      * 获取被限制交易的企业列表
      */
+    @Transactional(readOnly = true)
     public List<CreditScoreResponse> getRestrictedEnterprises() {
         return creditScoreRepository.findByTradeRestrictedAndDeletedFalse(true).stream()
                 .map(this::toScoreResponse)
@@ -271,6 +272,7 @@ public class CreditScoreService {
     /**
      * 获取被冻结的企业列表
      */
+    @Transactional(readOnly = true)
     public List<CreditScoreResponse> getFrozenEnterprises() {
         return creditScoreRepository.findByAccountFrozenAndDeletedFalse(true).stream()
                 .map(this::toScoreResponse)
@@ -283,6 +285,7 @@ public class CreditScoreService {
      * @param enterpriseId 企业ID
      * @return true=允许交易，false=禁止
      */
+    @Transactional(readOnly = true)
     public boolean checkTradePermission(Long enterpriseId) {
         CreditScore creditScore = creditScoreRepository.findByEnterpriseIdAndDeletedFalse(enterpriseId)
                 .orElse(null);
@@ -298,6 +301,7 @@ public class CreditScoreService {
      * @param userId 用户ID
      * @return 信誉评分响应
      */
+    @Transactional(readOnly = true)
     public CreditScoreResponse getScoreByUserId(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("用户不存在: " + userId));

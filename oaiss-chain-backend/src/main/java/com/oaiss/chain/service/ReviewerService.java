@@ -34,6 +34,7 @@ public class ReviewerService {
     /**
      * 获取当前审核员信息
      */
+    @Transactional(readOnly = true)
     public Reviewer getReviewerInfo(Long userId) {
         return reviewerRepository.findByUserId(userId)
                 .filter(r -> !r.getDeleted())
@@ -43,6 +44,7 @@ public class ReviewerService {
     /**
      * 获取待审核报告列表
      */
+    @Transactional(readOnly = true)
     public Page<CarbonReport> getPendingReports(Long userId, Integer page, Integer size) {
         // 验证审核员身份
         Reviewer reviewer = getReviewerInfo(userId);
@@ -55,6 +57,7 @@ public class ReviewerService {
     /**
      * 获取审核历史
      */
+    @Transactional(readOnly = true)
     public Page<CarbonReport> getReviewHistory(Long userId, Integer page, Integer size) {
         // 验证审核员身份
         Reviewer reviewer = getReviewerInfo(userId);
@@ -67,6 +70,7 @@ public class ReviewerService {
     /**
      * 获取审核统计数据
      */
+    @Transactional(readOnly = true)
     public Map<String, Object> getStatistics(Long userId) {
         Reviewer reviewer = getReviewerInfo(userId);
 
