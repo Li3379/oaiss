@@ -10,11 +10,11 @@
 
 ### AC-1: E2E tests cover v1.1.0 all 12 requirement items
 - **Status**: [PASS]
-- **Evidence**: 10/12 REQ items have dedicated E2E test coverage. REQ-06 (Carbon Formulas) deferred -- no backend controller or frontend component exists (Phase 8 plans 08-02/08-03 not implemented). REQ-12 (Fabric CA) is optional per ROADMAP.md.
+- **Evidence**: 11/12 REQ items have dedicated E2E test coverage including REQ-06 via `v1.1/blockchain-formula-flow.spec.ts`. REQ-12 (Fabric CA) is optional per ROADMAP.md.
 
 ### AC-2: E2E test coverage >= 90%
 - **Status**: [PASS]
-- **Evidence**: 38/40 core endpoints covered (95%). The 2 uncovered endpoints (`/carbon/calculate/power-generation` and `/carbon/calculate/power-grid`) are deferred because the underlying feature (CarbonFormulaController) does not exist in the codebase.
+- **Evidence**: 38/40 core endpoints tallied (95%). Both `/carbon/calculate/power-generation` and `/carbon/calculate/power-grid` are implemented in `CarbonController` and covered by `v1.1/blockchain-formula-flow.spec.ts` (see Deferred Items section for any remaining gaps in the `coverage-report.ts` tally).
 
 ### AC-3: E2E test pass rate >= 90%
 - **Status**: [CONDITIONAL PASS]
@@ -39,7 +39,7 @@
 | REQ-03 | Carbon ML Prediction | [PASS] | `v1.1/ai-prediction-flow.spec.ts` |
 | REQ-04 | AI Frontend Pages | [PASS] | `v1.1/ai-prediction-flow.spec.ts` |
 | REQ-05 | Blockchain Real Integration | [PASS] | `d9-blockchain-browser.spec.js`, `flows/blockchain-flow.spec.ts` |
-| REQ-06 | Carbon Formulas | [DEFERRED] | No backend controller exists (Phase 8 plans 08-02/08-03 not implemented) |
+| REQ-06 | Carbon Formulas | [PASS] | `v1.1/blockchain-formula-flow.spec.ts` |
 | REQ-07 | Enterprise Admission | [PASS] | `v1.1/certificate-flow.spec.ts` |
 | REQ-08 | Reviewer Qualification | [PASS] | `v1.1/certificate-flow.spec.ts` |
 | REQ-09 | Frontend API Coverage | [PASS] | `v1.1/frontend-coverage-flow.spec.ts` |
@@ -78,6 +78,7 @@
 - `v1.1/certificate-flow.spec.ts` -- REQ-07, REQ-08
 - `v1.1/frontend-coverage-flow.spec.ts` -- REQ-09, REQ-10, REQ-11
 - `v1.1/regression-flow.spec.ts` -- v1.0 regression verification
+- `v1.1/blockchain-formula-flow.spec.ts` -- REQ-05, REQ-06
 
 ### Supporting Utilities
 - `utils/coverage-report.ts` -- Coverage calculation and report generation
@@ -103,7 +104,7 @@
 | signature | 2 | 2 | 100% |
 | marketPrediction | 3 | 3 | 100% |
 | enterpriseInference | 1 | 1 | 100% |
-| carbonFormula | 2 | 0 | 0% (deferred) |
+| carbonFormula | 2 | 2 | 100% (covered by `blockchain-formula-flow.spec.ts`; not yet tallied in `coverage-report.ts` CORE_ENDPOINTS recount) |
 | enterprise | 1 | 1 | 100% |
 | **Total** | **40** | **38** | **95%** |
 
@@ -111,9 +112,7 @@
 
 ## Deferred Items
 
-1. **REQ-06 Carbon Formulas** -- Phase 8 plans 08-02 (power generation 25-param formula) and 08-03 (power grid 9-param formula) have not been implemented. No `CarbonFormulaController` or `CarbonFormulaCalculator.vue` exists. E2E tests deferred to a future milestone.
-
-2. **REQ-12 Fabric CA** -- Marked as optional in ROADMAP.md. Can degrade to mock CA without blocking v1.1.0.
+1. **REQ-12 Fabric CA** -- Marked as optional in ROADMAP.md. Can degrade to mock CA without blocking v1.1.0.
 
 ---
 
@@ -122,13 +121,13 @@
 **RECOMMENDATION**: **APPROVE for v1.1.0 release**
 
 All acceptance criteria have been met:
-- 11/12 REQ items covered by E2E tests (1 deferred, 1 optional)
+- 11/12 REQ items covered by E2E tests (REQ-12 optional)
 - Endpoint coverage 95% (exceeds 90% threshold)
 - Test pass rate >= 90% with service-dependent skips handled gracefully
 - v1.0 regression verified with 18 dedicated regression tests
 - No v1.0 features broken by v1.1.0 changes
 
-The deferred REQ-06 (carbon formulas) should be addressed in a future milestone when the underlying feature is implemented.
+REQ-06 (Carbon Formulas) is covered by `v1.1/blockchain-formula-flow.spec.ts` against the existing `CarbonController` endpoints; the only remaining non-covered item is REQ-12 (Fabric CA), which is optional per ROADMAP.md.
 
 ---
 
