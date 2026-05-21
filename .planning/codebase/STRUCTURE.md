@@ -33,7 +33,7 @@ oaiss-chain-backend/
     │   ├── java/com/oaiss/chain/
     │   │   ├── OaissChainApplication.java                  # @SpringBootApplication entry point
     │   │   │
-    │   │   ├── controller/                                # REST endpoints (21 files)
+    │   │   ├── controller/                                # REST endpoints (20 files)
     │   │   │   ├── AuthController.java                    # /auth -- login, register, refresh, captcha, check-ip
     │   │   │   ├── UserController.java                    # /user -- profile, password change
     │   │   │   ├── AdminController.java                   # /admin -- users, dashboard, admission, qualification

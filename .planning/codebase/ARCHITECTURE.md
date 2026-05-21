@@ -21,12 +21,12 @@ OAISS CHAIN is a carbon emissions management and trading platform with four depl
                  |         Spring Boot 3.2.5         |
                  |         Backend (:8080)            |
                  |  +-----------+  +---------------+ |
-                 |  | RestControllers (21)           | |
+                 |  | RestControllers (20)           | |
                  |  +-----+-----+  +-------+-------+ |     +-------------------+
                  |        |         |  AOP Aspects   | |     |  FastAPI ML Svc   |
                  |  +-----v-----+   |  (@AuditLog,   | |     |  :8001            |
                  |  | Services  |<--+   @RateLimit,  +----->+  Emission Pred    |
-                 |  |   (29)    |   |   @DataIsol,   | |  WB |  Enterprise Inf   |
+                 |  |   (28)    |   |   @DataIsol,   | |  WB |  Enterprise Inf   |
                  |  +-----+-----+   |   @DistLock,   | |     |  Market Forecast  |
                  |        |         |   @RequirePerm)| |     +-------------------+
                  |  +-----v-----+   +---------------+ |

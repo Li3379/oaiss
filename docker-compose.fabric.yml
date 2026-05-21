@@ -93,7 +93,7 @@ services:
   # --- Fabric CA (Org1) ---
   ca.org1.example.com:
     container_name: ca.org1.example.com
-    image: hyperledger/fabric-ca:1.5
+    image: hyperledger/fabric-ca:1.5.19
     environment:
       - FABRIC_CA_HOME=/var/hyperledger/fabric-ca
       - FABRIC_CA_SERVER_CA_NAME=ca-org1

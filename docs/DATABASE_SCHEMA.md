@@ -1,8 +1,8 @@
 # OAISS Chain 数据库设计文档
 
-> 版本: 1.0 | 更新日期: 2026-05-03 | 数据库: MySQL 8.0+ | Schema: `oaiss_chain`
+> 版本: 1.1 | 更新日期: 2026-05-19 | 数据库: MySQL 8.0+ | Schema: `oaiss_chain`
 >
-> 本文档基于代码库中的 **21个 JPA Entity 类**、**V1__init_schema.sql** 和 **8个枚举类** 交叉验证生成，确保数据库结构与后端代码 1:1 对齐。
+> 本文档基于代码库中的 **23个 JPA Entity 类**、**V1__init_schema.sql** 和 **8个枚举类** 交叉验证生成，确保数据库结构与后端代码 1:1 对齐。
 
 ---
 
@@ -38,37 +38,38 @@
 
 ## 2. 表总览
 
-共 **21 张表**，按业务域分为 6 组：
+共 **23 张表**，按业务域分为 6 组：
 
 | # | 表名 | 中文名 | 业务域 | Entity类 | Repository |
 |---|------|--------|--------|----------|------------|
 | 1 | `user` | 用户表 | 用户管理 | `User` | `UserRepository` |
 | 2 | `user_type_list` | 用户类型表 | 用户管理 | `UserTypeList` | `UserTypeListRepository` |
 | 3 | `enterprise` | 企业表 | 用户管理 | `Enterprise` | `EnterpriseRepository` |
-| 4 | `reviewer` | 审核员表 | 用户管理 | `Reviewer` | `ReviewerRepository` |
-| 5 | `reviewer_qualification` | 审核员资质表 | 用户管理 | `ReviewerQualification` | `ReviewerQualificationRepository` |
-| 6 | `third_party_org` | 第三方机构表 | 用户管理 | `ThirdPartyOrg` | `ThirdPartyOrgRepository` |
-| 7 | `authenticator` | 认证机构表 | 用户管理 | `Authenticator` | `AuthenticatorRepository` |
-| 8 | `carbon_report` | 碳报告表 | 碳管理 | `CarbonReport` | `CarbonReportRepository` |
-| 9 | `transaction` | 交易记录表 | 碳交易 | `Transaction` | `TransactionRepository` |
-| 10 | `account_permission_list` | 账户权限定义表 | 权限管理 | `AccountPermissionList` | `AccountPermissionListRepository` |
-| 11 | `entry_permission` | API权限表 | 权限管理 | `EntryPermission` | `EntryPermissionRepository` |
-| 12 | `auction_order` | 拍卖订单表 | 碳交易 | `AuctionOrder` | `AuctionOrderRepository` |
-| 13 | `matching_result` | 撮合结果表 | 碳交易 | `MatchingResult` | `MatchingResultRepository` |
-| 14 | `rsa_key_pair` | RSA密钥对表 | 数字签名 | `RsaKeyPair` | `RsaKeyPairRepository` |
-| 15 | `credit_score` | 信誉评分表 | 信誉系统 | `CreditScore` | `CreditScoreRepository` |
-| 16 | `credit_event` | 信誉事件表 | 信誉系统 | `CreditEvent` | `CreditEventRepository` |
-| 17 | `carbon_coin_account` | 碳币账户表 | 碳币系统 | `CarbonCoinAccount` | `CarbonCoinAccountRepository` |
-| 18 | `carbon_coin_transaction` | 碳币交易记录表 | 碳币系统 | `CarbonCoinTransaction` | `CarbonCoinTransactionRepository` |
-| 19 | `emission_rating` | 排放评级表 | 碳管理 | `EmissionRating` | `EmissionRatingRepository` |
-| 20 | `carbon_neutral_project` | 碳中和项目表 | 碳管理 | `CarbonNeutralProject` | `CarbonNeutralProjectRepository` |
-| 21 | `operation_log` | 操作日志表 | 系统管理 | `OperationLog` | `OperationLogRepository` |
+| 4 | `enterprise_admission` | 企业准入证书表 | 用户管理 | `EnterpriseAdmission` | `EnterpriseAdmissionRepository` |
+| 5 | `reviewer` | 审核员表 | 用户管理 | `Reviewer` | `ReviewerRepository` |
+| 6 | `reviewer_qualification` | 审核员资质表 | 用户管理 | `ReviewerQualification` | `ReviewerQualificationRepository` |
+| 7 | `third_party_org` | 第三方机构表 | 用户管理 | `ThirdPartyOrg` | `ThirdPartyOrgRepository` |
+| 8 | `authenticator` | 认证机构表 | 用户管理 | `Authenticator` | `AuthenticatorRepository` |
+| 9 | `carbon_report` | 碳报告表 | 碳管理 | `CarbonReport` | `CarbonReportRepository` |
+| 10 | `transaction` | 交易记录表 | 碳交易 | `Transaction` | `TransactionRepository` |
+| 11 | `account_permission_list` | 账户权限定义表 | 权限管理 | `AccountPermissionList` | `AccountPermissionListRepository` |
+| 12 | `entry_permission` | API权限表 | 权限管理 | `EntryPermission` | `EntryPermissionRepository` |
+| 13 | `auction_order` | 拍卖订单表 | 碳交易 | `AuctionOrder` | `AuctionOrderRepository` |
+| 14 | `matching_result` | 撮合结果表 | 碳交易 | `MatchingResult` | `MatchingResultRepository` |
+| 15 | `rsa_key_pair` | RSA密钥对表 | 数字签名 | `RsaKeyPair` | `RsaKeyPairRepository` |
+| 16 | `credit_score` | 信誉评分表 | 信誉系统 | `CreditScore` | `CreditScoreRepository` |
+| 17 | `credit_event` | 信誉事件表 | 信誉系统 | `CreditEvent` | `CreditEventRepository` |
+| 18 | `carbon_coin_account` | 碳币账户表 | 碳币系统 | `CarbonCoinAccount` | `CarbonCoinAccountRepository` |
+| 19 | `carbon_coin_transaction` | 碳币交易记录表 | 碳币系统 | `CarbonCoinTransaction` | `CarbonCoinTransactionRepository` |
+| 20 | `emission_rating` | 排放评级表 | 碳管理 | `EmissionRating` | `EmissionRatingRepository` |
+| 21 | `carbon_neutral_project` | 碳中和项目表 | 碳管理 | `CarbonNeutralProject` | `CarbonNeutralProjectRepository` |
+| 22 | `operation_log` | 操作日志表 | 系统管理 | `OperationLog` | `OperationLogRepository` |
 
 ---
 
 ## 3. 公共字段（BaseEntity）
 
-所有 21 张表均继承自 `BaseEntity`（`@MappedSuperclass`），包含以下 4 个公共字段：
+所有 23 张表均继承自 `BaseEntity`（`@MappedSuperclass`），包含以下 4 个公共字段：
 
 | 字段名 | 类型 | 约束 | 说明 |
 |--------|------|------|------|
@@ -831,6 +832,7 @@ entry_permission ── API入口权限（关联 user_type）
 | 19 | EmissionRating | EmissionRatingRepository | EmissionController | OK |
 | 20 | CarbonNeutralProject | CarbonNeutralProjectRepository | CarbonNeutralProjectController | OK |
 | 21 | OperationLog | OperationLogRepository | AdminController (AOP自动记录) | OK |
+| 22 | EnterpriseAdmission | EnterpriseAdmissionRepository | AdminController | OK |
 
 ---
 
@@ -840,9 +842,9 @@ entry_permission ── API入口权限（关联 user_type）
 
 | 验证项 | 结果 |
 |--------|------|
-| SQL表数量 | 21张 |
-| Entity类数量 | 21个（不含BaseEntity） |
-| Repository数量 | 21个 |
+| SQL表数量 | 23张 |
+| Entity类数量 | 23个（不含BaseEntity） |
+| Repository数量 | 23个 |
 | SQL ↔ Entity 字段对齐 | **100% 一致** |
 | SQL ↔ Entity 索引对齐 | **100% 一致** |
 | Entity ↔ Repository 对齐 | **100% 一致**（每个Entity均有对应Repository） |

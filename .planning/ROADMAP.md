@@ -4,15 +4,15 @@
 
 - **v1.0 Manual Testing** - Phases 1-6 (shipped 2026-05-13) — [Archive](milestones/v1.0-ROADMAP.md)
 - **v1.1.0 需求对齐** - Phases 7-12 (shipped 2026-05-18) — [Archive](milestones/v1.1.0-ROADMAP.md)
-- **v2.0 安全与性能加固** - Phases 13-15 (active)
+- **v2.0 安全与性能加固** - Phases 13-15 (shipped 2026-05-20)
 
 ## Overview
 
-v1.0 验证了 84 个需求的全角色手工测试。v1.1.0 补齐 12 个 Gap 项，E2E 95% 覆盖。v2.0 解决延期的并发、安全、性能问题，达到生产部署就绪标准。
+v1.0 验证了 84 个需求的全角色手工测试。v1.1.0 补齐 12 个 Gap 项，E2E 95% 覆盖。v2.0 解决并发、安全、性能问题，通过 CI/CD 与回归验证，达到生产部署就绪标准。三个里程碑全部完成。
 
 ## Next Milestone
 
-**v2.0 安全与性能加固** — 19 项需求，3 个 Phase
+**TBD** — v2.1 deferred items or new feature work.
 
 ## Phase Details
 
@@ -120,8 +120,12 @@ Plans:
 **Goal**: 建立 CI/CD 管道，修正 dev profile，全量 E2E 回归测试通过
 **Depends on**: Phase 14
 **Requirements**: OPS-01~02, 全量 E2E 回归
-**Plans**: TBD (via `/gsd:plan-phase 15`)
+**Plans**: 3 plans
 **Priority**: MEDIUM — 自动化保障
+Plans:
+- [x] 15-01-PLAN.md — Dev Profile Fix: enable Flyway, set ddl-auto: validate (OPS-02)
+- [x] 15-02-PLAN.md — CI/CD Pipeline Fix: fix logic bugs, add MinIO service, remove hardcoded creds (OPS-01)
+- [x] 15-03-PLAN.md — E2E Regression: full smoke + flow + v1.1 regression test suite
 
 </details>
 
@@ -142,22 +146,22 @@ Plans:
 | 11. 前端覆盖率补齐 | v1.1.0 | 4/4 | Complete | 2026-05-16 |
 | 12. E2E 测试与验收 | v1.1.0 | 6/6 | Complete | 2026-05-17 |
 | 13. 并发安全与凭据加固 | v2.0 | 3/3 | Complete | 2026-05-19 |
-| 14. 性能优化与代码质量 | v2.0 | 0/2 | Pending | — |
-| 15. DevOps 与回归验证 | v2.0 | 0/? | Pending | — |
+| 14. 性能优化与代码质量 | v2.0 | 2/2 | Complete | 2026-05-20 |
+| 15. DevOps 与回归验证 | v2.0 | 3/3 | Complete | 2026-05-20 |
 
 ## Known Issues & Deferred Items
 
 | Item | Status | Impact | v2.0 Coverage |
 |------|--------|--------|---------------|
-| CON-01/02/03 (concurrency) | Active in v2.0 | Financial data corruption risk | Phase 13 |
-| SEC-07/08/09 (credentials) | Active in v2.0 | Production deployment blocker | Phase 13 |
-| SEC-10/11/12/13 (authorization) | Active in v2.0 | Data access control gap | Phase 13 |
-| PERF-02/03/04 (performance) | Active in v2.0 | Production load risk | Phase 14 |
-| PERF-05 (indexes) | Active in v2.0 | Slow query risk | Phase 14 |
-| SEC-01 (RSA plaintext) | Active in v2.0 | Key compromise risk | Phase 14 |
-| SEC-02 (CSRF) | Active in v2.0 | ADR documentation | Phase 14 |
-| QUAL-01/02 (code quality) | Active in v2.0 | Maintainability | Phase 14 |
-| OPS-01/02 (DevOps) | Active in v2.0 | No CI/CD | Phase 15 |
+| CON-01/02/03 (concurrency) | Resolved in v2.0 | Financial data corruption risk | Phase 13 |
+| SEC-07/08/09 (credentials) | Resolved in v2.0 | Production deployment blocker | Phase 13 |
+| SEC-10/11/12/13 (authorization) | Resolved in v2.0 | Data access control gap | Phase 13 |
+| PERF-02/03/04 (performance) | Resolved in v2.0 | Production load risk | Phase 14 |
+| PERF-05 (indexes) | Resolved in v2.0 | Slow query risk | Phase 14 |
+| SEC-01 (RSA plaintext) | Resolved in v2.0 | Key compromise risk | Phase 14 |
+| SEC-02 (CSRF) | Resolved in v2.0 | ADR documentation | Phase 14 |
+| QUAL-01/02 (code quality) | Resolved in v2.0 | Maintainability | Phase 14 |
+| OPS-01/02 (DevOps) | Resolved in v2.0 | No CI/CD | Phase 15 |
 | M19 i18n 残留 | Deferred to v2.1 | LOW | — |
 | Fabric CA integration | Deferred to v2.1 | Optional | — |
 | Phase 11 skipped items | Deferred to v2.1 | LOW | — |
@@ -166,4 +170,4 @@ Plans:
 *Roadmap created: 2026-05-08*
 *v1.0 shipped: 2026-05-13*
 *v1.1.0 shipped: 2026-05-18*
-*v2.0 milestone defined: 2026-05-19*
+*v2.0 shipped: 2026-05-20*

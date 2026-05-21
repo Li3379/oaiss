@@ -6,17 +6,17 @@
 
 ## Current Phase
 
-**Phase:** 13 - 并发安全与凭据加固
-**Phase Status:** In Progress (1/3 plans complete)
-**Next Action:** Execute `/gsd:execute-phase 13`
+**Phase:** 15 - DevOps 与回归验证
+**Phase Status:** Verified (3/3 plans complete, VERIFICATION.md: PASSED)
+**Next Action:** Phase 15 complete. All v2.0 phases done.
 
 ## Phase Progress
 
 | Phase | Status | Plans Complete | Last Updated |
 |-------|--------|----------------|--------------|
-| 13. 并发安全与凭据加固 | In Progress | 1/3 | 2026-05-19 |
-| 14. 性能优化与代码质量 | Not started | 0/? | — |
-| 15. DevOps 与回归验证 | Not started | 0/? | — |
+| 13. 并发安全与凭据加固 | Complete | 3/3 | 2026-05-19 |
+| 14. 性能优化与代码质量 | Complete | 2/2 | 2026-05-20 |
+| 15. DevOps 与回归验证 | Complete | 3/3 | 2026-05-20 |
 
 ## Phase 13 Plan Details
 
@@ -34,27 +34,27 @@ All 3 plans are Wave 1 (no inter-dependencies) and can be executed in parallel.
 - [x] CON-01: DoubleAuctionService synchronized -> @DistributedLock
 - [x] CON-02: 金融实体加 @Version 乐观锁
 - [x] CON-03: executeMatching() 事务边界重构
-- [ ] SEC-07: docker-compose.yml 凭据外部化
-- [ ] SEC-08: 移除 DB_PASSWORD:123456 默认值
-- [ ] SEC-09: MinIO 移除 minioadmin 默认凭据
+- [x] SEC-07: docker-compose.yml 凭据外部化
+- [x] SEC-08: 移除 DB_PASSWORD:123456 默认值
+- [x] SEC-09: MinIO 移除 minioadmin 默认凭据
 
 ### Priority B — HIGH/MEDIUM (8 items)
-- [ ] SEC-10: FileController 加 @PreAuthorize
-- [ ] SEC-11: 移除 X-User-Id header fallback
-- [ ] SEC-12: SearchController 加 @PreAuthorize
-- [ ] SEC-13: Prometheus 端点加认证
-- [ ] PERF-02: Redis KEYS → SCAN
-- [ ] PERF-03: 缓存预加载异步化
-- [ ] PERF-04: 拍卖订单查询分页化
-- [ ] PERF-05: 外键索引补充 (Flyway V5)
+- [x] SEC-10: FileController 加 @PreAuthorize
+- [x] SEC-11: 移除 X-User-Id header fallback
+- [x] SEC-12: SearchController 加 @PreAuthorize
+- [x] SEC-13: Prometheus 端点加认证
+- [x] PERF-02: Redis KEYS → SCAN
+- [x] PERF-03: 缓存预加载异步化
+- [x] PERF-04: 拍卖订单查询分页化 (文档记录: 设计上保持无界)
+- [x] PERF-05: 外键索引补充 (Flyway V6)
 
 ### Priority C — MEDIUM/LOW (5 items)
-- [ ] SEC-01: RSA 私钥加密存储
-- [ ] SEC-02: CSRF 保护评估 (ADR)
-- [ ] QUAL-01: @Transactional(readOnly=true)
-- [ ] QUAL-02: Repository AndDeletedFalse 补全
-- [ ] OPS-01: GitHub Actions CI/CD
-- [ ] OPS-02: Dev Profile Flyway 修正
+- [x] SEC-01: RSA 私钥加密存储
+- [x] SEC-02: CSRF 保护评估 (ADR)
+- [x] QUAL-01: @Transactional(readOnly=true)
+- [x] QUAL-02: Repository AndDeletedFalse 补全
+- [x] OPS-01: GitHub Actions CI/CD
+- [x] OPS-02: Dev Profile Flyway 修正
 
 ## Blockers
 

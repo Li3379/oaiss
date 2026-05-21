@@ -20,6 +20,7 @@
     <properties>
         <java.version>17</java.version>
         <jjwt.version>0.12.5</jjwt.version>
+        <protobuf.version>4.29.3</protobuf.version>
     </properties>
     
     <dependencies>
@@ -127,6 +128,16 @@
             <groupId>org.bouncycastle</groupId>
             <artifactId>bcpkix-jdk18on</artifactId>
             <version>1.78.1</version>
+        </dependency>
+        <dependency>
+            <groupId>com.google.protobuf</groupId>
+            <artifactId>protobuf-java</artifactId>
+            <version>${protobuf.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.google.protobuf</groupId>
+            <artifactId>protobuf-java-util</artifactId>
+            <version>${protobuf.version}</version>
         </dependency>
 
         <!-- Test Dependencies -->
