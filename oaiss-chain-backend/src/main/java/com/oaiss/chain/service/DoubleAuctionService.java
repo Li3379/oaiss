@@ -72,6 +72,7 @@ public class DoubleAuctionService {
     /**
      * 提交买入挂单
      */
+    @DistributedLock(key = "'auction:order:' + #currentUser.userId", expireTime = 10)
     @Transactional
     public AuctionOrderResponse placeBuyOrder(JwtUserDetails currentUser, AuctionOrderRequest request) {
         Enterprise enterprise = enterpriseRepository.findByUserId(currentUser.getUserId())
@@ -102,6 +103,7 @@ public class DoubleAuctionService {
     /**
      * 提交卖出挂单
      */
+    @DistributedLock(key = "'auction:order:' + #currentUser.userId", expireTime = 10)
     @Transactional
     public AuctionOrderResponse placeSellOrder(JwtUserDetails currentUser, AuctionOrderRequest request) {
         Enterprise enterprise = enterpriseRepository.findByUserId(currentUser.getUserId())
