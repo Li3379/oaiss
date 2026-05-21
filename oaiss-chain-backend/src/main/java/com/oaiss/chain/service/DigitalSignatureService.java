@@ -141,6 +141,13 @@ public class DigitalSignatureService {
         RsaKeyPair keyPair = rsaKeyPairRepository.findLatestByUserId(userId)
                 .orElseThrow(() -> BlockchainException.rsaKeyPairNotFound(userId));
 
+        // 先标记过期密钥（事务写入），再校验状态
+        markExpiredKeys(userId);
+
+        // 重新获取更新后的密钥对
+        keyPair = rsaKeyPairRepository.findLatestByUserId(userId)
+                .orElseThrow(() -> BlockchainException.rsaKeyPairNotFound(userId));
+
         // 检查密钥状态
         validateKeyStatus(keyPair);
 
@@ -163,6 +170,11 @@ public class DigitalSignatureService {
 
         // 获取用户密钥对
         RsaKeyPair keyPair = rsaKeyPairRepository.findLatestByUserId(userId)
+                .orElseThrow(() -> BlockchainException.rsaKeyPairNotFound(userId));
+
+        // 先标记过期密钥（事务写入），再校验状态
+        markExpiredKeys(userId);
+        keyPair = rsaKeyPairRepository.findLatestByUserId(userId)
                 .orElseThrow(() -> BlockchainException.rsaKeyPairNotFound(userId));
 
         // 验证密钥状态
@@ -252,6 +264,11 @@ public class DigitalSignatureService {
         RsaKeyPair keyPair = rsaKeyPairRepository.findLatestByUserId(reviewerId)
                 .orElseThrow(() -> BlockchainException.rsaKeyPairNotFound(reviewerId));
 
+        // 先标记过期密钥（事务写入），再校验状态
+        markExpiredKeys(reviewerId);
+        keyPair = rsaKeyPairRepository.findLatestByUserId(reviewerId)
+                .orElseThrow(() -> BlockchainException.rsaKeyPairNotFound(reviewerId));
+
         // 验证密钥状态
         validateKeyStatus(keyPair);
 
@@ -287,6 +304,11 @@ public class DigitalSignatureService {
 
         // 获取审核员密钥对
         RsaKeyPair keyPair = rsaKeyPairRepository.findLatestByUserId(reviewerId)
+                .orElseThrow(() -> BlockchainException.rsaKeyPairNotFound(reviewerId));
+
+        // 先标记过期密钥（事务写入），再校验状态
+        markExpiredKeys(reviewerId);
+        keyPair = rsaKeyPairRepository.findLatestByUserId(reviewerId)
                 .orElseThrow(() -> BlockchainException.rsaKeyPairNotFound(reviewerId));
 
         // 验证密钥状态
@@ -326,6 +348,11 @@ public class DigitalSignatureService {
         RsaKeyPair keyPair = rsaKeyPairRepository.findLatestByUserId(enterpriseUserId)
                 .orElseThrow(() -> BlockchainException.rsaKeyPairNotFound(enterpriseUserId));
 
+        // 先标记过期密钥（事务写入），再校验状态
+        markExpiredKeys(enterpriseUserId);
+        keyPair = rsaKeyPairRepository.findLatestByUserId(enterpriseUserId)
+                .orElseThrow(() -> BlockchainException.rsaKeyPairNotFound(enterpriseUserId));
+
         // 验证密钥状态
         validateKeyStatus(keyPair);
 
@@ -348,9 +375,26 @@ public class DigitalSignatureService {
     // ==================== 私有方法 ====================
 
     /**
-     * 验证密钥状态
-     * Validate key status
-     * 
+     * 标记过期密钥（写入数据库，需要事务）
+     * Mark expired keys for a user (DB write, requires transaction)
+     *
+     * @param userId 用户ID
+     */
+    @Transactional
+    public void markExpiredKeys(Long userId) {
+        rsaKeyPairRepository.findLatestByUserId(userId).ifPresent(kp -> {
+            if (kp.getExpiresAt() != null && kp.getExpiresAt().isBefore(LocalDateTime.now())
+                    && kp.getKeyStatus() != KEY_STATUS_EXPIRED) {
+                kp.setKeyStatus(KEY_STATUS_EXPIRED);
+                rsaKeyPairRepository.save(kp);
+            }
+        });
+    }
+
+    /**
+     * 验证密钥状态（纯检查，不写入数据库）
+     * Validate key status (read-only check)
+     *
      * @param keyPair 密钥对
      * @throws BlockchainException 如果密钥无效
      */
@@ -362,9 +406,6 @@ public class DigitalSignatureService {
 
         // 检查密钥是否已过期
         if (keyPair.getExpiresAt() != null && keyPair.getExpiresAt().isBefore(LocalDateTime.now())) {
-            // 自动更新状态为已过期
-            keyPair.setKeyStatus(KEY_STATUS_EXPIRED);
-            rsaKeyPairRepository.save(keyPair);
             throw BlockchainException.rsaKeyExpired(keyPair.getUserId());
         }
 
