@@ -25,6 +25,6 @@ public class FabricProperties {
         private boolean enabled = false;
         private String endpoint = "http://ca.org1.example.com:7054";
         private String adminName = "admin";
-        private String adminPassword = "adminpw";
+        private String adminPassword;
     }
 }
