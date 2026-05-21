@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.NoHandlerFoundException;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -226,6 +227,20 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(HttpStatus.FORBIDDEN)
                 .body(ApiResponse.error(ErrorCode.PERMISSION_DENIED, ErrorMessage.PERMISSION_DENIED));
+    }
+
+    // ==================== 并发冲突异常处理 ====================
+
+    /**
+     * 处理乐观锁冲突异常（@Version并发更新）
+     */
+    @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
+    public ResponseEntity<ApiResponse<Void>> handleOptimisticLockException(
+            ObjectOptimisticLockingFailureException ex, HttpServletRequest request) {
+        log.warn("Concurrent modification conflict: {} - {}", request.getRequestURI(), ex.getMessage());
+        return ResponseEntity
+                .status(HttpStatus.CONFLICT)
+                .body(ApiResponse.error(ErrorCode.OPERATION_IN_PROGRESS, "数据已被其他操作修改，请刷新后重试"));
     }
 
     // ==================== 未知异常处理 ====================
