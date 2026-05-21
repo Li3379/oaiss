@@ -8,7 +8,6 @@ import org.springframework.cache.CacheManager;
 import org.springframework.context.event.EventListener;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import org.springframework.data.redis.core.RedisCallback;
 import org.springframework.data.redis.core.ScanOptions;
@@ -36,34 +35,42 @@ public class CachePreloadService {
     private final RedisTemplate<String, Object> redisTemplate;
     
     /**
-     * 应用启动完成后执行缓存预热
-     * Execute cache preload after application is ready
+     * 执行缓存预热（实际逻辑，可同步或异步调用）
+     * Execute cache preload (core logic, callable sync or async)
+     */
+    private void doPreloadCaches() {
+        log.info("=== 开始缓存预热 (Starting Cache Preload) ===");
+        long startTime = System.currentTimeMillis();
+
+        try {
+            // 1. 预热用户类型缓存
+            preloadUserTypeCache();
+
+            // 2. 预热系统配置缓存
+            preloadSystemConfigCache();
+
+            // 3. 预热权限列表缓存
+            preloadPermissionCache();
+
+            // 4. 预热碳核算因子缓存
+            preloadEmissionFactorCache();
+
+            long duration = System.currentTimeMillis() - startTime;
+            log.info("=== 缓存预热完成 (Cache Preload Completed) - 耗时: {}ms ===", duration);
+
+        } catch (Exception e) {
+            log.error("缓存预热失败 (Cache Preload Failed): {}", e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 应用启动完成后执行缓存预热（异步）
+     * Execute cache preload after application is ready (async)
      */
     @Async("cachePreloadExecutor")
     @EventListener(ApplicationReadyEvent.class)
     public void preloadCacheOnStartup() {
-        log.info("=== 开始缓存预热 (Starting Cache Preload) ===");
-        long startTime = System.currentTimeMillis();
-        
-        try {
-            // 1. 预热用户类型缓存
-            preloadUserTypeCache();
-            
-            // 2. 预热系统配置缓存
-            preloadSystemConfigCache();
-            
-            // 3. 预热权限列表缓存
-            preloadPermissionCache();
-            
-            // 4. 预热碳核算因子缓存
-            preloadEmissionFactorCache();
-            
-            long duration = System.currentTimeMillis() - startTime;
-            log.info("=== 缓存预热完成 (Cache Preload Completed) - 耗时: {}ms ===", duration);
-            
-        } catch (Exception e) {
-            log.error("缓存预热失败 (Cache Preload Failed): {}", e.getMessage(), e);
-        }
+        doPreloadCaches();
     }
     
     /**
@@ -176,15 +183,14 @@ public class CachePreloadService {
             }
         }
         
-        // 重新预热
-        preloadCacheOnStartup();
+        // 重新预热（直接调用核心逻辑，不经过@Async代理）
+        doPreloadCaches();
     }
     
     /**
      * 获取缓存统计信息
      * Get cache statistics
      */
-    @Transactional(readOnly = true)
     public CacheStatistics getCacheStatistics() {
         Collection<String> cacheNames = cacheManager.getCacheNames();
         int totalCaches = cacheNames.size();
