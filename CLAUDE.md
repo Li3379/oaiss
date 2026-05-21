@@ -128,7 +128,7 @@ oaiss-chain-frontend/src/
 - Base path: `/api/v1`
 - Response envelope: `ApiResponse<T>` with `{ code, message, data, meta }`
 - Pagination: frontend sends `pageNum`/`pageSize` → converted to `page`/`size`; backend returns Spring Data `Page` → frontend transforms to `{ items, total, page, size, totalPages }`
-- Auth: JWT Bearer token + CSRF cookie; roles: ENTERPRISE, REVIEWER, THIRD_PARTY, ADMIN
+- Auth: JWT Bearer token (sessionStorage); roles: ENTERPRISE, REVIEWER, THIRD_PARTY, ADMIN
 - Role-based routing: `@PreAuthorize` on controllers, Vue Router `meta.roles` on frontend
 
 ### Roles
