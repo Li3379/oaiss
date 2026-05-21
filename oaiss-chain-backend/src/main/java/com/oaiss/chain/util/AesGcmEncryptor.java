@@ -6,6 +6,7 @@ import org.springframework.stereotype.Component;
 import javax.crypto.Cipher;
 import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
+import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.util.Base64;
 
@@ -35,6 +36,10 @@ public class AesGcmEncryptor {
                             + "Generate with: openssl rand -base64 32");
         }
         byte[] keyBytes = Base64.getDecoder().decode(kekBase64);
+        if (keyBytes.length != 32) {
+            throw new IllegalStateException(
+                    "RSA_KEK must decode to exactly 32 bytes (256 bits) for AES-256, got " + keyBytes.length);
+        }
         this.keySpec = new SecretKeySpec(keyBytes, "AES");
     }
 
@@ -49,7 +54,7 @@ public class AesGcmEncryptor {
             Cipher cipher = Cipher.getInstance(ALGORITHM);
             cipher.init(Cipher.ENCRYPT_MODE, keySpec, new GCMParameterSpec(GCM_TAG_LENGTH, iv));
 
-            byte[] ciphertext = cipher.doFinal(plaintext.getBytes());
+            byte[] ciphertext = cipher.doFinal(plaintext.getBytes(StandardCharsets.UTF_8));
             byte[] combined = new byte[iv.length + ciphertext.length];
             System.arraycopy(iv, 0, combined, 0, iv.length);
             System.arraycopy(ciphertext, 0, combined, iv.length, ciphertext.length);
@@ -75,7 +80,7 @@ public class AesGcmEncryptor {
             Cipher cipher = Cipher.getInstance(ALGORITHM);
             cipher.init(Cipher.DECRYPT_MODE, keySpec, new GCMParameterSpec(GCM_TAG_LENGTH, iv));
 
-            return new String(cipher.doFinal(ciphertext));
+            return new String(cipher.doFinal(ciphertext), StandardCharsets.UTF_8);
         } catch (Exception e) {
             throw new RuntimeException("Failed to decrypt data", e);
         }
