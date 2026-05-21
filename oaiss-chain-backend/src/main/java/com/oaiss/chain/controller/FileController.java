@@ -111,6 +111,7 @@ public class FileController {
         return ApiResponse.success(results, "批量上传成功，共 " + results.size() + " 个文件");
     }
 
+    @PreAuthorize("hasAnyRole('ENTERPRISE', 'ADMIN')")
     @GetMapping("/download")
     @Operation(
         summary = "下载文件", 
