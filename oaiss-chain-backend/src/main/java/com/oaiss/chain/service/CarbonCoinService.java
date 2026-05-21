@@ -5,6 +5,7 @@ import com.oaiss.chain.dto.CarbonCoinRechargeRequest;
 import com.oaiss.chain.dto.CarbonCoinTransferRequest;
 import com.oaiss.chain.entity.CarbonCoinAccount;
 import com.oaiss.chain.entity.CarbonCoinTransaction;
+import com.oaiss.chain.annotation.DistributedLock;
 import com.oaiss.chain.exception.BusinessException;
 import com.oaiss.chain.repository.CarbonCoinAccountRepository;
 import com.oaiss.chain.repository.CarbonCoinTransactionRepository;
@@ -68,6 +69,7 @@ public class CarbonCoinService {
     /**
      * 充值碳币
      */
+    @DistributedLock(key = "'carbon:coin:' + #userId", expireTime = 30)
     @Transactional
     public CarbonCoinAccountResponse recharge(Long userId, CarbonCoinRechargeRequest request) {
         CarbonCoinAccount account = getAccountEntity(userId);
@@ -90,6 +92,7 @@ public class CarbonCoinService {
     /**
      * 购买碳配额（消费碳币）
      */
+    @DistributedLock(key = "'carbon:coin:' + #userId", expireTime = 30)
     @Transactional
     public CarbonCoinAccountResponse buyQuota(Long userId, BigDecimal amount, BigDecimal quota, Long tradeId) {
         CarbonCoinAccount account = getAccountEntity(userId);
@@ -113,6 +116,7 @@ public class CarbonCoinService {
     /**
      * 出售碳配额（获得碳币）
      */
+    @DistributedLock(key = "'carbon:coin:' + #userId", expireTime = 30)
     @Transactional
     public CarbonCoinAccountResponse sellQuota(Long userId, BigDecimal amount, BigDecimal quota, Long tradeId) {
         CarbonCoinAccount account = getAccountEntity(userId);
@@ -134,6 +138,7 @@ public class CarbonCoinService {
     /**
      * 碳币转账
      */
+    @DistributedLock(key = "'carbon:coin:' + #userId", expireTime = 30)
     @Transactional
     public CarbonCoinAccountResponse transfer(Long userId, CarbonCoinTransferRequest request) {
         if (userId.equals(request.getCounterpartId())) {
