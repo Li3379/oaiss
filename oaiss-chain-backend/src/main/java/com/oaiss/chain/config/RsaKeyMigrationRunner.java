@@ -30,7 +30,6 @@ public class RsaKeyMigrationRunner {
     private final AesGcmEncryptor aesGcmEncryptor;
 
     @EventListener(ApplicationReadyEvent.class)
-    @Transactional
     public void migratePlaintextKeys() {
         List<RsaKeyPair> unencryptedKeys = rsaKeyPairRepository.findByEncryptedAndDeletedFalse(0);
 
@@ -41,17 +40,32 @@ public class RsaKeyMigrationRunner {
 
         log.info("Found {} unencrypted RSA private key(s) -- starting migration", unencryptedKeys.size());
 
+        int success = 0;
         for (RsaKeyPair keyPair : unencryptedKeys) {
-            String plaintextKey = keyPair.getPrivateKey();
-            String encryptedKey = aesGcmEncryptor.encrypt(plaintextKey);
-
-            keyPair.setPrivateKey(encryptedKey);
-            keyPair.setEncrypted(1);
-            rsaKeyPairRepository.save(keyPair);
-
-            log.info("Migrated RSA private key for user {}, key pair id {}", keyPair.getUserId(), keyPair.getId());
+            try {
+                migrateSingleKey(keyPair);
+                success++;
+            } catch (Exception e) {
+                log.error("Failed to migrate key id={}, userId={}: {}",
+                        keyPair.getId(), keyPair.getUserId(), e.getMessage());
+                // Continue with next key instead of aborting entire batch
+            }
         }
 
-        log.info("RSA private key migration complete -- {} key(s) encrypted", unencryptedKeys.size());
+        log.info("RSA private key migration complete -- {}/{} key(s) encrypted", success, unencryptedKeys.size());
+    }
+
+    @Transactional
+    public void migrateSingleKey(RsaKeyPair keyPair) {
+        String plaintextKey = keyPair.getPrivateKey();
+        if (plaintextKey == null || plaintextKey.isBlank()) {
+            log.warn("Skipping RSA key pair id={} with null/blank private key", keyPair.getId());
+            return;
+        }
+
+        String encryptedKey = aesGcmEncryptor.encrypt(plaintextKey);
+        keyPair.setPrivateKey(encryptedKey);
+        keyPair.setEncrypted(1);
+        rsaKeyPairRepository.save(keyPair);
     }
 }
