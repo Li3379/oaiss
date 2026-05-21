@@ -9,6 +9,7 @@ import com.oaiss.chain.enums.TradeStatusEnum;
 import com.oaiss.chain.enums.TradeTypeEnum;
 import com.oaiss.chain.constant.ErrorCode;
 import com.oaiss.chain.exception.BusinessException;
+import com.oaiss.chain.annotation.DistributedLock;
 import com.oaiss.chain.exception.TradeException;
 import com.oaiss.chain.repository.EnterpriseRepository;
 import com.oaiss.chain.repository.TransactionRepository;
@@ -50,6 +51,7 @@ public class TradeService {
     /**
      * 创建交易（P2P）
      */
+    @DistributedLock(key = "'trade:seller:' + #currentUser.userId", expireTime = 30)
     @Transactional
     public TradeResponse createP2PTrade(JwtUserDetails currentUser, TradeRequest request) {
         if (!TradeTypeEnum.P2P.getCode().equals(request.getTradeType())) {
