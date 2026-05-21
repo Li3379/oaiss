@@ -44,7 +44,7 @@
     <logger name="org.springframework.data.redis" level="ERROR"/>
 
     <!-- ==================== Development Profile ==================== -->
-    <springProfile name="default,dev">
+    <springProfile name="default,dev,local">
         <logger name="com.oaiss.chain" level="DEBUG" additivity="false">
             <appender-ref ref="CONSOLE"/>
             <appender-ref ref="ERROR_FILE"/>

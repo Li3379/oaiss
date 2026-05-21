@@ -1,5 +1,5 @@
 <!-- Parent: ../AGENTS.md -->
-<!-- Generated: 2026-05-11 | Updated: 2026-05-11 -->
+<!-- Generated: 2026-05-11 | Updated: 2026-05-19 -->
 
 # OAISS Chain Backend
 
@@ -41,15 +41,15 @@ src/main/java/com/oaiss/chain/
 ├── aop/            # AOP 切面 (审计日志、限流、分布式锁)
 ├── config/         # 配置类 (Security, Redis, MinIO, Swagger, Cache)
 ├── constant/       # 常量定义
-├── controller/     # REST 控制器 (16 个)
-├── dto/            # 数据传输对象 (34 个)
-├── entity/         # JPA 实体 (22 个)
-├── enums/          # 枚举类型
-├── exception/      # 异常处理 (全局异常处理器)
-├── repository/     # Spring Data 仓库 (21 个)
-├── security/       # 安全组件 (JWT 过滤器、TokenProvider)
-├── service/        # 业务服务 (19 个)
-└── util/           # 工具类
+├── controller/     # REST 控制器 (20 个)
+├── dto/            # 数据传输对象 (44 个)
+├── entity/         # JPA 实体 (23 个，含 BaseEntity)
+├── enums/          # 枚举类型 (9 个)
+├── exception/      # 异常处理 (7 个，含全局异常处理器)
+├── repository/     # Spring Data 仓库 (22 个)
+├── security/       # 安全组件 (6 个: JWT 过滤器、TokenProvider、Handler 等)
+├── service/        # 业务服务 (31 个: 28 主包 + 3 ml/ 子包)
+└── util/           # 工具类 (4 个)
 ```
 
 ---
@@ -67,9 +67,19 @@ src/main/java/com/oaiss/chain/
 | 碳币账户 | `controller/CarbonCoinController.java` + `service/CarbonCoinService.java` |
 | 信用评分 | `controller/CreditScoreController.java` + `service/CreditScoreService.java` |
 | 数字签名 | `controller/DigitalSignatureController.java` + `service/DigitalSignatureService.java` |
-| 区块链 | `controller/BlockchainController.java` + `service/BlockchainService.java` |
+| 区块链 | `controller/BlockchainController.java` + `service/FabricBlockchainService.java` |
 | 文件上传 | `controller/FileController.java` + `service/MinioService.java` |
 | 用户管理 | `controller/UserController.java` + `service/UserService.java` |
+| 排放评级 | `controller/EmissionController.java` + `service/EmissionRatingService.java` |
+| 碳中和项目 | `controller/CarbonNeutralProjectController.java` + `service/CarbonNeutralProjectService.java` |
+| 企业管理 | `controller/EnterpriseController.java` + `service/EnterpriseService.java` |
+| 审核员管理 | `controller/ReviewerController.java` + `service/ReviewerService.java` |
+| 第三方监管 | `controller/ThirdPartyController.java` + `service/ThirdPartyService.java` |
+| 管理后台 | `controller/AdminController.java` + `service/UserService.java` |
+| 搜索 | `controller/SearchController.java` + `service/SearchService.java` |
+| 验证码 | `controller/CaptchaController.java` + `service/CaptchaService.java` |
+| ML 推理 | `controller/EnterpriseInferenceController.java` + `service/ml/EnterpriseInferenceService.java` |
+| ML 预测 | `controller/MarketPredictionController.java` + `service/ml/MarketPredictionService.java` |
 
 ### Key Entities
 
@@ -80,9 +90,23 @@ src/main/java/com/oaiss/chain/
 | `CarbonReport` | carbon_report | 碳核算报告 |
 | `Transaction` | trade_transaction | 交易流水 |
 | `AuctionOrder` | auction_order | 拍卖订单 |
+| `MatchingResult` | matching_result | 撮合结果 |
 | `CarbonCoinAccount` | carbon_coin_account | 碳币账户 |
+| `CarbonCoinTransaction` | carbon_coin_transaction | 碳币交易流水 |
 | `CreditScore` | credit_score | 信用评分 |
+| `CreditEvent` | credit_event | 信用事件 |
+| `EmissionRating` | emission_rating | 排放评级 |
+| `CarbonNeutralProject` | carbon_neutral_project | 碳中和项目 |
 | `RsaKeyPair` | rsa_key_pair | RSA 密钥对 |
+| `Reviewer` | reviewer | 审核员 |
+| `ReviewerQualification` | reviewer_qualification | 审核员资质 |
+| `Authenticator` | authenticator | 认证器 |
+| `ThirdPartyOrg` | third_party_org | 第三方组织 |
+| `EnterpriseAdmission` | enterprise_admission | 企业准入 |
+| `OperationLog` | operation_log | 操作日志 |
+| `UserTypeList` | user_type_list | 用户类型列表 |
+| `AccountPermissionList` | account_permission_list | 账户权限列表 |
+| `EntryPermission` | entry_permission | 入场权限 |
 
 ### API Endpoints
 
@@ -95,8 +119,17 @@ src/main/java/com/oaiss/chain/
 /api/v1/coin/accounts           # 碳币账户
 /api/v1/credit/scores           # 信用评分
 /api/v1/blockchain/tx           # 区块链交易
-/api/v1/files/upload           # 文件上传
-/api/v1/admin/users            # 用户管理 (管理员)
+/api/v1/files/upload            # 文件上传
+/api/v1/admin/users             # 用户管理 (管理员)
+/api/v1/emission/ratings        # 排放评级
+/api/v1/carbon-neutral/projects # 碳中和项目
+/api/v1/enterprise/profile      # 企业信息
+/api/v1/reviewer/reports        # 审核员审核
+/api/v1/third-party/monitor     # 第三方监管
+/api/v1/inference/enterprise    # ML 企业推理
+/api/v1/prediction/market       # ML 市场预测
+/api/v1/search                  # 全文搜索
+/api/v1/captcha                 # 验证码
 ```
 
 ### Testing
@@ -108,7 +141,8 @@ mvn test -Dtest=AuthServiceTest  # 单个测试类
 ```
 
 - **Base**: `BaseIntegrationTest.java` 提供 Testcontainers
-- **Coverage**: JaCoCo 90% 目标，当前 25%
+- **Coverage**: JaCoCo 90% 目标，当前 ~25%
+- **Test files**: 83 个 (18 controller, 24 service, 8 repository, 4 security, 6 aop, 4 config, 6 exception, 4 dto, 1 entity, 2 util, 1 integration, 2 root)
 - **Pattern**: `methodName_WhenCondition_ShouldExpectedBehavior()`
 
 ### Patterns

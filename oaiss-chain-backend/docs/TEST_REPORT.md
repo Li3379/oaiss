@@ -1,6 +1,7 @@
 # OAISS Chain Backend - Test Report
 
 **Generated:** 2026-04-26
+**Updated:** 2026-05-19
 **Project:** 双碳链动系统 (OAISS Chain Backend)
 **Tech Stack:** Java 17, Spring Boot 3.2.5, MySQL 8.0, Redis 7
 
@@ -10,13 +11,14 @@
 
 | Metric | Value | Target | Status |
 |--------|-------|--------|--------|
+| Test Files | 83 | - | ✅ |
 | Total Tests | 279 | - | ✅ |
 | Passed | 279 | - | ✅ |
 | Failed | 0 | 0 | ✅ |
 | Errors | 0 | 0 | ✅ |
 | Skipped | 4 | - | ⚠️ |
 | Pass Rate | 100% | 100% | ✅ |
-| Line Coverage | 25% | 90% | ❌ |
+| Line Coverage | ~25% | 90% | ❌ |
 
 ---
 
@@ -82,8 +84,8 @@
 ### Missing Coverage Areas
 
 1. **Controller Layer** (Critical)
-   - 16 Controllers without tests
-   - Estimated impact: +40% coverage if tested
+   - 18+ Controller test files exist but coverage remains low (~5%)
+   - Estimated impact: +40% coverage if test depth improved
 
 2. **Security Configuration**
    - JWT authentication flow
@@ -228,7 +230,10 @@ mvn jacoco:check
 
 ```
 src/test/java/com/oaiss/chain/
-├── repository/
+├── controller/          # 18 controller tests
+├── service/             # 21 service tests
+├── service/ml/          # 3 ML service tests
+├── repository/          # 8 repository tests
 │   ├── UserRepositoryTest.java
 │   ├── EnterpriseRepositoryTest.java
 │   ├── CarbonReportRepositoryTest.java
@@ -237,15 +242,18 @@ src/test/java/com/oaiss/chain/
 │   ├── CarbonCoinAccountRepositoryTest.java
 │   ├── AuctionOrderRepositoryTest.java
 │   └── MatchingResultRepositoryTest.java
-├── service/
-│   ├── AuthServiceTest.java
-│   ├── UserServiceTest.java
-│   ├── CarbonServiceTest.java
-│   ├── TradeServiceTest.java
-│   └── ... (other service tests)
-├── integration/
-│   └── UserIntegrationTest.java
-└── OaissChainApplicationTests.java
+├── security/            # 4 security tests
+├── aop/                 # 6 AOP tests
+├── config/              # 4 config tests
+├── exception/           # 6 exception tests
+├── dto/                 # 4 DTO tests
+├── entity/              # 1 entity test
+├── util/                # 2 util tests
+├── integration/         # 1 integration test
+├── OaissChainApplicationTests.java
+└── BaseIntegrationTest.java
+
+Total: 83 test files
 ```
 
 ---

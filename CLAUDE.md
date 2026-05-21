@@ -96,22 +96,22 @@ docker-compose up
 
 ```
 oaiss-chain-backend/src/main/java/com/oaiss/chain/
-├── controller/    # REST endpoints (18 controllers)
-├── service/       # Business logic (21 services)
-├── repository/    # Spring Data JPA repositories (21)
-├── entity/        # JPA entities (21 entities)
-├── dto/           # Request/response DTOs (30+)
-├── config/        # Spring config (Security, Redis, MinIO, etc.)
-├── annotation/    # Custom annotations (@AuditLog, @RateLimit, etc.)
-├── aop/           # AOP aspects
-├── security/      # JWT filter, entry point
-├── enums/         # Enumerations
-├── constant/      # ErrorCode, ErrorMessage
-├── exception/     # Custom exceptions
-└── util/          # Utilities
+├── controller/    # REST endpoints (20 controllers)
+├── service/       # Business logic (31 services: 28 + 3 ml/)
+├── repository/    # Spring Data JPA repositories (22)
+├── entity/        # JPA entities (23 entities incl. BaseEntity)
+├── dto/           # Request/response DTOs (45)
+├── config/        # Spring config (16: Security, Redis, MinIO, Fabric, ML, etc.)
+├── annotation/    # Custom annotations (5: @AuditLog, @RateLimit, etc.)
+├── aop/           # AOP aspects (5)
+├── security/      # JWT filter, entry point (6 classes)
+├── enums/         # Enumerations (9)
+├── constant/      # ErrorCode, ErrorMessage (2)
+├── exception/     # Custom exceptions (7)
+└── util/          # Utilities (4)
 
 oaiss-chain-frontend/src/
-├── api/           # Axios API clients (17 modules)
+├── api/           # Axios API clients (22 modules)
 ├── types/         # TypeScript type definitions
 ├── views/         # Page components (enterprise/, admin/, auditor/, third-party/)
 ├── store/         # Pinia stores

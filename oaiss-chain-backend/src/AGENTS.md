@@ -1,5 +1,5 @@
 <!-- Parent: ../AGENTS.md -->
-<!-- Generated: 2026-05-11 | Updated: 2026-05-11 -->
+<!-- Generated: 2026-05-11 | Updated: 2026-05-19 -->
 
 # src — Source Root
 
