@@ -80,8 +80,8 @@ Success Criteria:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 17-01-PLAN.md — E2E Gap Tests: 碳核算公式测试 + 排放预测测试 + CORE_ENDPOINTS 更新 (GAP-01, GAP-02)
-- [ ] 17-02-PLAN.md — i18n Cleanup: 提取 4 文件 7 处硬编码中文到 vue-i18n keys (I18N-01)
+- [x] 17-01-PLAN.md — E2E Gap Tests: 碳核算公式测试 + 排放预测测试 + CORE_ENDPOINTS 更新 (GAP-01, GAP-02)
+- [x] 17-02-PLAN.md — i18n Cleanup: 提取 4 文件 7 处硬编码中文到 vue-i18n keys (I18N-01)
 
 Success Criteria:
 1. blockchain-formula-flow.spec.ts 覆盖 /carbon/calculate/power-generation 和 /carbon/calculate/power-grid
