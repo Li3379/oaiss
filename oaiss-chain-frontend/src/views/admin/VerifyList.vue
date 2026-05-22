@@ -120,12 +120,12 @@ const currentReport = ref(null)
 
 // Status codes: 0=草稿, 1=待审核, 2=审核通过, 3=已驳回, 4=认证驳回, 5=已上链
 const getStatusLabel = (status) => {
-  const map = { 0: t('verifyList.statusDraft'), 1: t('verifyList.statusPending'), 2: t('verifyList.statusApproved'), 3: t('verifyList.statusRejected'), 5: t('verifyList.statusOnChain') }
+  const map = { 0: t('verifyList.statusDraft'), 1: t('verifyList.statusPending'), 2: t('verifyList.statusApproved'), 3: t('verifyList.statusRejected'), 4: t('verifyList.statusCertRejected'), 5: t('verifyList.statusOnChain') }
   return map[status] || status
 }
 
 const getStatusType = (status) => {
-  const map = { 0: 'info', 1: 'warning', 2: 'success', 3: 'danger', 5: 'primary' }
+  const map = { 0: 'info', 1: 'warning', 2: 'success', 3: 'danger', 4: 'danger', 5: 'primary' }
   return map[status] || 'info'
 }
 

@@ -369,6 +369,7 @@ export default {
     statusPending: 'Pending',
     statusApproved: 'Approved',
     statusRejected: 'Rejected',
+    statusCertRejected: 'Certification Rejected',
     statusOnChain: 'On Chain',
     colIndex: '#',
     colReportNo: 'Report No.',

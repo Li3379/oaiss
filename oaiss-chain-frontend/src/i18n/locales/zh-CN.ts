@@ -369,6 +369,7 @@ export default {
     statusPending: '待审核',
     statusApproved: '已通过',
     statusRejected: '已驳回',
+    statusCertRejected: '认证驳回',
     statusOnChain: '已上链',
     colIndex: '序号',
     colReportNo: '报告编号',
