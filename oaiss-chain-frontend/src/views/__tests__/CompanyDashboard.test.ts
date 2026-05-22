@@ -2,6 +2,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 
+vi.mock('vue-i18n', () => ({
+  useI18n: () => ({ t: (key: string) => key }),
+}))
+
 vi.mock('../../api/carbon', () => ({
   getMyReports: vi.fn(() => Promise.resolve({ items: [], total: 0 })),
 }))
@@ -12,6 +16,25 @@ vi.mock('../../api/trade', () => ({
 
 vi.mock('../../api/credit', () => ({
   getMyScore: vi.fn(() => Promise.resolve({ data: { score: 0 } })),
+}))
+
+vi.mock('../../api/enterprise', () => ({
+  getMyEnterpriseAdmission: vi.fn(() => Promise.resolve([])),
+}))
+
+vi.mock('../../utils/echarts', () => ({
+  default: {
+    init: vi.fn(() => ({
+      setOption: vi.fn(),
+      resize: vi.fn(),
+      dispose: vi.fn(),
+    })),
+    graphic: {
+      LinearGradient: vi.fn(function LinearGradient() {
+        return {}
+      }),
+    },
+  },
 }))
 
 vi.mock('element-plus', async (importOriginal) => {
@@ -27,7 +50,7 @@ import CompanyDashboard from '../enterprise/CompanyDashboard.vue'
 import { getMyReports } from '../../api/carbon'
 import { getMyTrades } from '../../api/trade'
 import { getMyScore } from '../../api/credit'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage } from 'element-plus'
 
 const stubs = {
   'el-card': { template: '<div class="el-card"><slot /></div>' },
@@ -60,6 +83,7 @@ const stubs = {
     props: ['prop', 'label', 'minWidth', 'width', 'fixed', 'showOverflowTooltip'],
   },
   'el-tag': { template: '<span class="el-tag"><slot /></span>', props: ['type'] },
+  'el-space': { template: '<div class="el-space"><slot /></div>' },
   'el-pagination': {
     template: '<div class="el-pagination"></div>',
     props: ['currentPage', 'pageSize', 'background', 'pageSizes', 'layout', 'total'],
@@ -79,6 +103,16 @@ const stubs = {
     template: '<option :value="value"><slot /></option>',
     props: ['label', 'value'],
   },
+  'el-radio-group': {
+    template: '<div class="el-radio-group"><slot /></div>',
+    props: ['modelValue'],
+    emits: ['update:modelValue'],
+  },
+  'el-radio-button': {
+    template: '<button class="el-radio-button"><slot /></button>',
+    props: ['label'],
+  },
+  'el-skeleton': { template: '<div class="el-skeleton"></div>', props: ['rows', 'animated'] },
 }
 
 function mountComponent() {
@@ -96,13 +130,13 @@ describe('CompanyDashboard.vue', () => {
     setActivePinia(createPinia())
   })
 
-  it('组件正确渲染', () => {
+  it('renders the dashboard shell', () => {
     const wrapper = mountComponent()
     expect(wrapper.exists()).toBe(true)
     wrapper.unmount()
   })
 
-  it('页面加载时调用API', async () => {
+  it('calls dashboard APIs on mount', async () => {
     const wrapper = mountComponent()
     await flushPromises()
     expect(getMyReports).toHaveBeenCalled()
@@ -111,7 +145,7 @@ describe('CompanyDashboard.vue', () => {
     wrapper.unmount()
   })
 
-  it('API调用失败显示错误消息', async () => {
+  it('shows an error message when report loading fails', async () => {
     getMyReports.mockRejectedValueOnce(new Error('network error'))
     const wrapper = mountComponent()
     await flushPromises()
@@ -119,11 +153,37 @@ describe('CompanyDashboard.vue', () => {
     wrapper.unmount()
   })
 
-  it('组件渲染数据', async () => {
-    getMyReports.mockResolvedValueOnce({ items: [{ id: 1, name: '报告1' }], total: 1 })
+  it('shows chart containers after loading finishes', async () => {
+    getMyReports.mockResolvedValueOnce({
+      items: [{
+        assetNo: 'AST-1001',
+        category: 'Power',
+        region: 'CN',
+        scope1Emission: 10,
+        scope2Emission: 20,
+        scope3Emission: 5,
+        totalEmission: 35,
+      }],
+      total: 1,
+    })
+    getMyTrades.mockResolvedValueOnce({
+      items: [{
+        quantity: 8,
+        totalAmount: 100,
+        createdAt: '2026-05-22T00:00:00Z',
+      }],
+      total: 1,
+    })
+    getMyScore.mockResolvedValueOnce({
+      carbonCoins: 12,
+      carbonQuota: 50,
+      score: 88,
+    })
+
     const wrapper = mountComponent()
     await flushPromises()
-    expect(getMyReports).toHaveBeenCalled()
+
+    expect(wrapper.findAll('.chart-box')).toHaveLength(6)
     wrapper.unmount()
   })
 })
