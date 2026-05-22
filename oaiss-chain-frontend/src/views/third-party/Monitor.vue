@@ -135,7 +135,7 @@ onMounted(() => {
           <div class="stat-card rate">
             <div class="stat-icon">📈</div>
             <div class="stat-content">
-              <div class="stat-label">{{ t('monitor.statApprovalRate') || '审核通过率' }}</div>
+              <div class="stat-label">{{ t('monitor.statApprovalRate') }}</div>
               <div class="stat-value">{{ approvalRate }}</div>
             </div>
           </div>
