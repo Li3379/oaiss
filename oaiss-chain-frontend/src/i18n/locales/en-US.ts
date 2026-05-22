@@ -30,6 +30,10 @@ export default {
     enterKeyword: 'Enter keyword',
     unit_ton: 'tons',
   },
+  auth: {
+    usernameRequired: 'Username is required',
+    passwordRequired: 'Password is required',
+  },
   menu: {
     enterprise: 'Enterprise',
     reviewer: 'Reviewer',
