@@ -175,8 +175,13 @@ test.describe('Flow: Blockchain & Carbon Formula', () => {
       test.skip(!(await isFabricAvailable()), 'Fabric network not available')
     })
     test('should query latest blocks', async ({ request }) => {
+      const loginResp = await request.post(`${API_BASE}/auth/login`, {
+        data: { username: TEST_USERS.admin.username, password: TEST_USERS.admin.password },
+      })
+      const { accessToken } = (await loginResp.json()).data
       const response = await request.get(`${API_BASE}/blockchain/blocks/latest`, {
-        params: { limit: 5 }
+        params: { limit: 5 },
+        headers: { Authorization: `Bearer ${accessToken}` },
       })
 
       // May return mock data or real data depending on Fabric availability
@@ -184,8 +189,13 @@ test.describe('Flow: Blockchain & Carbon Formula', () => {
     })
 
     test('should query latest transactions', async ({ request }) => {
+      const loginResp = await request.post(`${API_BASE}/auth/login`, {
+        data: { username: TEST_USERS.admin.username, password: TEST_USERS.admin.password },
+      })
+      const { accessToken } = (await loginResp.json()).data
       const response = await request.get(`${API_BASE}/blockchain/transactions/latest`, {
-        params: { limit: 5 }
+        params: { limit: 5 },
+        headers: { Authorization: `Bearer ${accessToken}` },
       })
 
       expect([200, 503]).toContain(response.status())
