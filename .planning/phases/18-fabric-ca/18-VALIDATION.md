@@ -1,10 +1,11 @@
 ---
 phase: 18
 slug: fabric-ca
-status: draft
+status: complete
 nyquist_compliant: true
-wave_0_complete: false
+wave_0_complete: true
 created: 2026-05-22
+completed: 2026-05-22
 ---
 
 # Phase 18 — Validation Strategy
@@ -40,13 +41,13 @@ created: 2026-05-22
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| 18-01-01 | 01 | 1 | FABRIC-01 | T-18-01 | CA admin password never logged (@ToString.Exclude) | unit | `mvn test -Dtest=FabricCAServiceTest` | ❌ W0 | ⬜ pending |
-| 18-01-02 | 01 | 1 | FABRIC-01 | T-18-02 | EnrollmentResult never serialized or persisted | unit | `mvn test -Dtest=FabricCAServiceTest` | ❌ W0 | ⬜ pending |
-| 18-01-03 | 01 | 1 | FABRIC-01 | — | CA enrollment succeeds when CA available and enabled | unit | `mvn test -Dtest=FabricCAServiceTest` | ❌ W0 | ⬜ pending |
-| 18-01-04 | 01 | 1 | FABRIC-01 | — | CA enrollment falls back to static crypto on failure | unit | `mvn test -Dtest=FabricGatewayConfigTest` | ❌ W0 | ⬜ pending |
-| 18-01-05 | 01 | 1 | FABRIC-01 | — | Gateway uses CA identity when ca.enabled=true | unit | `mvn test -Dtest=FabricGatewayConfigTest` | ❌ W0 | ⬜ pending |
-| 18-01-06 | 01 | 1 | FABRIC-01 | — | @Profile("fabric") conditional assembly correct | unit | `mvn test -Dtest=FabricCAServiceTest` | ❌ W0 | ⬜ pending |
-| 18-01-07 | 01 | 2 | FABRIC-01 | — | CA enrollment status in blockchain status endpoint | e2e | `npx playwright test tests/e2e/v1.1/blockchain-formula-flow.spec.ts` | ✅ exists | ⬜ pending |
+| 18-01-01 | 01 | 1 | FABRIC-01 | T-18-01 | CA admin password never logged (@ToString.Exclude) | unit | `mvn test -Dtest=FabricCAServiceTest` | ✅ | ✅ green |
+| 18-01-02 | 01 | 1 | FABRIC-01 | T-18-02 | EnrollmentResult never serialized or persisted | unit | `mvn test -Dtest=FabricCAServiceTest` | ✅ | ✅ green |
+| 18-01-03 | 01 | 1 | FABRIC-01 | — | CA enrollment succeeds when CA available and enabled | unit | `mvn test -Dtest=FabricCAServiceTest` | ✅ | ✅ green |
+| 18-01-04 | 01 | 1 | FABRIC-01 | — | CA enrollment falls back to static crypto on failure | unit | `mvn test -Dtest=FabricGatewayConfigTest` | ✅ | ✅ green |
+| 18-01-05 | 01 | 1 | FABRIC-01 | — | Gateway uses CA identity when ca.enabled=true | unit | `mvn test -Dtest=FabricGatewayConfigTest` | ✅ | ✅ green |
+| 18-01-06 | 01 | 1 | FABRIC-01 | — | @Profile("fabric") conditional assembly correct | unit | `mvn test -Dtest=FabricCAServiceTest` | ✅ | ✅ green |
+| 18-01-07 | 01 | 2 | FABRIC-01 | — | CA enrollment status in blockchain status endpoint | e2e | `npx playwright test tests/e2e/v1.1/blockchain-formula-flow.spec.ts` | ✅ exists | ✅ green |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -54,9 +55,9 @@ created: 2026-05-22
 
 ## Wave 0 Requirements
 
-- [ ] `oaiss-chain-backend/src/test/java/com/oaiss/chain/service/FabricCAServiceTest.java` — stubs for FABRIC-01 (enrollment, fallback, profile)
-- [ ] `oaiss-chain-backend/src/test/java/com/oaiss/chain/config/FabricGatewayConfigTest.java` — stubs for conditional identity loading
-- [ ] `oaiss-chain-frontend/tests/e2e/v1.1/blockchain-formula-flow.spec.ts` — add CA enrollment describe block (file exists, needs modification)
+- [x] `oaiss-chain-backend/src/test/java/com/oaiss/chain/service/FabricCAServiceTest.java` — stubs for FABRIC-01 (enrollment, fallback, profile)
+- [x] `oaiss-chain-backend/src/test/java/com/oaiss/chain/config/FabricGatewayConfigTest.java` — stubs for conditional identity loading
+- [x] `oaiss-chain-frontend/tests/e2e/v1.1/blockchain-formula-flow.spec.ts` — add CA enrollment describe block (file exists, needs modification)
 
 ---
 
@@ -78,4 +79,4 @@ created: 2026-05-22
 - [x] Feedback latency < 30s
 - [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** ✅ verified
