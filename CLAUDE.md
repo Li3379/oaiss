@@ -75,6 +75,25 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 - **Testing**: Backend: JUnit 5 + Testcontainers + JaCoCo (90% line coverage); Frontend: Vitest (happy-dom) + Playwright E2E
 - **Infra**: Docker Compose (MySQL, Redis, MinIO, backend, frontend)
 
+### Repo Layout
+
+- `oaiss-chain-backend/` - Spring Boot API and domain logic
+- `oaiss-chain-frontend/` - Vue 3 + TypeScript web app
+- `oaiss-chain-ml-service/` - FastAPI prediction microservice on port 8001
+- `oaiss-chain-chaincode/` - Hyperledger Fabric Go chaincode
+- `docs/` - specs, onboarding, and verification docs
+- `scripts/` - localhost smoke-test shell scripts
+
+### Key Entry Points
+
+- Backend main class: `oaiss-chain-backend/src/main/java/com/oaiss/chain/OaissChainApplication.java`
+- Backend security: `oaiss-chain-backend/src/main/java/com/oaiss/chain/config/SecurityConfig.java`
+- Frontend bootstrap: `oaiss-chain-frontend/src/main.ts`
+- Frontend router: `oaiss-chain-frontend/src/router/index.ts`
+- Frontend HTTP client: `oaiss-chain-frontend/src/api/request.ts`
+- ML service app: `oaiss-chain-ml-service/app/main.py`
+- Chaincode entry: `oaiss-chain-chaincode/chaincode.go`
+
 ### Build & Run
 
 ```bash
@@ -87,6 +106,9 @@ cd oaiss-chain-frontend && npm run build     # production build
 cd oaiss-chain-backend && mvn spring-boot:run          # dev (port 8080)
 cd oaiss-chain-backend && mvn test                     # unit tests
 cd oaiss-chain-backend && mvn verify                   # integration tests
+
+# ML service
+cd oaiss-chain-ml-service && uvicorn app.main:app --host 0.0.0.0 --port 8001
 
 # Full stack
 docker-compose up
@@ -188,9 +210,24 @@ A typical API request flows through:
 2. **Backend**: `JwtAuthenticationFilter` (token validation, whitelist check, path traversal protection) → `SecurityConfig` (role-based access) → `@RestController` → `@Service` (business logic, `@AuditLog`/`@RateLimit`/`@DataIsolation`/`@DistributedLock`/`@RequirePermission`) → `Repository` (Spring Data JPA) → MySQL
 3. **Response**: `ApiResponse<T>` envelope with `{ code, message, data, meta }`; paginated data wrapped in `PageResponse<T>` with `{ list, total, pageNum, pageSize, pages }`
 
+### Blockchain And ML Notes
+
+- Fabric is feature-toggled with `fabric.enabled=false` by default; `FabricBlockchainService` is used only when the `fabric` profile is active.
+- The ML service exposes FastAPI routers for emission, enterprise inference, and market prediction; backend calls it through `MlServiceClient` with circuit breaking.
+- Chaincode lives in Go and currently exposes carbon report and trade record ledger methods.
+
 ### Environment Variables
 
 Copy `.env.example` to `.env`. Key variables: `DB_PASSWORD`, `REDIS_PASSWORD`, `JWT_SECRET`, `MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY`.
+
+### Tests And Checks
+
+- Backend unit tests: `cd oaiss-chain-backend && mvn test`
+- Backend integration tests: `cd oaiss-chain-backend && mvn verify`
+- Frontend unit tests: `cd oaiss-chain-frontend && npm run test`
+- Frontend E2E: `cd oaiss-chain-frontend && npm run test:e2e`
+- Local smoke tests: `bash scripts/<name>.sh`
+- CI: `.github/workflows/e2e-tests.yml`
 
 ### Where to Look
 
