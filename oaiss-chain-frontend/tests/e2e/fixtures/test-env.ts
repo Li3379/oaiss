@@ -1,20 +1,8 @@
-import { request, type APIRequestContext } from '@playwright/test'
+import { request } from '@playwright/test'
 
 const API_BASE = process.env.API_BASE_URL || 'http://localhost:8080/api/v1'
 const ML_SERVICE_BASE = process.env.ML_SERVICE_URL || 'http://localhost:8001'
 const FABRIC_ENDPOINT = process.env.FABRIC_ENDPOINT || 'http://localhost:7051'
-
-let sharedContext: APIRequestContext | null = null
-
-async function getRequestContext(): Promise<APIRequestContext> {
-  if (!sharedContext) {
-    sharedContext = await request.newContext({
-      baseURL: API_BASE,
-      timeout: 5000,
-    })
-  }
-  return sharedContext
-}
 
 /**
  * Check if ML service (Python FastAPI on port 8001) is available.
@@ -37,10 +25,20 @@ export async function isMlServiceAvailable(): Promise<boolean> {
  */
 export async function isFabricAvailable(): Promise<boolean> {
   try {
-    const ctx = await getRequestContext()
-    const response = await ctx.get('/blockchain/status', {
+    // Login first to get a valid token
+    const loginCtx = await request.newContext({ baseURL: API_BASE, timeout: 5000 })
+    const loginResp = await loginCtx.post('/auth/login', {
+      data: { username: 'admin', password: process.env.ADMIN_PASSWORD || 'admin123' },
+    })
+    if (!loginResp.ok()) { await loginCtx.dispose(); return false }
+    const { data } = await loginResp.json()
+    const token = data.accessToken
+
+    const response = await loginCtx.get('/blockchain/status', {
+      headers: { Authorization: `Bearer ${token}` },
       timeout: 5000,
     })
+    await loginCtx.dispose()
     if (!response.ok()) return false
     const body = await response.json()
     return body?.data?.connected === true
