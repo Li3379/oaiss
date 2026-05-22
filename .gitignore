@@ -169,3 +169,7 @@ logback-console.xml
 *.tmp
 *.bak
 *.cache
+
+# ----- AI Tool Artifacts -----
+.codex/
+.graphify_detect.json
