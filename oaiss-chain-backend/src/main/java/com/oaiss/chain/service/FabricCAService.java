@@ -87,8 +87,11 @@ public class FabricCAService {
             log.info("CA enrollment successful for admin={}", caConfig.getAdminName());
             return new EnrollmentResult(identity, signer);
         } catch (Exception e) {
-            log.error("CA enrollment failed: {}", e.getMessage());
-            throw new RuntimeException("Fabric CA enrollment failed: " + e.getMessage(), e);
+            String safeMessage = e.getMessage() != null
+                ? e.getMessage().replaceAll("(?i)(basic\\s+)[A-Za-z0-9+/=]+", "$1[REDACTED]")
+                : "unknown error";
+            log.error("CA enrollment failed: {}", safeMessage);
+            throw new RuntimeException("Fabric CA enrollment failed: " + safeMessage, e);
         }
     }
 
