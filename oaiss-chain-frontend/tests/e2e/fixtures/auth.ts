@@ -30,8 +30,8 @@ export async function loginViaToken(page: Page, role: string): Promise<void> {
   const token = getToken(role)
   await page.addInitScript(
     (args) => {
-      sessionStorage.setItem('access_token', args.token)
-      sessionStorage.setItem('user_role', args.roleLabel)
+      localStorage.setItem('access_token', args.token)
+      localStorage.setItem('user_role', args.roleLabel)
     },
     { token, roleLabel: role },
   )
