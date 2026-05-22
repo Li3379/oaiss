@@ -70,8 +70,8 @@ export async function loginViaApi(
             localStorage.setItem('token_expiry', String(payload.exp * 1000))
           }
         }
-      } catch (e) {
-        console.error('Failed to parse JWT:', e)
+      } catch {
+        // JWT parse failed, skip expiry extraction
       }
     },
     { accessToken, refreshToken },
