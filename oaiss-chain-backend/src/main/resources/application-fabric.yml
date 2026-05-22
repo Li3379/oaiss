@@ -1,0 +1,17 @@
+# application-fabric.yml
+# Fabric 区块链 Profile - 激活区块链集成
+# 用法: mvn spring-boot:run -Dspring-boot.run.profiles=local,fabric
+# 或:   SPRING_PROFILES_ACTIVE=local,fabric java -jar app.jar
+
+fabric:
+  enabled: true
+  ca:
+    enabled: false
+    endpoint: http://ca.org1.example.com:7054
+    admin-name: admin
+    admin-password: ${FABRIC_CA_ADMIN_PASSWORD:}
+
+spring:
+  # Fabric profile 激活时，同时启用 docker 数据源配置
+  profiles:
+    include: docker
