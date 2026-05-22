@@ -46,7 +46,7 @@ public class FabricGatewayConfig {
         Identity identity;
         Signer signer;
 
-        if (props.getCa().isEnabled() && fabricCAService != null) {
+        if (props.getCa().isEnabled()) {
             try {
                 FabricCAService.EnrollmentResult result = fabricCAService.registerEnrollment();
                 identity = result.identity();
