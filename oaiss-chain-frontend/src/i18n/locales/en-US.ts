@@ -478,6 +478,7 @@ export default {
     historicalDataMustBeArray: 'Historical data must be an array',
     predictionComplete: 'Prediction complete',
     predictionFailed: 'AI prediction failed, check input data',
+    enterpriseIdRequired: 'Enterprise ID is required',
   },
   officialHome: {
     navBuild: 'Build',
