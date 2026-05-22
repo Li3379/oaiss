@@ -1,6 +1,6 @@
 import request from './request'
 import type { LoginRequest, LoginResponse } from '../types'
-import i18n from '@/i18n'
+import { t } from '@/i18n'
 
 export function login(data: LoginRequest): Promise<LoginResponse> {
   return request.post('/auth/login', data)
@@ -11,8 +11,8 @@ export function logout(): Promise<void> {
 }
 
 export function register(data: { username: string; password: string; email: string; role: string }): Promise<unknown> {
-  if (!data?.username) return Promise.reject(new Error(i18n.global.t('auth.usernameRequired')))
-  if (!data?.password) return Promise.reject(new Error(i18n.global.t('auth.passwordRequired')))
+  if (!data?.username) return Promise.reject(new Error(t('auth.usernameRequired')))
+  if (!data?.password) return Promise.reject(new Error(t('auth.passwordRequired')))
   return request.post('/auth/register', data)
 }
 
