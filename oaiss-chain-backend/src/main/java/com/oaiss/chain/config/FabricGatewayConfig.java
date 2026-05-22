@@ -1,5 +1,6 @@
 package com.oaiss.chain.config;
 
+import com.oaiss.chain.service.FabricCAService;
 import io.grpc.ManagedChannel;
 import io.grpc.netty.shaded.io.grpc.netty.GrpcSslContexts;
 import io.grpc.netty.shaded.io.netty.handler.ssl.SslContext;
@@ -35,14 +36,33 @@ import java.security.cert.X509Certificate;
 public class FabricGatewayConfig {
 
     private final FabricProperties props;
+    private final FabricCAService fabricCAService;
 
     @Bean(destroyMethod = "close")
     public Gateway fabricGateway() throws Exception {
         log.info("Connecting to Fabric peer at {} (TLS={})", props.getPeerEndpoint(), props.isTlsEnabled());
 
         ManagedChannel channel = newGrpcChannel();
-        Identity identity = newIdentity();
-        Signer signer = newSigner();
+        Identity identity;
+        Signer signer;
+
+        if (props.getCa().isEnabled() && fabricCAService != null) {
+            try {
+                FabricCAService.EnrollmentResult result = fabricCAService.registerEnrollment();
+                identity = result.identity();
+                signer = result.signer();
+                log.info("Using CA-issued identity");
+            } catch (Exception e) {
+                log.warn("CA enrollment failed, falling back to static crypto: {}", e.getMessage());
+                identity = newIdentity();
+                signer = newSigner();
+                log.info("Using static crypto identity");
+            }
+        } else {
+            identity = newIdentity();
+            signer = newSigner();
+            log.info("Using static crypto identity");
+        }
 
         Gateway.Builder builder = Gateway.newInstance()
                 .identity(identity)
