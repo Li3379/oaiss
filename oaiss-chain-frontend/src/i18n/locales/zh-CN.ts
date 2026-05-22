@@ -30,6 +30,10 @@ export default {
     enterKeyword: '请输入关键词',
     unit_ton: '吨',
   },
+  auth: {
+    usernameRequired: '用户名不能为空',
+    passwordRequired: '密码不能为空',
+  },
   menu: {
     enterprise: '企业用户',
     reviewer: '审核员',
