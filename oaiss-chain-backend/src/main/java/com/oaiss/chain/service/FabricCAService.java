@@ -117,10 +117,10 @@ public class FabricCAService {
     }
 
     /**
-     * Package-private record holding the CA enrollment result.
+     * Record holding the CA enrollment result.
      * Not a JPA entity, not a DTO, not serializable.
      * Consumed only by FabricGatewayConfig.
      */
-    record EnrollmentResult(Identity identity, Signer signer) {
+    public record EnrollmentResult(Identity identity, Signer signer) {
     }
 }
