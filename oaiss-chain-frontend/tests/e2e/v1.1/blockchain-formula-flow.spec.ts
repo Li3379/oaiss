@@ -203,7 +203,9 @@ test.describe('Flow: Blockchain & Carbon Formula', () => {
   })
 
   test.describe('Fabric CA Enrollment', () => {
-    test.skip(async () => !(await isFabricAvailable()), 'Fabric network not available')
+    test.beforeAll(async () => {
+      test.skip(!(await isFabricAvailable()), 'Fabric network not available')
+    })
 
     test('CA enrollment status is included in blockchain status', async ({ request }) => {
       const loginResponse = await request.post(`${API_BASE}/auth/login`, {
