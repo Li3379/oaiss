@@ -1,5 +1,6 @@
 import request from './request'
 import type { EmissionRating, EmissionRatingRequest, CarbonPredictionRequest, CarbonPredictionResponse, PageRequest } from '../types'
+import i18n from '@/i18n'
 
 export function getMyRating(): Promise<EmissionRating[]> {
   return request.get('/emission/my-rating')
@@ -18,6 +19,6 @@ export function predictEmission(data: CarbonPredictionRequest): Promise<CarbonPr
 }
 
 export function createRating(data: EmissionRatingRequest): Promise<EmissionRating> {
-  if (!data?.enterpriseId) return Promise.reject(new Error('企业ID不能为空'))
+  if (!data?.enterpriseId) return Promise.reject(new Error(i18n.global.t('emissionData.enterpriseIdRequired')))
   return request.post('/emission/ratings', data)
 }

@@ -478,6 +478,7 @@ export default {
     historicalDataMustBeArray: '历史数据必须是数组格式',
     predictionComplete: '预测完成',
     predictionFailed: 'AI预测失败，请检查输入数据',
+    enterpriseIdRequired: '企业ID不能为空',
   },
   officialHome: {
     navBuild: '构建',
