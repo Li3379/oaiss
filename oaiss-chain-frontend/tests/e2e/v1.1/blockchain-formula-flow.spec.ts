@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test'
 import { loginViaApi, TEST_USERS } from '../fixtures/auth'
-import { isMlServiceAvailable, skipIfServiceUnavailable } from '../fixtures/test-env'
+import { isMlServiceAvailable, isFabricAvailable, skipIfServiceUnavailable } from '../fixtures/test-env'
 
 const API_BASE = process.env.API_BASE_URL || 'http://localhost:8080/api/v1'
 
@@ -171,6 +171,9 @@ test.describe('Flow: Blockchain & Carbon Formula', () => {
   // ── REQ-05: Blockchain Operations ──
 
   test.describe('Blockchain API (REQ-05)', () => {
+    test.beforeAll(async () => {
+      test.skip(!(await isFabricAvailable()), 'Fabric network not available')
+    })
     test('should query latest blocks', async ({ request }) => {
       const response = await request.get(`${API_BASE}/blockchain/blocks/latest`, {
         params: { limit: 5 }
