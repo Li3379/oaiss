@@ -6,11 +6,12 @@
 
 ## Current Position
 
-Phase: 16 (E2E 测试基础设施修复)
-Plan: 16-01-PLAN.md, 16-02-PLAN.md (2 plans, ready for execution)
-Status: Planned
-Last activity: 2026-05-22 — Phase 16 plans created
-Resume file: .planning/phases/16-e2e-test-infra-fix/16-01-PLAN.md
+Phase: 16 (E2E 测试基础设施修复) — COMPLETE
+Plan: 16-01, 16-02 (both complete)
+Status: Verified
+Last activity: 2026-05-22 — Phase 16 verified and complete
+Next: Phase 17 (验收缺口补齐与 i18n 清理)
+Resume file: .planning/phases/16-e2e-test-infra-fix/16-VERIFICATION.md
 
 ## Project Reference
 
