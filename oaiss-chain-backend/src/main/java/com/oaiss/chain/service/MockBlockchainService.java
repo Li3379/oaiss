@@ -160,6 +160,7 @@ public class MockBlockchainService implements BlockchainServicePort {
         status.put("peers", 2);
         status.put("orderers", 1);
         status.put("mode", "MOCK");
+        status.put("caEnabled", false);
         status.put("timestamp", LocalDateTime.now().toString());
         return status;
     }
