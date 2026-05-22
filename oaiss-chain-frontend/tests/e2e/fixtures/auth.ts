@@ -47,6 +47,9 @@ export async function loginViaApi(
     data: { username, password },
   })
   const body = await response.json()
+  if (!response.ok() || body.code !== 200 || !body.data?.accessToken) {
+    throw new Error(`Login failed: status=${response.status()}, body=${JSON.stringify(body)}`)
+  }
   const { accessToken, refreshToken } = body.data
 
   // Navigate to the app first so localStorage is accessible
