@@ -6,12 +6,12 @@
 
 ## Current Position
 
-Phase: 16 (E2E 测试基础设施修复) — COMPLETE
-Plan: 16-01, 16-02 (both complete)
-Status: Verified
-Last activity: 2026-05-22 — Phase 16 verified and complete
-Next: Phase 17 (验收缺口补齐与 i18n 清理)
-Resume file: .planning/phases/16-e2e-test-infra-fix/16-VERIFICATION.md
+Phase: 17 (验收缺口补齐与 i18n 清理) — DISCUSSED
+Plan: Context gathered, decisions D-01 through D-04 made
+Status: Ready for planning
+Last activity: 2026-05-22 — Phase 17 discuss complete
+Next: Phase 17 planning (/gsd:plan-phase 17)
+Resume file: .planning/phases/17-acceptance-gap-i18n/17-CONTEXT.md
 
 ## Project Reference
 
