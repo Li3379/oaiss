@@ -191,4 +191,26 @@ test.describe('Flow: Blockchain & Carbon Formula', () => {
       expect([200, 503]).toContain(response.status())
     })
   })
+
+  test.describe('Fabric CA Enrollment', () => {
+    test.skip(async () => !(await isFabricAvailable()), 'Fabric network not available')
+
+    test('CA enrollment status is included in blockchain status', async ({ request }) => {
+      const loginResponse = await request.post(`${API_BASE}/auth/login`, {
+        data: { username: TEST_USERS.admin.username, password: TEST_USERS.admin.password }
+      })
+      const loginBody = await loginResponse.json()
+      const token = loginBody.data.accessToken
+
+      const response = await request.get(`${API_BASE}/blockchain/status`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+
+      expect(response.ok()).toBeTruthy()
+      const body = await response.json()
+      expect(body.code).toBe(200)
+      expect(body.data).toHaveProperty('caEnabled')
+      expect(typeof body.data.caEnabled).toBe('boolean')
+    })
+  })
 })

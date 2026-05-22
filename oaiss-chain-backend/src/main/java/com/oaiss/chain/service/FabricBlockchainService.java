@@ -146,6 +146,7 @@ public class FabricBlockchainService implements BlockchainServicePort {
         status.put("mode", "FABRIC");
         status.put("mspId", props.getMspId());
         status.put("chaincode", props.getChaincodeName());
+        status.put("caEnabled", props.getCa().isEnabled());
         status.put("timestamp", LocalDateTime.now().toString());
         return status;
     }
