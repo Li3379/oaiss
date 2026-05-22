@@ -58,13 +58,13 @@
 <claude-mem-context>
 # Memory Context
 
-# [OAISS CHAIN] recent context, 2026-05-21 8:50am GMT+8
+# [OAISS CHAIN] recent context, 2026-05-22 5:56pm GMT+8
 
 Legend: 🎯session 🔴bugfix 🟣feature 🔄refactor ✅change 🔵discovery ⚖️decision 🚨security_alert 🔐security_note
 Format: ID TIME TYPE TITLE
 Fetch details: get_observations([IDs]) | Search: mem-search skill
 
-Stats: 50 obs (18,724t read) | 0t work
+Stats: 50 obs (18,971t read) | 0t work
 
 ### May 16, 2026
 S114 gsd:progress — User requested a progress check on OAISS CHAIN v1.1.0 project status (May 16, 10:34 AM)
@@ -75,8 +75,6 @@ S118 Phase 7 AI Intelligent Prediction Foundation — Deep code review fix and t
 S119 gsd:code-review-fix 4 --all — Auto-fix all 16 code review findings from Phase 4 (碳中和项目生命周期 + 信用评分) deep review (May 16, 12:07 PM)
 S120 gsd:verify-work 4 — Verify Phase 04 (projects-credit) code review fixes via UAT testing (May 16, 2:12 PM)
 S121 Deep code review of Phase 6 (Cross-Cutting Edge Cases) in OAISS CHAIN project — gsd:code-review 6 --depth=deep (May 16, 2:21 PM)
-1288 4:02p 🔵 edge-test.sh EDGE-01 section has missing test #9 in numbering sequence
-1289 " 🔵 Pagination parameter mismatch between edge-test.sh and backend controllers
 1290 4:03p 🔵 DigitalSignatureController @DataIsolation endpoints have @PreAuthorize('ENTERPRISE') but generateKeyPair allows broader roles
 1291 4:04p 🔵 Phase 6 deep code review completed: 12 findings (3 critical, 5 warning, 4 info)
 S122 gsd:verify-work — Phase 8 UAT verification completed, continuing to survey remaining uncovered phases (May 16, 4:05 PM)
@@ -128,4 +126,7 @@ S122 gsd:verify-work — Phase 8 UAT verification completed, continuing to surve
 1365 " ✅ Phase 11 UAT Created: 16/16 Passed — Frontend Coverage & Swagger Complete
 S123 gsd:verify-work — Complete UAT verification for all remaining phases (08, 09, 10, 11) of the OAISS CHAIN project (May 18, 12:12 AM)
 1383 12:15a ✅ User requested session continuation
+### May 22, 2026
+1385 3:11p 🔴 TradeController path variable regex constraint to fix counterparties 400 error
+1386 " 🔵 OAISS CHAIN service health status and E2E test infrastructure
 </claude-mem-context>
