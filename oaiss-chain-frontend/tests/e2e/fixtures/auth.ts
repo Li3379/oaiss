@@ -15,11 +15,13 @@ export const MOCK_TOKENS: Record<string, string> = {
     'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ0aGlyZHBhcnR5IiwidXNlcklkIjo1LCJlbnRlcnByaXNlSWQiOjEsInJvbGVzIjpbIlRISVJEX1BBUlRZIl0sInVzZXJUeXBlIjozLCJleHAiOjk5OTk5OTk5OTl9.mock',
 }
 
+const TEST_PASSWORD = process.env.TEST_USER_PASSWORD || 'admin123'
+
 export const TEST_USERS: Record<string, { username: string; password: string; role: string }> = {
-  admin: { username: 'admin', password: 'admin123', role: 'ADMIN' },
-  enterprise: { username: 'enterprise001', password: 'admin123', role: 'ENTERPRISE' },
-  reviewer: { username: 'reviewer001', password: 'admin123', role: 'REVIEWER' },
-  thirdParty: { username: 'thirdparty001', password: 'admin123', role: 'THIRD_PARTY' },
+  admin: { username: 'admin', password: TEST_PASSWORD, role: 'ADMIN' },
+  enterprise: { username: 'enterprise001', password: TEST_PASSWORD, role: 'ENTERPRISE' },
+  reviewer: { username: 'reviewer001', password: TEST_PASSWORD, role: 'REVIEWER' },
+  thirdParty: { username: 'thirdparty001', password: TEST_PASSWORD, role: 'THIRD_PARTY' },
 }
 
 export function getToken(role: string): string {
