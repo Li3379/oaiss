@@ -1,48 +1,94 @@
 ---
 phase: 16-e2e-test-infra-fix
-reviewed: 2026-05-22T12:00:00Z
-depth: standard
-files_reviewed: 5
+reviewed: 2026-05-22T14:52:00+08:00
+depth: deep
+files_reviewed: 6
 files_reviewed_list:
   - oaiss-chain-frontend/tests/e2e/fixtures/auth.ts
+  - oaiss-chain-frontend/tests/e2e/fixtures/test-env.ts
   - oaiss-chain-frontend/tests/e2e/v1.1/d9-blockchain-browser.spec.js
   - oaiss-chain-frontend/tests/e2e/v1.1/d10-carbon-report.spec.js
   - oaiss-chain-frontend/tests/e2e/fixtures/page-objects/BlockchainExplorerPage.ts
   - oaiss-chain-frontend/tests/e2e/v1.1/blockchain-formula-flow.spec.ts
 findings:
-  critical: 2
+  critical: 3
   warning: 4
   info: 2
-  total: 8
+  total: 9
 status: issues_found
 ---
 
-# Phase 16: Code Review Report
+# Phase 16: Deep Code Review Report
 
-**Reviewed:** 2026-05-22T12:00:00Z
-**Depth:** standard
-**Files Reviewed:** 5
+**Reviewed:** 2026-05-22T14:52:00+08:00
+**Depth:** deep
+**Files Reviewed:** 6
 **Status:** issues_found
 
 ## Summary
 
-Reviewed 5 E2E test infrastructure files: auth fixture, two migrated spec files (d9, d10), a page object (BlockchainExplorerPage), and the blockchain-formula-flow spec. Two critical issues found: `buildStorageState` returns empty auth state that all d9/d10 describe blocks pass to `test.use({ storageState })`, making the declared storage state meaningless; and `isFabricAvailable()` calls a likely-auth-protected endpoint without credentials, causing all Fabric-dependent tests to be silently skipped. Four warnings cover inconsistent storage strategy between `loginViaToken`/`loginViaApi`, missing response status check before destructuring login response, unauthenticated blockchain API requests, and an unsafe tab index access in the page object.
+Deep cross-file analysis of the E2E test infrastructure, tracing the full token lifecycle from fixture through Playwright storageState into the Vue app's auth utility and Pinia store. Previous standard review found 8 issues (all fixed). This deep pass found 3 new critical issues and 4 warnings.
+
+The most significant finding is a **storage mechanism mismatch**: `loginViaToken` and `loginViaApi` both write `access_token` to `localStorage`, but `AuthMonitor.hasValidToken()` (auth-monitor.ts line 366) checks `sessionStorage`. Since `loginWithMonitor` in the same `auth.ts` file creates an AuthMonitor and then calls `loginViaApi`, the monitor's `hasValidToken` helper will always return `false`. Additionally, `buildStorageState` hardcodes the origin as `http://localhost:5173`, which breaks when `BASE_URL` is overridden in CI or Docker environments. Finally, `getToken(role)` accepts lowercase role strings but `MOCK_TOKENS` keys are uppercase, causing silent fallback to the ENTERPRISE token.
+
+Cross-file call chain traced:
+- `loginViaToken` -> `getToken` -> `MOCK_TOKENS` (case mismatch at boundary)
+- `loginViaToken` -> `page.addInitScript` -> `localStorage.setItem` (used by d9, d10)
+- `buildStorageState` -> `getToken` -> Playwright `storageState` (hardcoded origin)
+- `loginViaApi` -> `page.evaluate` -> `localStorage.setItem` (used by blockchain-formula-flow)
+- `loginWithMonitor` -> `new AuthMonitor` + `loginViaApi` (monitor checks sessionStorage, login writes localStorage)
+- Vue app: `getAccessToken` checks both `localStorage` and `sessionStorage` (forgiving)
+- Vue app: `resolveInitialState` -> `parseJwtPayload` extracts role from JWT, never reads `user_role` from storage
 
 ## Critical Issues
 
-### CR-01: buildStorageState returns empty auth state -- all test.use({ storageState }) is no-op
+### CR-01: Storage mismatch between login fixtures and AuthMonitor.hasValidToken
 
-**File:** `oaiss-chain-frontend/tests/e2e/fixtures/auth.ts:79-88`
-**Issue:** `buildStorageState()` returns an object with an empty `localStorage` array and never injects a token. Every `test.describe` block in d9 and d10 passes `test.use({ storageState: buildStorageState('enterprise') })`, which tells Playwright to load zero authentication state into the browser context. The tests only pass because `loginViaToken` in `beforeEach` injects a mock token via `addInitScript` afterward. This is misleading and fragile -- if any test navigates before `loginViaToken` runs (e.g., via a redirect), it will hit the login wall with no stored credentials. The `role` parameter is also completely ignored.
+**File:** `oaiss-chain-frontend/tests/e2e/fixtures/auth.ts:35` (loginViaToken writes localStorage) vs `oaiss-chain-frontend/tests/e2e/fixtures/auth-monitor.ts:366` (hasValidToken checks sessionStorage)
 
-**Fix:**
-```typescript
+**Issue:** `loginViaToken` (auth.ts line 35) writes the access token to `localStorage`:
+```ts
+localStorage.setItem('access_token', args.token)
+```
+`loginViaApi` (auth.ts line 62) also writes to `localStorage`. However, `AuthMonitor.hasValidToken()` (auth-monitor.ts line 366) checks only `sessionStorage`:
+```ts
+const token = await page.evaluate(() => sessionStorage.getItem('access_token'))
+```
+The `loginWithMonitor` function (auth.ts lines 109-119) creates an `AuthMonitor` and then calls `loginViaApi`. Any test using `loginWithMonitor` or calling `hasValidToken` after `loginViaToken`/`loginViaApi` will get a false negative -- the monitor reports "no valid token" even though the token exists in localStorage. This defeats the purpose of auth health monitoring in E2E tests.
+
+The app's own `getAccessToken()` (src/utils/auth.ts lines 88-99) correctly checks both storages, so the app itself works. The test infrastructure is inconsistent with the app's behavior.
+
+**Fix:** Update `hasValidToken` in auth-monitor.ts to check both storages, matching the app's `getAccessToken()` behavior:
+```ts
+export async function hasValidToken(page: Page): Promise<boolean> {
+  const token = await page.evaluate(() => {
+    return localStorage.getItem('access_token') || sessionStorage.getItem('access_token')
+  })
+  return !!token && token.length > 20
+}
+```
+
+### CR-02: buildStorageState hardcodes origin URL -- breaks when BASE_URL is overridden
+
+**File:** `oaiss-chain-frontend/tests/e2e/fixtures/auth.ts:89`
+
+**Issue:** `buildStorageState` returns a Playwright `storageState` object with a hardcoded origin:
+```ts
+origin: 'http://localhost:5173',
+```
+The Playwright config (playwright.config.ts line 28) reads `baseURL` from `process.env.BASE_URL || 'http://localhost:5173'`. When `BASE_URL` is set to a different value (e.g., `http://frontend:5173` in Docker Compose, or a staging URL in CI), Playwright opens pages at the configured `baseURL` but the `storageState` writes tokens to `http://localhost:5173`'s localStorage. Since browser localStorage is origin-scoped, the token will not be available to the page under test. All d9 and d10 tests would fail with login redirects.
+
+The `loginViaToken` function does NOT have this problem because `addInitScript` runs in the page context after navigation, writing to whatever origin the page loaded from. But `test.use({ storageState })` applies the state before the page is created using the hardcoded origin.
+
+**Fix:** Derive the origin from the same environment variable:
+```ts
 export function buildStorageState(role = 'ENTERPRISE') {
   const token = getToken(role)
+  const baseUrl = process.env.BASE_URL || 'http://localhost:5173'
   return {
     origins: [
       {
-        origin: 'http://localhost:5173',
+        origin: baseUrl,
         localStorage: [
           { name: 'access_token', value: token },
           { name: 'user_role', value: role },
@@ -53,130 +99,88 @@ export function buildStorageState(role = 'ENTERPRISE') {
 }
 ```
 
-### CR-02: isFabricAvailable() calls /blockchain/status without authentication -- skip guard always skips
+### CR-03: getToken silently falls back to ENTERPRISE for case-mismatched role strings
 
-**File:** `oaiss-chain-frontend/tests/e2e/fixtures/test-env.ts:38-49`
-**Issue:** `isFabricAvailable()` makes an unauthenticated GET to `/blockchain/status`. Given the backend's `SecurityConfig` and JWT filter architecture, this endpoint almost certainly requires a Bearer token. Without auth, the response will be 401, `response.ok()` returns false, and the function returns false. This means all Fabric-dependent tests in `blockchain-formula-flow.spec.ts` (lines 173-215) are silently skipped even when Fabric is actually running. The skip guard is broken by missing authentication.
+**File:** `oaiss-chain-frontend/tests/e2e/fixtures/auth.ts:27-29`
 
-**Fix:**
-```typescript
-export async function isFabricAvailable(): Promise<boolean> {
-  try {
-    // Login first to get a valid token
-    const loginCtx = await request.newContext({ baseURL: API_BASE, timeout: 5000 })
-    const loginResp = await loginCtx.post('/auth/login', {
-      data: { username: 'admin', password: process.env.ADMIN_PASSWORD || 'admin123' },
-    })
-    if (!loginResp.ok()) { await loginCtx.dispose(); return false }
-    const { data } = await loginResp.json()
-    const token = data.accessToken
-
-    const response = await loginCtx.get('/blockchain/status', {
-      headers: { Authorization: `Bearer ${token}` },
-      timeout: 5000,
-    })
-    await loginCtx.dispose()
-    if (!response.ok()) return false
-    const body = await response.json()
-    return body?.data?.connected === true
-  } catch {
-    return false
-  }
+**Issue:** `getToken` looks up `MOCK_TOKENS[role]` with no case normalization:
+```ts
+export function getToken(role: string): string {
+  return MOCK_TOKENS[role] || MOCK_TOKENS.ENTERPRISE
 }
 ```
+The `MOCK_TOKENS` keys are uppercase (`ENTERPRISE`, `ADMIN`, `REVIEWER`, `THIRD_PARTY`). All callers pass lowercase strings: `loginViaToken(page, 'enterprise')` and `buildStorageState('enterprise')` in d9/d10 specs. This means `MOCK_TOKENS['enterprise']` is `undefined`, and the function silently returns the ENTERPRISE token as a fallback.
+
+Currently this is harmless because the d9/d10 tests do intend to use ENTERPRISE. However, if a test is written for a different role -- e.g., `buildStorageState('admin')` -- it would silently use the ENTERPRISE token. The test would pass with the wrong auth context, masking real authorization bugs.
+
+Additionally, the `user_role` localStorage value is set to the lowercase string `'enterprise'`, which does not match any valid `RoleType` in the app. The app ignores this value (it extracts roles from JWT), but it indicates the role parameter is not being validated.
+
+**Fix:** Normalize the role to uppercase or validate it:
+```ts
+export function getToken(role: string): string {
+  const normalized = role.toUpperCase()
+  if (!MOCK_TOKENS[normalized]) {
+    throw new Error(`Unknown role: ${role}. Valid: ${Object.keys(MOCK_TOKENS).join(', ')}`)
+  }
+  return MOCK_TOKENS[normalized]
+}
+```
+Alternatively, update all callers to pass uppercase strings (`'ENTERPRISE'` instead of `'enterprise'`).
 
 ## Warnings
 
-### WR-01: Inconsistent token storage -- loginViaToken uses sessionStorage, loginViaApi uses localStorage
+### WR-01: loginViaToken writes phantom user_role key that the app never reads
 
-**File:** `oaiss-chain-frontend/tests/e2e/fixtures/auth.ts:29-77`
-**Issue:** `loginViaToken` stores the token in `sessionStorage` (line 33), while `loginViaApi` stores it in `localStorage` (line 57). If the frontend application reads the token from only one storage location, one of these login methods will silently fail to authenticate the page. The inconsistency means tests using `loginViaToken` (d9, d10) may not be exercising the same auth path as tests using `loginViaApi` (blockchain-formula-flow), making cross-test comparisons unreliable.
+**File:** `oaiss-chain-frontend/tests/e2e/fixtures/auth.ts:36`
 
-**Fix:** Pick one storage strategy and use it consistently. If the frontend reads from `localStorage` (as suggested by `rememberMe=true` logic in `loginViaApi`), update `loginViaToken` to use `localStorage` as well:
-```typescript
-// In loginViaToken, change sessionStorage to localStorage:
-await page.addInitScript(
-  (args) => {
-    localStorage.setItem('access_token', args.token)
-    localStorage.setItem('user_role', args.roleLabel)
-  },
-  { token, roleLabel: role },
-)
-```
+**Issue:** `loginViaToken` sets `localStorage.setItem('user_role', args.roleLabel)` and `buildStorageState` includes `{ name: 'user_role', value: role }`. However, no part of the application reads `user_role` from storage. The app resolves user role exclusively from the JWT payload via `parseJwtPayload` in the Pinia store (src/store/index.ts line 19). This dead data can mislead developers debugging test failures into thinking the app uses a `user_role` storage key.
 
-### WR-02: loginViaApi destructures body.data without checking response status
+**Fix:** Remove the `user_role` writes from both `loginViaToken` (line 36) and `buildStorageState` (line 92). They serve no functional purpose.
 
-**File:** `oaiss-chain-frontend/tests/e2e/fixtures/auth.ts:49-50`
-**Issue:** `loginViaApi` calls `response.json()` and immediately destructures `body.data.accessToken` without first checking `response.ok()` or `body.code`. If the login endpoint returns a non-200 status or an error envelope (e.g., `{ code: 1001, message: "invalid credentials" }`), `body.data` is undefined and destructuring throws a cryptic `TypeError: Cannot destructure property 'accessToken' of undefined`. The error message will not indicate that authentication failed.
+### WR-02: Redundant dual auth setup in d9 and d10 specs
 
-**Fix:**
-```typescript
-const body = await response.json()
-if (!response.ok() || body.code !== 200 || !body.data?.accessToken) {
-  throw new Error(`Login failed: status=${response.status()}, body=${JSON.stringify(body)}`)
-}
-const { accessToken, refreshToken } = body.data
-```
+**File:** `oaiss-chain-frontend/tests/e2e/v1.1/d9-blockchain-browser.spec.js:75,79` and `oaiss-chain-frontend/tests/e2e/v1.1/d10-carbon-report.spec.js:60,64`
 
-### WR-03: Blockchain API tests make requests without auth headers
+**Issue:** Both spec files configure `test.use({ storageState: buildStorageState('enterprise') })` at the describe level AND call `await loginViaToken(page, 'enterprise')` inside `beforeEach`. These are two independent auth mechanisms that both write `access_token` to localStorage. The `addInitScript` from `loginViaToken` overrides the `storageState` value on every navigation. This is not a functional bug (the tests pass), but it creates maintenance confusion: removing either one individually would appear safe but changes the auth mechanism. If CR-02 is fixed and `buildStorageState` starts using the correct origin, the `storageState` approach alone would be sufficient and `loginViaToken` in `beforeEach` becomes redundant.
 
-**File:** `oaiss-chain-frontend/tests/e2e/v1.1/blockchain-formula-flow.spec.ts:177-192`
-**Issue:** The "Blockchain API (REQ-05)" tests call `/blockchain/blocks/latest` and `/blockchain/transactions/latest` via `request.get()` with no `Authorization` header. If the backend requires JWT authentication for these endpoints (which the SecurityConfig and JWT filter architecture suggest), these requests will receive 401 instead of the expected 200/503, and the `expect([200, 503]).toContain(response.status())` assertion will fail with an unhelpful message.
+**Fix:** Pick one mechanism and use it consistently. Since these tests mock API responses (no real backend), `loginViaToken` alone is sufficient. Remove `test.use({ storageState: ... })` from the describe blocks.
 
-**Fix:** Acquire a token before the test block and pass it as a Bearer header:
-```typescript
-test('should query latest blocks', async ({ request }) => {
-  const loginResp = await request.post(`${API_BASE}/auth/login`, {
-    data: { username: TEST_USERS.admin.username, password: TEST_USERS.admin.password },
-  })
-  const { accessToken } = (await loginResp.json()).data
-  const response = await request.get(`${API_BASE}/blockchain/blocks/latest`, {
-    params: { limit: 5 },
-    headers: { Authorization: `Bearer ${accessToken}` },
-  })
-  expect([200, 503]).toContain(response.status())
-})
-```
+### WR-03: BlockchainExplorerPage page object is never imported by any spec
 
-### WR-04: BlockchainExplorerPage.switchToTransactionsTab uses nth(1) without verifying tab count
+**File:** `oaiss-chain-frontend/tests/e2e/fixtures/page-objects/BlockchainExplorerPage.ts`
 
-**File:** `oaiss-chain-frontend/tests/e2e/fixtures/page-objects/BlockchainExplorerPage.ts:20-23`
-**Issue:** `switchToTransactionsTab` clicks `tabs.nth(1)` without first asserting that at least 2 tabs exist. If the tab bar has not fully rendered or the component loads tabs asynchronously, `nth(1)` targets an empty locator and the click times out with an uninformative error. The method should either wait for tab visibility or assert the tab count before clicking.
+**Issue:** The `BlockchainExplorerPage` class is defined in the page-objects directory but is never imported by any spec file in the test suite. Grep across all `**/*.spec.*` files confirms zero imports. The d9-blockchain-browser spec uses inline locator patterns (e.g., `page.locator('.el-table__body-wrapper').first()`) instead of this page object. This is dead code that adds maintenance burden without providing test value. The page object's methods (`switchToTransactionsTab`, `expectBlocksTable`) are well-structured and would improve the spec's readability if used.
 
-**Fix:**
-```typescript
-async switchToTransactionsTab(): Promise<void> {
-  const tabs = this.page.locator('.el-tabs__item')
-  await expect(tabs).toHaveCount(2, { timeout: 5000 })
-  await tabs.nth(1).click()
-}
-```
+**Fix:** Either refactor d9-blockchain-browser.spec.js to use the page object (preferred -- centralizes selectors), or remove the unused file to avoid confusion.
+
+### WR-04: blockchain-formula-flow frontend tests navigate twice via loginViaApi
+
+**File:** `oaiss-chain-frontend/tests/e2e/v1.1/blockchain-formula-flow.spec.ts:152-153`
+
+**Issue:** The frontend tests (lines 151-168) call `loginViaApi` which internally calls `page.goto(BASE_URL)` (auth.ts line 58), navigating to the app root. The test then immediately calls `page.goto('/enterprise/carbon-formula-calculator')` (line 153). This double-navigation adds latency. More importantly, when `loginViaApi` navigates to the root, the router guard (src/router/index.ts line 193) checks `appStore.loggedIn`. The Pinia store's `resolveInitialState()` reads from localStorage during store creation, so this typically works. However, the timing between `page.evaluate` writing to storage and the Vue app initializing is fragile -- if the app's JS bundle loads before the evaluate completes, the store would see no token and redirect to `/login`. Using `loginViaToken` (which uses `addInitScript` to inject before any JS runs) would be safer for these frontend-only tests.
+
+**Fix:** For frontend tests that mock API responses, use `loginViaToken` instead of `loginViaApi`. Reserve `loginViaApi` for tests that need a real backend session.
 
 ## Info
 
-### IN-01: console.error in auth fixture
+### IN-01: test-env.ts skipIfServiceUnavailable is a trivial wrapper that misleads callers
 
-**File:** `oaiss-chain-frontend/tests/e2e/fixtures/auth.ts:71`
-**Issue:** `console.error('Failed to parse JWT:', e)` in the JWT parsing catch block. Test code should avoid console output that pollutes test runner logs. Consider removing or gating behind a debug flag.
+**File:** `oaiss-chain-frontend/tests/e2e/fixtures/test-env.ts:59-64`
 
-**Fix:** Remove or replace with a silent no-op: `catch { /* JWT parse failed, skip expiry extraction */ }`
+**Issue:** `skipIfServiceUnavailable(condition, reason)` simply returns `{ condition, reason }` -- an identity function. The doc comment (line 53) shows example usage `test.skip(await !isMlServiceAvailable(), 'ML service not available')`, which is incorrect because `test.skip` accepts `(condition, description)` not an object. No current file actually calls `skipIfServiceUnavailable`; `blockchain-formula-flow.spec.ts` calls `isFabricAvailable()` directly with `test.skip`.
 
-### IN-02: Hardcoded test password admin123 in TEST_USERS
+**Fix:** Remove the unused function, or fix its doc comment and make it call `test.skip` directly.
 
-**File:** `oaiss-chain-frontend/tests/e2e/fixtures/auth.ts:19-22`
-**Issue:** All four test users share the password `admin123` hardcoded in the fixture. While acceptable for test fixtures, if these credentials are also used in CI environments with real database seeds, they represent a known weak credential. Consider reading from `process.env.TEST_USER_PASSWORD` with a fallback.
+### IN-02: MOCK_TOKENS have .mock signature suffix -- structurally valid but not cryptographically valid JWTs
 
-**Fix:**
-```typescript
-const TEST_PASSWORD = process.env.TEST_USER_PASSWORD || 'admin123'
-export const TEST_USERS = {
-  admin: { username: 'admin', password: TEST_PASSWORD, role: 'ADMIN' },
-  // ...
-}
-```
+**File:** `oaiss-chain-frontend/tests/e2e/fixtures/auth.ts:7-16`
+
+**Issue:** The mock tokens end with `.mock` (e.g., `...OTk5OTk5OTk5fQ.mock`). The app's `parseJwtPayload` (src/utils/auth.ts) splits on `.` and `atob`s each part -- the header and payload decode correctly, but the signature part `mock` is not valid base64 (it happens to decode but is meaningless). This is fine for tests that mock API responses, but if the app ever adds client-side signature validation, these tokens would be rejected. Worth documenting.
+
+**Fix:** Add a comment on the `MOCK_TOKENS` constant noting these are structurally-valid-but-cryptographically-invalid JWTs intended for mocked-API tests only.
 
 ---
 
-_Reviewed: 2026-05-22T12:00:00Z_
+_Reviewed: 2026-05-22T14:52:00+08:00_
 _Reviewer: Claude (gsd-code-reviewer)_
-_Depth: standard_
+_Depth: deep_
