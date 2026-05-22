@@ -365,6 +365,7 @@ export default {
     statusPending: 'Pending',
     statusApproved: 'Approved',
     statusRejected: 'Rejected',
+    statusOnChain: 'On Chain',
     colIndex: '#',
     colReportNo: 'Report No.',
     colEnterpriseName: 'Enterprise',
