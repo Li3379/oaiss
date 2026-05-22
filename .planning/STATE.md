@@ -6,11 +6,11 @@
 
 ## Current Position
 
-Phase: 17 (验收缺口补齐与 i18n 清理) — DISCUSSED
-Plan: Context gathered, decisions D-01 through D-04 made
-Status: Ready for planning
-Last activity: 2026-05-22 — Phase 17 discuss complete
-Next: Phase 17 planning (/gsd:plan-phase 17)
+Phase: 17 (验收缺口补齐与 i18n 清理) — PLANNED
+Plan: 17-01 (GAP verification-only) + 17-02 (i18n cleanup, 4 files)
+Status: Ready to execute
+Last activity: 2026-05-22 — Phase 17 plans written
+Next: Phase 17 execution (/gsd:execute-phase 17)
 Resume file: .planning/phases/17-acceptance-gap-i18n/17-CONTEXT.md
 
 ## Project Reference
