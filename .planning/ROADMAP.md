@@ -4,130 +4,108 @@
 
 - **v1.0 Manual Testing** - Phases 1-6 (shipped 2026-05-13) — [Archive](milestones/v1.0-ROADMAP.md)
 - **v1.1.0 需求对齐** - Phases 7-12 (shipped 2026-05-18) — [Archive](milestones/v1.1.0-ROADMAP.md)
-- **v2.0 安全与性能加固** - Phases 13-15 (shipped 2026-05-20)
+- **v2.0 安全与性能加固** - Phases 13-15 (shipped 2026-05-21) — [Archive](milestones/v2.0-ROADMAP.md)
+- **v2.1 测试基础设施修复与收尾** - Phases 16-18 (active)
 
 ## Overview
 
-v1.0 验证了 84 个需求的全角色手工测试。v1.1.0 补齐 12 个 Gap 项，E2E 95% 覆盖。v2.0 解决并发、安全、性能问题，通过 CI/CD 与回归验证，达到生产部署就绪标准。三个里程碑全部完成。
+OAISS CHAIN 碳交易与区块链管理平台。v1.0–v2.0 已完成。v2.1 修复 E2E 测试基础设施，补齐验收缺口，清理技术债务。
 
-## Next Milestone
+## Active Milestone
 
-**TBD** — v2.1 deferred items or new feature work.
+**v2.1 测试基础设施修复与收尾** — 7 requirements across 3 phases.
 
 ## Phase Details
 
 <details>
 <summary>v1.0 Manual Testing (Phases 1-6) - SHIPPED 2026-05-13</summary>
 
-### Phase 1: Environment Setup & Auth Baseline
-**Goal**: All infrastructure services healthy, all 6 seed accounts login-verified, JWT lifecycle works.
-**Depends on**: Nothing
-**Requirements**: ENV-01 through ENV-10
-**Plans**: 2 plans (01-01, 01-02) -- Complete
-
-### Phase 2: Carbon Report Lifecycle
-**Goal**: Central business flow (create, submit, review, cascading side effects) works end-to-end.
-**Depends on**: Phase 1
-**Requirements**: CARB-01 through CARB-13
-**Plans**: 3 plans (02-01, 02-02, 02-03) -- Complete
-
-### Phase 3: Carbon Coin & Trading Engine
-**Goal**: Carbon coin accounts, double auction, P2P trade, settlement correctness.
-**Depends on**: Phase 1
-**Requirements**: COIN-01 through COIN-05, TRADE-01 through TRADE-13
-**Plans**: 3 plans (03-01, 03-02, 03-03) -- Complete
-
-### Phase 4: Carbon Neutral Projects & Credit Scoring
-**Goal**: Project lifecycle through all states, credit score levels enforced.
-**Depends on**: Phase 2
-**Requirements**: PROJ-01 through PROJ-05, CRED-01 through CRED-05
-**Plans**: 2 plans (04-01, 04-02) -- Complete
-
-### Phase 5: Supporting Domains
-**Goal**: Signatures, files, emissions, blockchain, admin, third-party, search verified.
-**Depends on**: Phase 1
-**Requirements**: SIGN-01~03, FILE-01~03, EMIT-01~03, BLOCK-01~03, ADMIN-01~05, TP-01~02, SRCH-01
-**Plans**: 7 plans (05-01 through 05-07) -- Complete
-
-### Phase 6: Cross-Cutting & Edge Cases
-**Goal**: AOP concerns verified, edge cases complete, SEC-03/04 fixed, bugs resolved.
-**Depends on**: Phases 2-5
-**Requirements**: AOP-01~04, EDGE-01~06, BUG-01~03
-**Plans**: 3 plans (06-01, 06-02, 06-03) -- Complete
+- [x] Phase 1: Environment Setup & Auth Baseline (2/2 plans)
+- [x] Phase 2: Carbon Report Lifecycle (3/3 plans)
+- [x] Phase 3: Carbon Coin & Trading Engine (3/3 plans)
+- [x] Phase 4: Carbon Neutral Projects & Credit Scoring (2/2 plans)
+- [x] Phase 5: Supporting Domains (7/7 plans)
+- [x] Phase 6: Cross-Cutting & Edge Cases (3/3 plans)
 
 </details>
 
 <details>
 <summary>v1.1.0 需求对齐 (Phases 7-12) - SHIPPED 2026-05-18</summary>
 
-### Phase 7: AI 智能预测基础
-**Goal**: 用户可通过后端 API 获取市场趋势预测、企业境况推断、碳排放 ML 回归预测
-**Depends on**: Phase 6
-**Plans**: 4 plans (07-01 through 07-04) -- Complete
-
-### Phase 8: AI 前端 + 碳核算公式
-**Goal**: 用户可在前端查看 AI 预测可视化图表；企业上报碳排放时使用行业专用核算公式
-**Depends on**: Phase 7
-**Plans**: 3 plans (08-01, 08-02, 08-03) -- Complete
-
-### Phase 9: 区块链真实对接
-**Goal**: 区块链记录从 Mock 模式升级为 Hyperledger Fabric 真实链上存储与查询
-**Depends on**: Phase 6
-**Plans**: 3 plans (09-01, 09-02, 09-03) -- Complete
-
-### Phase 10: 准入与资格证
-**Goal**: 管理员可签发企业准入证书和审核员资格证，企业和审核员可在前端查看证书状态
-**Depends on**: Phase 6
-**Plans**: 3 plans (10-01, 10-02, 10-03) -- Complete
-
-### Phase 11: 前端覆盖率补齐
-**Goal**: 前端 API 模块覆盖全部后端 endpoint，Enterprise/Reviewer 视图功能完整，Swagger 文档与实际 API 对齐
-**Depends on**: Phase 7, 8, 9, 10
-**Plans**: 4 plans (11-01 through 11-04) -- Complete
-
-### Phase 12: E2E 测试与验收
-**Goal**: 全量 E2E 自动化测试通过，覆盖率 90%+，通过率 90%+，v1.1.0 验收达标
-**Depends on**: Phase 7, 8, 9, 10, 11
-**Plans**: 6 plans (12-01 through 12-06) -- Complete
+- [x] Phase 7: AI 智能预测基础 (4/4 plans)
+- [x] Phase 8: AI 前端 + 碳核算公式 (3/3 plans)
+- [x] Phase 9: 区块链真实对接 (3/3 plans)
+- [x] Phase 10: 准入与资格证 (3/3 plans)
+- [x] Phase 11: 前端覆盖率补齐 (4/4 plans)
+- [x] Phase 12: E2E 测试与验收 (6/6 plans)
 
 </details>
 
-<details open>
-<summary>v2.0 安全与性能加固 (Phases 13-15) - ACTIVE</summary>
+<details>
+<summary>v2.0 安全与性能加固 (Phases 13-15) - SHIPPED 2026-05-21</summary>
 
-### Phase 13: 并发安全与凭据加固
-**Goal**: 消除金融交易竞态风险，外部化所有硬编码凭据，补全授权注解
-**Depends on**: Phase 12 (v1.1.0 shipped)
-**Requirements**: CON-01~03, SEC-07~13
-**Priority**: CRITICAL — 生产部署安全底线
-**Plans**: 3 plans
-Plans:
-- [ ] 13-01-PLAN.md — Concurrency Safety: lock-before-transaction, @DistributedLock, @Version optimistic lock (CON-01, CON-02, CON-03)
-- [ ] 13-02-PLAN.md — Credential Hardening: externalize docker-compose & YAML credentials, remove insecure defaults (SEC-07, SEC-08, SEC-09)
-- [ ] 13-03-PLAN.md — Authorization Hardening: @PreAuthorize on FileController/SearchController, remove X-User-Id fallback, Prometheus auth (SEC-10, SEC-11, SEC-12, SEC-13)
+- [x] Phase 13: 并发安全与凭据加固 (3/3 plans) — @DistributedLock, @Version, 凭据外部化, @PreAuthorize
+- [x] Phase 14: 性能优化与代码质量 (2/2 plans) — Redis SCAN, @Async, FK indexes, RSA encryption, readOnly=true
+- [x] Phase 15: DevOps 与回归验证 (3/3 plans) — CI/CD Trivy, Flyway validate, E2E 回归无 v2.0 新增回归
 
-### Phase 14: 性能优化与代码质量
-**Goal**: 解决性能瓶颈 (Redis SCAN、缓存异步、订单分页、外键索引)，补全事务注解和软删除过滤
-**Depends on**: Phase 13
-**Requirements**: PERF-02~05, SEC-01~02, QUAL-01~02
+</details>
+
+### v2.1 测试基础设施修复与收尾 (Phases 16-18) - ACTIVE
+
+#### Phase 16: E2E 测试基础设施修复
+
+**Goal**: 修复 auth fixture timeout，接入 d9/d10 孤悬测试，接入 isFabricAvailable() 钩子
+**Depends on**: Phase 15 (v2.0 shipped)
+**Requirements**: E2E-01, E2E-02, E2E-03
+**Priority**: HIGH — 解除 78+ 测试阻塞
 **Plans**: 2 plans
-**Priority**: HIGH — 生产负载就绪
-Plans:
-- [ ] 14-01-PLAN.md — Performance Optimization: Redis SCAN, @Async cache preload, V6 FK indexes (PERF-02, PERF-03, PERF-04, PERF-05)
-- [ ] 14-02-PLAN.md — Security & Code Quality: RSA key encryption, CSRF ADR, readOnly=true, AndDeletedFalse (SEC-01, SEC-02, QUAL-01, QUAL-02)
 
-### Phase 15: DevOps 与回归验证
-**Goal**: 建立 CI/CD 管道，修正 dev profile，全量 E2E 回归测试通过
-**Depends on**: Phase 14
-**Requirements**: OPS-01~02, 全量 E2E 回归
-**Plans**: 3 plans
-**Priority**: MEDIUM — 自动化保障
 Plans:
-- [x] 15-01-PLAN.md — Dev Profile Fix: enable Flyway, set ddl-auto: validate (OPS-02)
-- [x] 15-02-PLAN.md — CI/CD Pipeline Fix: fix logic bugs, add MinIO service, remove hardcoded creds (OPS-01)
-- [x] 15-03-PLAN.md — E2E Regression: full smoke + flow + v1.1 regression test suite
+- [x] 16-01-PLAN.md — Auth Fixture Fix: 修复 loginViaApi token 提取，恢复 flow/v1.1 测试运行 (E2E-01)
+- [x] 16-02-PLAN.md — Test Discovery Fix: 迁移 d9/d10 到 v1.1 目录，创建缺失 page objects，接入 isFabricAvailable (E2E-02, E2E-03)
 
-</details>
+Success Criteria:
+1. loginViaApi() 正确提取 accessToken，不再 30s timeout
+2. 至少 3 个 flow 测试端到端通过
+3. d9/d10 specs 被 Playwright 发现并执行
+4. BlockchainExplorerPage.ts 和 CarbonFormulaCalculatorPage.ts page objects 创建
+5. isFabricAvailable() 在至少 1 个测试中使用
+
+#### Phase 17: 验收缺口补齐与 i18n 清理
+
+**Goal**: 补齐 REQ-06/REQ-03 E2E 测试，提取硬编码中文到 i18n
+**Depends on**: Phase 16 (auth fixture 必须先修复)
+**Requirements**: GAP-01, GAP-02, I18N-01
+**Priority**: HIGH — 补齐 v1.1.0 验收缺口
+**Plans**: 2 plans
+
+Plans:
+- [ ] 17-01-PLAN.md — E2E Gap Tests: 碳核算公式测试 + 排放预测测试 + CORE_ENDPOINTS 更新 (GAP-01, GAP-02)
+- [ ] 17-02-PLAN.md — i18n Cleanup: 提取 4 文件 7 处硬编码中文到 vue-i18n keys (I18N-01)
+
+Success Criteria:
+1. blockchain-formula-flow.spec.ts 覆盖 /carbon/calculate/power-generation 和 /carbon/calculate/power-grid
+2. ai-prediction-flow.spec.ts 包含 /emission/predict 测试用例
+3. CORE_ENDPOINTS 包含碳核算公式和排放预测 endpoint
+4. 4 文件 7 处硬编码中文提取为 i18n key
+5. zh-CN.ts 和 en-US.ts 包含对应翻译
+
+#### Phase 18: Fabric CA 可选集成
+
+**Goal**: 实现 FabricCAService registerEnrollment，集成到现有 Fabric 区块链流程
+**Depends on**: Phase 16 (E2E 基础设施就绪)
+**Requirements**: FABRIC-01
+**Priority**: LOW — 可选功能
+**Plans**: 1 plan
+
+Plans:
+- [ ] 18-01-PLAN.md — Fabric CA Integration: FabricCAService registerEnrollment + @Profile("fabric") 条件装配 (FABRIC-01)
+
+Success Criteria:
+1. FabricCAService 实现 registerEnrollment()
+2. CA 服务不可用时不影响 Fabric 基本功能
+3. @Profile("fabric") 条件装配正确
+4. E2E 测试中 isFabricAvailable() 覆盖 CA 功能
 
 ## Progress
 
@@ -140,34 +118,21 @@ Plans:
 | 5. Supporting Domains | v1.0 | 7/7 | Complete | 2026-05-09 |
 | 6. Cross-Cutting & Edge Cases | v1.0 | 3/3 | Complete | 2026-05-13 |
 | 7. AI 智能预测基础 | v1.1.0 | 4/4 | Complete | 2026-05-14 |
-| 8. AI 前端 + 碼核算公式 | v1.1.0 | 3/3 | Complete | 2026-05-15 |
+| 8. AI 前端 + 碳核算公式 | v1.1.0 | 3/3 | Complete | 2026-05-15 |
 | 9. 区块链真实对接 | v1.1.0 | 3/3 | Complete | 2026-05-15 |
 | 10. 准入与资格证 | v1.1.0 | 3/3 | Complete | 2026-05-15 |
 | 11. 前端覆盖率补齐 | v1.1.0 | 4/4 | Complete | 2026-05-16 |
 | 12. E2E 测试与验收 | v1.1.0 | 6/6 | Complete | 2026-05-17 |
 | 13. 并发安全与凭据加固 | v2.0 | 3/3 | Complete | 2026-05-19 |
 | 14. 性能优化与代码质量 | v2.0 | 2/2 | Complete | 2026-05-20 |
-| 15. DevOps 与回归验证 | v2.0 | 3/3 | Complete | 2026-05-20 |
-
-## Known Issues & Deferred Items
-
-| Item | Status | Impact | v2.0 Coverage |
-|------|--------|--------|---------------|
-| CON-01/02/03 (concurrency) | Resolved in v2.0 | Financial data corruption risk | Phase 13 |
-| SEC-07/08/09 (credentials) | Resolved in v2.0 | Production deployment blocker | Phase 13 |
-| SEC-10/11/12/13 (authorization) | Resolved in v2.0 | Data access control gap | Phase 13 |
-| PERF-02/03/04 (performance) | Resolved in v2.0 | Production load risk | Phase 14 |
-| PERF-05 (indexes) | Resolved in v2.0 | Slow query risk | Phase 14 |
-| SEC-01 (RSA plaintext) | Resolved in v2.0 | Key compromise risk | Phase 14 |
-| SEC-02 (CSRF) | Resolved in v2.0 | ADR documentation | Phase 14 |
-| QUAL-01/02 (code quality) | Resolved in v2.0 | Maintainability | Phase 14 |
-| OPS-01/02 (DevOps) | Resolved in v2.0 | No CI/CD | Phase 15 |
-| M19 i18n 残留 | Deferred to v2.1 | LOW | — |
-| Fabric CA integration | Deferred to v2.1 | Optional | — |
-| Phase 11 skipped items | Deferred to v2.1 | LOW | — |
+| 15. DevOps 与回归验证 | v2.0 | 3/3 | Complete | 2026-05-21 |
+| 16. E2E 测试基础设施修复 | v2.1 | 2/2 | Complete | 2026-05-22 |
+| 17. 验收缺口补齐与 i18n 清理 | v2.1 | 0/2 | Not started | — |
+| 18. Fabric CA 可选集成 | v2.1 | 0/1 | Not started | — |
 
 ---
 *Roadmap created: 2026-05-08*
 *v1.0 shipped: 2026-05-13*
 *v1.1.0 shipped: 2026-05-18*
-*v2.0 shipped: 2026-05-20*
+*v2.0 shipped: 2026-05-21*
+*v2.1 started: 2026-05-22*
