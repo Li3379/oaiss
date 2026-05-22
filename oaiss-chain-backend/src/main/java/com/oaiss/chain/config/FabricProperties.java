@@ -1,6 +1,7 @@
 package com.oaiss.chain.config;
 
 import lombok.Data;
+import lombok.ToString;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @Data
@@ -25,6 +26,7 @@ public class FabricProperties {
         private boolean enabled = false;
         private String endpoint = "http://ca.org1.example.com:7054";
         private String adminName = "admin";
+        @ToString.Exclude
         private String adminPassword;
     }
 }
