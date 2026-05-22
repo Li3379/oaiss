@@ -81,7 +81,7 @@ const statusMap = computed(() => ({
   3: { tag: 'success', text: t('monitor.statusApproved') },
   4: { tag: 'danger', text: t('monitor.statusRejected') },
   5: { tag: 'success', text: t('monitor.statusOnChain') },
-}
+}))
 
 const getStatusTag = (status) => {
   return statusMap.value[status]?.tag || 'info'

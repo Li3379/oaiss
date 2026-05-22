@@ -1,20 +1,25 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useI18n } from 'vue-i18n'
 import { calculatePowerGeneration, calculatePowerGrid } from '../../api/carbonFormula'
+import { getProfile } from '../../api/user'
 import type { PowerGenerationCalculationResponse, PowerGridCalculationResponse } from '../../types/carbonFormula'
 import PageContainer from '../../components/PageContainer.vue'
 
 const { t } = useI18n()
 
 function createEmptyFuelParams() {
-  return { fc: null, ncv: null, cc: null, of: null } as { fc: number | null; ncv: number | null; cc: number | null; of: number | null }
+  return { fc: null, ncv: null, cc: null, of: null } as {
+    fc: number | null
+    ncv: number | null
+    cc: number | null
+    of: number | null
+  }
 }
 
 const activeTab = ref('powerGeneration')
 
-// Power Generation form
 const pgForm = ref({
   rawCoal: createEmptyFuelParams(),
   cleanedCoal: createEmptyFuelParams(),
@@ -37,6 +42,40 @@ const fuelSections = [
   { key: 'briquette' as const, labelKey: 'carbonFormula.briquette' },
   { key: 'otherCoal' as const, labelKey: 'carbonFormula.otherCoal' },
 ]
+
+const gridForm = ref({
+  transmissionVolume: null as number | null,
+  lineLossRate: null as number | null,
+  gridEmissionFactor: null as number | null,
+  generationVolume: null as number | null,
+  importedElectricity: null as number | null,
+  exportedElectricity: null as number | null,
+  importEmissionFactor: null as number | null,
+  reportingYear: new Date().getFullYear(),
+  enterpriseName: '',
+})
+const gridLoading = ref(false)
+const gridResult = ref<PowerGridCalculationResponse | null>(null)
+
+function applyEnterpriseName(name: string) {
+  if (!name) return
+  pgForm.value.enterpriseName = name
+  gridForm.value.enterpriseName = name
+}
+
+async function loadEnterpriseName() {
+  try {
+    const profile = await getProfile()
+    const enterpriseName = String(
+      (profile as Record<string, unknown>)?.company
+      || (profile as Record<string, unknown>)?.realName
+      || '',
+    )
+    applyEnterpriseName(enterpriseName)
+  } catch {
+    // Keep manual entry available if profile prefill is unavailable.
+  }
+}
 
 const onCalculatePowerGeneration = async () => {
   try {
@@ -81,21 +120,6 @@ const onCalculatePowerGeneration = async () => {
   }
 }
 
-// Power Grid form
-const gridForm = ref({
-  transmissionVolume: null as number | null,
-  lineLossRate: null as number | null,
-  gridEmissionFactor: null as number | null,
-  generationVolume: null as number | null,
-  importedElectricity: null as number | null,
-  exportedElectricity: null as number | null,
-  importEmissionFactor: null as number | null,
-  reportingYear: new Date().getFullYear(),
-  enterpriseName: '',
-})
-const gridLoading = ref(false)
-const gridResult = ref<PowerGridCalculationResponse | null>(null)
-
 const onCalculatePowerGrid = async () => {
   try {
     gridLoading.value = true
@@ -114,6 +138,10 @@ const onCalculatePowerGrid = async () => {
     gridLoading.value = false
   }
 }
+
+onMounted(() => {
+  loadEnterpriseName()
+})
 </script>
 
 <template>
@@ -121,10 +149,8 @@ const onCalculatePowerGrid = async () => {
     <section class="formula-page">
       <el-card class="section-card" shadow="never">
         <el-tabs v-model="activeTab">
-          <!-- Power Generation Tab -->
           <el-tab-pane :label="t('carbonFormula.tabPowerGeneration')" name="powerGeneration">
             <el-form label-width="160px" style="max-width: 900px; padding: 16px 0">
-              <!-- Metadata -->
               <el-row :gutter="20">
                 <el-col :span="12">
                   <el-form-item :label="t('carbonFormula.reportingYear')">
@@ -144,7 +170,6 @@ const onCalculatePowerGrid = async () => {
                 </el-col>
               </el-row>
 
-              <!-- Fuel sections -->
               <el-collapse>
                 <el-collapse-item v-for="section in fuelSections" :key="section.key" :title="t(section.labelKey)">
                   <el-row :gutter="20">
@@ -174,7 +199,6 @@ const onCalculatePowerGrid = async () => {
                 </el-collapse-item>
               </el-collapse>
 
-              <!-- Desulfurization -->
               <el-card class="section-card" shadow="never" style="margin-top: 16px">
                 <template #header>
                   <span>{{ t('carbonFormula.desulfurization') }}</span>
@@ -205,27 +229,17 @@ const onCalculatePowerGrid = async () => {
               </el-form-item>
             </el-form>
 
-            <!-- Results -->
             <template v-if="pgResult">
               <el-card class="section-card" shadow="never" style="margin-top: 20px">
                 <template #header>
                   <span>{{ t('carbonFormula.resultTitle') }}</span>
                 </template>
                 <el-descriptions :column="2" border>
-                  <el-descriptions-item :label="t('carbonFormula.totalEmission')">
-                    {{ pgResult.totalEmission }} tCO2e
-                  </el-descriptions-item>
-                  <el-descriptions-item :label="t('carbonFormula.combustionEmission')">
-                    {{ pgResult.combustionEmission }} tCO2e
-                  </el-descriptions-item>
-                  <el-descriptions-item :label="t('carbonFormula.desulfurizationEmission')">
-                    {{ pgResult.desulfurizationEmission }} tCO2e
-                  </el-descriptions-item>
-                  <el-descriptions-item :label="t('carbonFormula.formulaReference')">
-                    {{ pgResult.formulaReference }}
-                  </el-descriptions-item>
+                  <el-descriptions-item :label="t('carbonFormula.totalEmission')">{{ pgResult.totalEmission }} tCO2e</el-descriptions-item>
+                  <el-descriptions-item :label="t('carbonFormula.combustionEmission')">{{ pgResult.combustionEmission }} tCO2e</el-descriptions-item>
+                  <el-descriptions-item :label="t('carbonFormula.desulfurizationEmission')">{{ pgResult.desulfurizationEmission }} tCO2e</el-descriptions-item>
+                  <el-descriptions-item :label="t('carbonFormula.formulaReference')">{{ pgResult.formulaReference }}</el-descriptions-item>
                 </el-descriptions>
-
                 <el-table :data="pgResult.fuelDetails" border style="margin-top: 16px">
                   <el-table-column prop="fuelType" :label="t('carbonFormula.fuelType')" min-width="120" />
                   <el-table-column prop="fuelConsumption" :label="t('carbonFormula.fuelConsumption')" min-width="120" />
@@ -238,20 +252,12 @@ const onCalculatePowerGrid = async () => {
             </template>
           </el-tab-pane>
 
-          <!-- Power Grid Tab -->
           <el-tab-pane :label="t('carbonFormula.tabPowerGrid')" name="powerGrid">
             <el-form label-width="180px" style="max-width: 900px; padding: 16px 0">
-              <!-- Metadata -->
               <el-row :gutter="20">
                 <el-col :span="12">
                   <el-form-item :label="t('carbonFormula.reportingYear')">
-                    <el-date-picker
-                      v-model="gridForm.reportingYear"
-                      type="year"
-                      value-format="YYYY"
-                      :placeholder="t('carbonFormula.selectYear')"
-                      style="width: 100%"
-                    />
+                    <el-date-picker v-model="gridForm.reportingYear" type="year" value-format="YYYY" :placeholder="t('carbonFormula.selectYear')" style="width: 100%" />
                   </el-form-item>
                 </el-col>
                 <el-col :span="12">
@@ -312,28 +318,17 @@ const onCalculatePowerGrid = async () => {
               </el-form-item>
             </el-form>
 
-            <!-- Results -->
             <template v-if="gridResult">
               <el-card class="section-card" shadow="never" style="margin-top: 20px">
                 <template #header>
                   <span>{{ t('carbonFormula.resultTitle') }}</span>
                 </template>
                 <el-descriptions :column="2" border>
-                  <el-descriptions-item :label="t('carbonFormula.totalEmission')">
-                    {{ gridResult.totalEmission }} tCO2e
-                  </el-descriptions-item>
-                  <el-descriptions-item :label="t('carbonFormula.transmissionLossEmission')">
-                    {{ gridResult.transmissionLossEmission }} tCO2e
-                  </el-descriptions-item>
-                  <el-descriptions-item :label="t('carbonFormula.importedEmission')">
-                    {{ gridResult.importedEmission }} tCO2e
-                  </el-descriptions-item>
-                  <el-descriptions-item :label="t('carbonFormula.transmissionLoss')">
-                    {{ gridResult.transmissionLoss }} MWh
-                  </el-descriptions-item>
-                  <el-descriptions-item :label="t('carbonFormula.formulaReference')">
-                    {{ gridResult.formulaReference }}
-                  </el-descriptions-item>
+                  <el-descriptions-item :label="t('carbonFormula.totalEmission')">{{ gridResult.totalEmission }} tCO2e</el-descriptions-item>
+                  <el-descriptions-item :label="t('carbonFormula.transmissionLossEmission')">{{ gridResult.transmissionLossEmission }} tCO2e</el-descriptions-item>
+                  <el-descriptions-item :label="t('carbonFormula.importedEmission')">{{ gridResult.importedEmission }} tCO2e</el-descriptions-item>
+                  <el-descriptions-item :label="t('carbonFormula.transmissionLoss')">{{ gridResult.transmissionLoss }} MWh</el-descriptions-item>
+                  <el-descriptions-item :label="t('carbonFormula.formulaReference')">{{ gridResult.formulaReference }}</el-descriptions-item>
                 </el-descriptions>
               </el-card>
             </template>

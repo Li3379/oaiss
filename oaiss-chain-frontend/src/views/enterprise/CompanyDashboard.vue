@@ -306,9 +306,9 @@ const loadDashboardData = async () => {
       fetchCarbonReports(),
       fetchAdmissionStatus(),
     ])
-    await renderCharts()
   } finally {
     loading.value = false
+    await renderCharts()
   }
 }
 
