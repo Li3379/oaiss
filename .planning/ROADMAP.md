@@ -128,7 +128,7 @@ Success Criteria:
 | 15. DevOps 与回归验证 | v2.0 | 3/3 | Complete | 2026-05-21 |
 | 16. E2E 测试基础设施修复 | v2.1 | 2/2 | Complete | 2026-05-22 |
 | 17. 验收缺口补齐与 i18n 清理 | v2.1 | 2/2 | Complete    | 2026-05-22 |
-| 18. Fabric CA 可选集成 | v2.1 | 0/1 | Not started | — |
+| 18. Fabric CA 可选集成 | v2.1 | 1/1 | Complete | 2026-05-22 |
 
 ---
 *Roadmap created: 2026-05-08*

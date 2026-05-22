@@ -2,32 +2,32 @@
 gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: 测试基础设施修复与收尾
-status: planned
-last_updated: 2026-05-22T07:00:00.000Z
-last_activity: 2026-05-22 -- Phase 18 plan committed, ready to execute
+status: complete
+last_updated: 2026-05-22T04:20:00.000Z
+last_activity: 2026-05-22 -- Phase 18 execution complete
 progress:
   total_phases: 3
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 4
-  completed_plans: 46
-  percent: 67
-stopped_at: Phase 18 planned — ready to execute
+  completed_plans: 47
+  percent: 100
+stopped_at: v2.1 milestone complete
 ---
 
 # STATE: OAISS CHAIN
 
 **Milestone:** v2.1 测试基础设施修复与收尾
 **Created:** 2026-05-22
-**Status:** Ready to plan
+**Status:** Complete
 
 ## Current Position
 
 Phase: 18
-Plan: 18-01-PLAN.md committed
-Status: Planned
+Plan: 18-01-PLAN.md (complete)
+Status: Executed
 Last activity: 2026-05-22
-Next: Phase 18 execution (/gsd:execute-phase 18)
-Resume file: .planning/phases/18-fabric-ca/18-01-PLAN.md
+Next: v2.1 milestone complete
+Resume file: None
 
 ## Project Reference
 
@@ -54,7 +54,8 @@ See: .planning/PROJECT.md (updated 2026-05-22)
 - M19 i18n residual → I18N-01
 - Fabric CA integration → FABRIC-01
 
-### Decisions Summary
+### Decisions
+- D-01: EnrollmentResult made public for cross-package access from FabricGatewayConfig Summary
 
 Full log in PROJECT.md Key Decisions table (15 entries, all resolved)
 
