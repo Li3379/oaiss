@@ -40,7 +40,8 @@ const loadStatistics = async () => {
       rejectedReports: result?.rejectedReports || 0,
     }
   } catch (error) {
-    // silently handle
+    console.error('Failed to load statistics:', error)
+    ElMessage.error(t('monitor.loadFailed'))
   } finally {
     statsLoading.value = false
   }
@@ -73,7 +74,7 @@ const onCurrentChange = (page) => {
   loadReports()
 }
 
-const statusMap = {
+const statusMap = computed(() => ({
   0: { tag: 'info', text: t('monitor.statusDraft') },
   1: { tag: 'warning', text: t('monitor.statusPending') },
   2: { tag: 'warning', text: t('monitor.statusPending') },
@@ -83,11 +84,11 @@ const statusMap = {
 }
 
 const getStatusTag = (status) => {
-  return statusMap[status]?.tag || 'info'
+  return statusMap.value[status]?.tag || 'info'
 }
 
 const getStatusText = (status) => {
-  return statusMap[status]?.text || status
+  return statusMap.value[status]?.text || status
 }
 
 onMounted(() => {
