@@ -43,6 +43,7 @@ export async function loginViaApi(
   password: string,
 ): Promise<string> {
   const response = await page.request.post(`${API_BASE}/auth/login`, {
+    headers: { 'Content-Type': 'application/json' },
     data: { username, password },
   })
   const body = await response.json()
