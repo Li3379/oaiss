@@ -77,11 +77,15 @@ export async function loginViaApi(
 }
 
 export function buildStorageState(role = 'ENTERPRISE') {
+  const token = getToken(role)
   return {
     origins: [
       {
         origin: 'http://localhost:5173',
-        localStorage: [],
+        localStorage: [
+          { name: 'access_token', value: token },
+          { name: 'user_role', value: role },
+        ],
       },
     ],
   }
