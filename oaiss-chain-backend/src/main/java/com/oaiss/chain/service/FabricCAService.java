@@ -1,5 +1,7 @@
 package com.oaiss.chain.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.oaiss.chain.config.FabricProperties;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -96,24 +98,30 @@ public class FabricCAService {
     }
 
     private String extractCertFromResponse(String responseJson) {
-        // Minimal JSON parsing to extract the "cert" field
-        // The CA response format: { "result": { "Cert": "base64cert..." } }
-        // or flat: { "cert": "base64cert..." }
-        String certKey = "\"Cert\"";
-        int certIdx = responseJson.indexOf(certKey);
-        if (certIdx < 0) {
-            certKey = "\"cert\"";
-            certIdx = responseJson.indexOf(certKey);
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            JsonNode root = mapper.readTree(responseJson);
+            // Fabric CA may return {"Cert":"..."} or {"result":{"Cert":"..."}}
+            JsonNode certNode = root.path("Cert");
+            if (certNode.isMissingNode()) {
+                certNode = root.path("cert");
+            }
+            if (certNode.isMissingNode()) {
+                certNode = root.path("result").path("Cert");
+                if (certNode.isMissingNode()) {
+                    certNode = root.path("result").path("cert");
+                }
+            }
+            if (certNode.isMissingNode()) {
+                throw new RuntimeException("No certificate (cert/Cert) found in CA response: "
+                    + responseJson.substring(0, Math.min(200, responseJson.length())));
+            }
+            return certNode.asText();
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to parse CA response: " + e.getMessage(), e);
         }
-        if (certIdx < 0) {
-            throw new RuntimeException("No certificate found in CA response");
-        }
-
-        // Find the value after the colon
-        int colonIdx = responseJson.indexOf(':', certIdx);
-        int quoteStart = responseJson.indexOf('"', colonIdx + 1);
-        int quoteEnd = responseJson.indexOf('"', quoteStart + 1);
-        return responseJson.substring(quoteStart + 1, quoteEnd);
     }
 
     /**
