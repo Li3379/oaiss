@@ -5,7 +5,7 @@
 - **v1.0 Manual Testing** - Phases 1-6 (shipped 2026-05-13) — [Archive](milestones/v1.0-ROADMAP.md)
 - **v1.1.0 需求对齐** - Phases 7-12 (shipped 2026-05-18) — [Archive](milestones/v1.1.0-ROADMAP.md)
 - **v2.0 安全与性能加固** - Phases 13-15 (shipped 2026-05-21) — [Archive](milestones/v2.0-ROADMAP.md)
-- **v2.1 测试基础设施修复与收尾** - Phases 16-18 (active)
+- **v2.1 测试基础设施修复与收尾** - Phases 16-18 (shipped 2026-05-22)
 
 ## Overview
 
