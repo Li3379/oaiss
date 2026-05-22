@@ -99,7 +99,7 @@ Success Criteria:
 **Plans**: 1 plan
 
 Plans:
-- [ ] 18-01-PLAN.md — Fabric CA Integration: FabricCAService registerEnrollment + @Profile("fabric") 条件装配 (FABRIC-01)
+- [x] 18-01-PLAN.md — Fabric CA Integration: FabricCAService registerEnrollment + @Profile("fabric") 条件装配 (FABRIC-01)
 
 Success Criteria:
 1. FabricCAService 实现 registerEnrollment()
