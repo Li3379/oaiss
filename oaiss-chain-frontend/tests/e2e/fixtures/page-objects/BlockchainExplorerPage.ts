@@ -19,6 +19,7 @@ export class BlockchainExplorerPage {
 
   async switchToTransactionsTab(): Promise<void> {
     const tabs = this.page.locator('.el-tabs__item')
+    await expect(tabs).toHaveCount(2, { timeout: 5000 })
     await tabs.nth(1).click()
   }
 
