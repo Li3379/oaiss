@@ -13,6 +13,51 @@ const appStore = useAppStore()
 const inferenceData = ref<EnterpriseInferenceResponse | null>(null)
 const loading = ref(false)
 
+function normalizeStatus(status: string | null | undefined): string {
+  return (status || '').trim().toLowerCase().replace(/[-\s]+/g, '_')
+}
+
+function clampRatio(value: number | null | undefined): number {
+  if (typeof value !== 'number' || Number.isNaN(value)) return 0
+  return Math.min(1, Math.max(0, value))
+}
+
+function toPercentage(value: number | null | undefined): number {
+  return Math.round(clampRatio(value) * 100)
+}
+
+function formatSignedScore(value: number | null | undefined): string {
+  if (typeof value !== 'number' || Number.isNaN(value)) {
+    return '--'
+  }
+
+  return value.toFixed(3)
+}
+
+function getConfidenceColor(value: number | null | undefined): string {
+  const safeValue = clampRatio(value)
+  return safeValue >= 0.8 ? '#67c23a' : safeValue >= 0.5 ? '#e6a23c' : '#f56c6c'
+}
+
+function getAnomalyScoreColor(value: number | null | undefined): string {
+  if (typeof value !== 'number' || Number.isNaN(value)) return 'var(--text-secondary)'
+  if (value < 0) return '#f56c6c'
+  if (value < 0.1) return '#e6a23c'
+  return '#67c23a'
+}
+
+function localizeRiskFactor(factor: string): string {
+  const factorMap: Record<string, string> = {
+    'Low credit score': t('enterpriseInference.riskLowCreditScore'),
+    'High compliance flag count': t('enterpriseInference.riskHighComplianceFlags'),
+    'Extended reporting gap': t('enterpriseInference.riskExtendedReportingGap'),
+    'Anomalous emission pattern detected': t('enterpriseInference.riskAnomalousEmissionPattern'),
+    'High average emissions per report': t('enterpriseInference.riskHighAverageEmissions'),
+  }
+
+  return factorMap[factor] || factor
+}
+
 const loadData = async () => {
   const enterpriseId = appStore.enterpriseId
   if (!enterpriseId) {
@@ -31,19 +76,23 @@ const loadData = async () => {
 }
 
 function getStatusType(status: string): 'success' | 'warning' | 'danger' | 'info' {
-  switch (status) {
+  switch (normalizeStatus(status)) {
     case 'compliant': return 'success'
     case 'warning': return 'warning'
-    case 'non-compliant': return 'danger'
+    case 'at_risk': return 'warning'
+    case 'non_compliant': return 'danger'
+    case 'unknown': return 'info'
     default: return 'info'
   }
 }
 
 function getStatusLabel(status: string): string {
-  switch (status) {
+  switch (normalizeStatus(status)) {
     case 'compliant': return t('enterpriseInference.compliant')
     case 'warning': return t('enterpriseInference.warning')
-    case 'non-compliant': return t('enterpriseInference.nonCompliant')
+    case 'at_risk': return t('enterpriseInference.atRisk')
+    case 'non_compliant': return t('enterpriseInference.nonCompliant')
+    case 'unknown': return t('enterpriseInference.unknown')
     default: return status
   }
 }
@@ -85,8 +134,8 @@ onMounted(() => {
                 <div class="stat-value">
                   <el-progress
                     type="dashboard"
-                    :percentage="Math.round(inferenceData.confidence * 100)"
-                    :color="inferenceData.confidence >= 0.8 ? '#67c23a' : inferenceData.confidence >= 0.5 ? '#e6a23c' : '#f56c6c'"
+                    :percentage="toPercentage(inferenceData.confidence)"
+                    :color="getConfidenceColor(inferenceData.confidence)"
                   />
                 </div>
               </el-card>
@@ -96,11 +145,12 @@ onMounted(() => {
               <el-card shadow="hover" class="stat-card">
                 <div class="stat-label">{{ t('enterpriseInference.anomalyScore') }}</div>
                 <div class="stat-value">
-                  <el-progress
-                    type="dashboard"
-                    :percentage="Math.round(inferenceData.anomalyScore * 100)"
-                    :color="inferenceData.anomalyScore > 0.7 ? '#f56c6c' : inferenceData.anomalyScore > 0.4 ? '#e6a23c' : '#67c23a'"
-                  />
+                  <span
+                    class="score-value"
+                    :style="{ color: getAnomalyScoreColor(inferenceData.anomalyScore) }"
+                  >
+                    {{ formatSignedScore(inferenceData.anomalyScore) }}
+                  </span>
                 </div>
               </el-card>
             </el-col>
@@ -128,7 +178,7 @@ onMounted(() => {
                 type="warning"
                 class="risk-tag"
               >
-                {{ factor }}
+                {{ localizeRiskFactor(factor) }}
               </el-tag>
             </div>
             <el-alert
@@ -195,6 +245,12 @@ onMounted(() => {
   display: flex;
   justify-content: center;
   align-items: center;
+}
+
+.score-value {
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1;
 }
 
 .risk-factors {

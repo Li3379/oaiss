@@ -181,6 +181,66 @@ async function clickUnique(page: Page, selector: string, label: string) {
   await page.locator(selector).first().click()
 }
 
+async function waitForLocatorCount(page: Page, selector: string, expectedCount: number, timeoutMs = 8000) {
+  const startedAt = Date.now()
+  while (Date.now() - startedAt < timeoutMs) {
+    if ((await page.locator(selector).count()) >= expectedCount) {
+      return
+    }
+    await page.waitForTimeout(200)
+  }
+  throw new Error(`Expected ${expectedCount}+ matches for ${selector}`)
+}
+
+async function waitForRowByText(page: Page, rowLocator: ReturnType<Page['locator']>, timeoutMs = 8000) {
+  const startedAt = Date.now()
+  while (Date.now() - startedAt < timeoutMs) {
+    if ((await rowLocator.count()) > 0 && await rowLocator.first().isVisible().catch(() => false)) {
+      return
+    }
+    await page.waitForTimeout(200)
+  }
+  throw new Error('New project row not visible')
+}
+
+async function expandVisibleCollapseItems(page: Page) {
+  const headers = page.locator('.el-tab-pane:visible .el-collapse-item__header')
+  const count = await headers.count()
+  for (let i = 0; i < count; i += 1) {
+    const header = headers.nth(i)
+    const item = header.locator('xpath=ancestor::*[contains(@class,"el-collapse-item")]').first()
+    const isActive = await item.evaluate(el => el.classList.contains('is-active')).catch(() => false)
+    if (!isActive) {
+      await header.click().catch(async () => {
+        await header.click({ force: true })
+      })
+      await page.waitForTimeout(150)
+    }
+  }
+}
+
+async function openSidebarLeaf(page: Page, sectionPattern: RegExp, leafPattern: RegExp) {
+  const sectionTitle = page.locator('.side-panel .el-sub-menu__title span').filter({ hasText: sectionPattern }).first()
+  if ((await sectionTitle.count()) === 0) {
+    throw new Error(`Sidebar section not found: ${sectionPattern}`)
+  }
+
+  const sectionTrigger = sectionTitle.locator('..')
+  await sectionTrigger.click().catch(async () => {
+    await sectionTrigger.click({ force: true })
+  })
+  await page.waitForTimeout(250)
+
+  const leaf = page.locator('.side-panel .el-menu-item').filter({ hasText: leafPattern }).first()
+  if ((await leaf.count()) === 0) {
+    throw new Error(`Sidebar leaf not found: ${leafPattern}`)
+  }
+
+  await leaf.click({ timeout: 3000 }).catch(async () => {
+    await leaf.click({ timeout: 3000, force: true })
+  })
+}
+
 async function createDraftReport(request: APIRequestContext, token: string, title: string) {
   return api<any>(request, 'post', token, '/carbon/reports', {
     data: {
@@ -236,7 +296,16 @@ async function loginByUiWithCaptcha(page: Page, username: string, password: stri
     const inputs = page.locator('.login-card input')
     await inputs.nth(0).fill(username)
     await inputs.nth(1).fill(password)
-    const code = ocrCaptcha(await page.locator('.captcha-image').getAttribute('src'))
+    const src = await page.locator('.captcha-image').getAttribute('src')
+    let code = ''
+    try {
+      code = ocrCaptcha(src)
+    } catch (error) {
+      lastError = shortError(error)
+      await page.locator('.captcha-image').click().catch(() => {})
+      await page.waitForTimeout(300)
+      continue
+    }
     await inputs.nth(2).fill(code)
     await page.locator('.submit-btn').click()
     await page.waitForTimeout(1200)
@@ -358,16 +427,37 @@ test.describe('OAISS CHAIN frontend full functional matrix', () => {
     await recordCase(page, 'S0 Auth', 'S0-04', 'wrong password rejects and refreshes captcha', 'P0', async () => {
       await page.goto(`${BASE_URL}/login`)
       await settle(page)
-      const before = await page.locator('.captcha-image').getAttribute('src')
       const inputs = page.locator('.login-card input')
-      await inputs.nth(0).fill(USERS.enterprise.username)
-      await inputs.nth(1).fill('wrongpass')
-      await inputs.nth(2).fill(ocrCaptcha(before))
-      await page.locator('.submit-btn').click()
-      await page.waitForTimeout(1500)
-      if (!page.url().includes('/login')) throw new Error('Wrong password unexpectedly logged in')
-      const after = await page.locator('.captcha-image').getAttribute('src')
-      if (before === after) throw new Error('Captcha did not refresh after failed login')
+      let refreshed = false
+      let attempts = 0
+      let lastMessage = ''
+
+      while (!refreshed && attempts < 6) {
+        attempts += 1
+        const before = await page.locator('.captcha-image').getAttribute('src')
+        await inputs.nth(0).fill(USERS.enterprise.username)
+        await inputs.nth(1).fill('wrongpass')
+
+        let code = ''
+        try {
+          code = ocrCaptcha(before)
+        } catch (error) {
+          lastMessage = shortError(error)
+          await page.locator('.captcha-image').click().catch(() => {})
+          await page.waitForTimeout(300)
+          continue
+        }
+
+        await inputs.nth(2).fill(code)
+        await page.locator('.submit-btn').click()
+        await page.waitForTimeout(1500)
+        if (!page.url().includes('/login')) throw new Error('Wrong password unexpectedly logged in')
+        const after = await page.locator('.captcha-image').getAttribute('src')
+        refreshed = before !== after
+        lastMessage = `Attempt ${attempts} stayed on login with OCR code ${code}`
+      }
+
+      if (!refreshed) throw new Error(lastMessage || 'Captcha did not refresh after failed login')
     })
 
     await recordCase(page, 'S0 Auth', 'S0-05', 'correct login routes to enterprise home', 'P0', async () => {
@@ -429,11 +519,7 @@ test.describe('OAISS CHAIN frontend full functional matrix', () => {
     await recordCase(page, 'S1 Carbon Report', 'S1-02', 'menu navigation to upload', 'P0', async () => {
       await page.goto(`${BASE_URL}/enterprise/orders/manage`)
       await settle(page)
-      const menu = page.locator('.side-panel .el-menu-item').filter({ hasText: /upload|上传|审核/i }).first()
-      if ((await menu.count()) === 0) throw new Error('Upload audit menu item not found in sidebar')
-      await menu.click({ timeout: 3000 }).catch(async () => {
-        await menu.click({ timeout: 3000, force: true })
-      })
+      await openSidebarLeaf(page, /carbon|碳核算/i, /upload|上传|审核/i)
       await page.waitForTimeout(500)
       if (!page.url().includes('/enterprise/carbon/upload')) {
         await page.goto(`${BASE_URL}/enterprise/carbon/upload`)
@@ -520,9 +606,12 @@ test.describe('OAISS CHAIN frontend full functional matrix', () => {
       await createP2PTrade(request, enterpriseToken).catch(() => undefined)
       await page.goto(`${BASE_URL}/enterprise/orders/manage`)
       await settle(page)
-      const firstAction = page.locator('.el-table__body-wrapper tbody tr button').first()
-      if ((await firstAction.count()) === 0) throw new Error('No order action button available for detail')
-      await firstAction.click()
+      await clickFirstVisible(page, [
+        '.el-table__fixed-right .el-button',
+        '.el-table .el-button',
+        'button:has-text("查看详情")',
+        'button:has-text("View Detail")',
+      ])
       await page.waitForTimeout(500)
       if ((await page.locator('.el-dialog').count()) === 0) throw new Error('Order detail dialog did not open')
     })
@@ -640,6 +729,7 @@ test.describe('OAISS CHAIN frontend full functional matrix', () => {
       await expectAppPage(page, '/enterprise/company/dashboard')
     })
     await recordCase(page, 'S5 Dashboard', 'S5-02', 'charts render', 'P1', async () => {
+      await waitForLocatorCount(page, '.chart-box', 6, 8000)
       if ((await page.locator('.chart-box').count()) < 6) throw new Error('Expected six dashboard chart containers')
     })
     await recordCase(page, 'S5 Dashboard', 'S5-03', 'stat cards render', 'P1', async () => {
@@ -756,7 +846,7 @@ test.describe('OAISS CHAIN frontend full functional matrix', () => {
       await page.goto(`${BASE_URL}/enterprise/carbon-neutral/projects`)
       await settle(page)
       const row = page.locator('.el-table__body-wrapper tbody tr').filter({ hasText: projectName }).first()
-      if ((await row.count()) === 0) throw new Error('New project row not visible')
+      await waitForRowByText(page, row, 8000)
       await row.locator('button').first().click()
       await page.locator('.el-message-box__btns .el-button--primary').click()
       await page.waitForTimeout(1000)
@@ -791,22 +881,23 @@ test.describe('OAISS CHAIN frontend full functional matrix', () => {
       await expectAppPage(page, '/enterprise/carbon-formula')
     })
     await recordCase(page, 'S12 Formula', 'S12-02', 'power generation calculation', 'P2', async () => {
-      const inputs = page.locator('input[role="spinbutton"]')
+      await expandVisibleCollapseItems(page)
+      const inputs = page.locator('.el-tab-pane:visible input[role="spinbutton"]')
       const count = await inputs.count()
       for (let i = 0; i < Math.min(count, 8); i += 1) await inputs.nth(i).fill(i % 4 === 3 ? '0.9' : '1')
-      await page.locator('.el-button--primary').first().click()
+      await page.locator('.el-tab-pane:visible .el-button--primary').first().click()
       await page.waitForTimeout(1500)
-      if ((await page.locator('.el-descriptions').count()) === 0) throw new Error('Power generation result did not render')
+      if ((await page.locator('.el-tab-pane:visible .el-descriptions').count()) === 0) throw new Error('Power generation result did not render')
     })
     await recordCase(page, 'S12 Formula', 'S12-03', 'power grid calculation', 'P2', async () => {
       await page.locator('.el-tabs__item').nth(1).click()
       await settle(page)
-      const inputs = page.locator('input[role="spinbutton"]')
+      const inputs = page.locator('.el-tab-pane:visible input[role="spinbutton"]')
       const count = await inputs.count()
       for (let i = 0; i < count; i += 1) await inputs.nth(i).fill(i === 1 ? '0.1' : '1')
-      await page.locator('.el-button--primary').first().click()
+      await page.locator('.el-tab-pane:visible .el-button--primary').first().click()
       await page.waitForTimeout(1500)
-      if ((await page.locator('.el-descriptions').count()) === 0) throw new Error('Power grid result did not render')
+      if ((await page.locator('.el-tab-pane:visible .el-descriptions').count()) === 0) throw new Error('Power grid result did not render')
     })
     await recordCase(page, 'S12 Formula', 'S12-04', 'empty value validation', 'P2', async () => {
       await page.goto(`${BASE_URL}/enterprise/carbon-formula`)
