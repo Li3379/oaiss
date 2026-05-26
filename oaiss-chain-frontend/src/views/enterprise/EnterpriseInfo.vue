@@ -1,14 +1,34 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useI18n } from 'vue-i18n'
 import { getEnterpriseInfo, getQuotaInfo, updateContact } from '../../api/enterprise'
+import { getMyAccount } from '../../api/carbonCoin'
 
 const { t } = useI18n()
 
 const loading = ref(false)
 const enterpriseInfo = ref<Record<string, unknown> | null>(null)
 const quotaInfo = ref<Record<string, unknown> | null>(null)
+const carbonCoinBalance = ref<number | null>(null)
+
+const enterpriseName = computed(() => {
+  return (enterpriseInfo.value?.enterpriseName as string) || '-'
+})
+
+const registrationTime = computed(() => {
+  return (enterpriseInfo.value?.createdAt as string) || (enterpriseInfo.value?.registrationDate as string) || '-'
+})
+
+const remainingQuota = computed(() => {
+  const value = quotaInfo.value?.remainingQuota
+  return value ?? '-'
+})
+
+const usageRate = computed(() => {
+  const value = Number(quotaInfo.value?.usageRate)
+  return Number.isFinite(value) ? `${value.toFixed(2)}%` : '-'
+})
 
 const contactDialogVisible = ref(false)
 const contactForm = ref({ contactPerson: '', contactPhone: '' })
@@ -17,12 +37,14 @@ const contactLoading = ref(false)
 const fetchInfo = async () => {
   loading.value = true
   try {
-    const [info, quota] = await Promise.all([
+    const [info, quota, account] = await Promise.all([
       getEnterpriseInfo(),
       getQuotaInfo(),
+      getMyAccount(),
     ])
     enterpriseInfo.value = info as Record<string, unknown>
     quotaInfo.value = quota as Record<string, unknown>
+    carbonCoinBalance.value = Number((account as { balance?: number })?.balance || 0)
     if ((info as Record<string, unknown>).contactPerson) {
       contactForm.value.contactPerson = (info as Record<string, unknown>).contactPerson as string
     }
@@ -78,11 +100,11 @@ onMounted(() => fetchInfo())
           </div>
         </template>
         <el-descriptions v-if="enterpriseInfo" :column="2" border>
-          <el-descriptions-item :label="t('enterpriseInfo.companyName')">{{ enterpriseInfo.companyName || '-' }}</el-descriptions-item>
+          <el-descriptions-item :label="t('enterpriseInfo.companyName')">{{ enterpriseName }}</el-descriptions-item>
           <el-descriptions-item :label="t('enterpriseInfo.industry')">{{ enterpriseInfo.industry || '-' }}</el-descriptions-item>
           <el-descriptions-item :label="t('enterpriseInfo.contactPerson')">{{ enterpriseInfo.contactPerson || '-' }}</el-descriptions-item>
           <el-descriptions-item :label="t('enterpriseInfo.contactPhone')">{{ enterpriseInfo.contactPhone || '-' }}</el-descriptions-item>
-          <el-descriptions-item :label="t('enterpriseInfo.registrationDate')">{{ enterpriseInfo.registrationDate || '-' }}</el-descriptions-item>
+          <el-descriptions-item :label="t('enterpriseInfo.registrationDate')">{{ registrationTime }}</el-descriptions-item>
           <el-descriptions-item :label="t('enterpriseInfo.address')">{{ enterpriseInfo.address || '-' }}</el-descriptions-item>
         </el-descriptions>
       </el-card>
@@ -95,7 +117,9 @@ onMounted(() => fetchInfo())
           <el-descriptions-item :label="t('enterpriseInfo.totalQuota')">{{ quotaInfo.totalQuota ?? '-' }}</el-descriptions-item>
           <el-descriptions-item :label="t('enterpriseInfo.usedQuota')">{{ quotaInfo.usedQuota ?? '-' }}</el-descriptions-item>
           <el-descriptions-item :label="t('enterpriseInfo.tradableQuota')">{{ quotaInfo.tradableQuota ?? '-' }}</el-descriptions-item>
-          <el-descriptions-item :label="t('enterpriseInfo.quotaPeriod')">{{ quotaInfo.period || '-' }}</el-descriptions-item>
+          <el-descriptions-item :label="t('enterpriseInfo.remainingQuota')">{{ remainingQuota }}</el-descriptions-item>
+          <el-descriptions-item :label="t('enterpriseInfo.usageRate')">{{ usageRate }}</el-descriptions-item>
+          <el-descriptions-item :label="t('carbonCoin.balance')">{{ carbonCoinBalance ?? '-' }}</el-descriptions-item>
         </el-descriptions>
       </el-card>
     </div>

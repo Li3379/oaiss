@@ -1,18 +1,32 @@
 <script setup lang="ts">
 import { ref, onMounted, watch, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { getProfile, updateProfile, changePassword } from '../../api/user'
 import { getMyEnterpriseAdmission } from '../../api/enterprise'
+import { generateKeyPair, deleteKeyPair } from '../../api/signature'
 import PageContainer from '../../components/PageContainer.vue'
+import type { ApiResponse, RsaKeyPairResponse, UserInfoResponse } from '../../types'
+import { getAccessToken } from '../../utils/auth'
+import { formatDateTime } from '../../utils/format'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
+
+interface ProfileEditForm {
+  realName: string
+  email: string
+  phone: string
+  company: string
+  address: string
+}
+
+type ProfileViewModel = UserInfoResponse & Partial<Pick<ProfileEditForm, 'company' | 'address'>>
 
 const activeTab = ref('info')
 const profileLoading = ref(false)
-const profile = ref(null)
+const profile = ref<ProfileViewModel | null>(null)
 
-const pwdFormRef = ref(null)
+const pwdFormRef = ref<any>(null)
 const pwdLoading = ref(false)
 const pwdForm = ref({
   oldPassword: '',
@@ -48,9 +62,9 @@ watch(() => pwdForm.value.newPassword, () => {
   }
 })
 
-const editFormRef = ref(null)
+const editFormRef = ref<any>(null)
 const editLoading = ref(false)
-const editForm = ref({
+const editForm = ref<ProfileEditForm>({
   realName: '',
   email: '',
   phone: '',
@@ -66,7 +80,7 @@ const editRules = {
 const loadProfile = async () => {
   try {
     profileLoading.value = true
-    const result = await getProfile()
+    const result = await getProfile() as ProfileViewModel
     profile.value = result
     editForm.value = {
       realName: result?.realName || '',
@@ -120,6 +134,10 @@ const onChangePassword = async () => {
 
 const admissionStatus = ref<Record<string, unknown> | null>(null)
 const admissionLoading = ref(false)
+const signatureLoading = ref(false)
+const signatureActionLoading = ref(false)
+const signatureLoaded = ref(false)
+const signatureKeyPair = ref<RsaKeyPairResponse | null>(null)
 
 const fetchAdmissionStatus = async () => {
   admissionLoading.value = true
@@ -144,9 +162,128 @@ const admissionStatusText = computed(() => {
   return admissionStatus.value.status === 1 ? t('certificateManage.active') : t('certificateManage.revoked')
 })
 
+const signatureStatusType = computed(() => {
+  if (!signatureLoaded.value) return 'info'
+  if (!signatureKeyPair.value) return 'warning'
+  return signatureKeyPair.value.keyStatus === 1 ? 'success' : 'danger'
+})
+
+const signatureStatusText = computed(() => {
+  if (!signatureLoaded.value) return t('common.loading')
+  if (!signatureKeyPair.value) return t('userProfile.signatureNotGenerated')
+  if (locale.value === 'en-US') {
+    if (signatureKeyPair.value.keyStatus === 1) return t('userProfile.signatureStatusActive')
+    if (signatureKeyPair.value.keyStatus === 0) return t('userProfile.signatureStatusRevoked')
+    if (signatureKeyPair.value.keyStatus === 2) return t('userProfile.signatureStatusExpired')
+    return t('userProfile.signatureReady')
+  }
+  return signatureKeyPair.value.keyStatusText || t('userProfile.signatureReady')
+})
+
+const signaturePublicKeyPreview = computed(() => {
+  const publicKey = signatureKeyPair.value?.publicKey?.trim()
+  if (!publicKey) return ''
+  if (publicKey.length <= 120) return publicKey
+  return `${publicKey.slice(0, 72)}...${publicKey.slice(-36)}`
+})
+
+const signatureKeyVersionText = computed(() => {
+  if (signatureKeyPair.value?.keyVersion === undefined || signatureKeyPair.value?.keyVersion === null) {
+    return '-'
+  }
+  return `v${signatureKeyPair.value.keyVersion}`
+})
+
+const signatureKeyUsageText = computed(() => {
+  if (!signatureKeyPair.value?.keyUsage) return '-'
+  return String(signatureKeyPair.value.keyUsage)
+})
+
+async function fetchSignatureKeyPair(): Promise<RsaKeyPairResponse | null> {
+  const token = getAccessToken()
+  if (!token) return null
+
+  const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/signature/keypair`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  })
+
+  if (response.status === 400 || response.status === 404) {
+    return null
+  }
+
+  let payload: ApiResponse<RsaKeyPairResponse> | null = null
+  try {
+    payload = await response.json()
+  } catch {
+    payload = null
+  }
+
+  if (!response.ok || !payload || ![200, 0].includes(payload.code)) {
+    throw new Error(payload?.message || 'Failed to load signature keypair')
+  }
+
+  return payload.data || null
+}
+
+const loadSignatureKeyPair = async () => {
+  signatureLoading.value = true
+  try {
+    signatureKeyPair.value = await fetchSignatureKeyPair()
+    signatureLoaded.value = true
+  } catch {
+    signatureLoaded.value = true
+    signatureKeyPair.value = null
+    ElMessage.error(t('userProfile.loadSignatureFailed'))
+  } finally {
+    signatureLoading.value = false
+  }
+}
+
+const onGenerateKeyPair = async () => {
+  try {
+    signatureActionLoading.value = true
+    await generateKeyPair()
+    ElMessage.success(t('userProfile.generateKeyPairSuccess'))
+    await loadSignatureKeyPair()
+  } catch {
+    ElMessage.error(t('userProfile.generateKeyPairFailed'))
+  } finally {
+    signatureActionLoading.value = false
+  }
+}
+
+const onDeleteKeyPair = async () => {
+  try {
+    await ElMessageBox.confirm(
+      t('userProfile.deleteKeyPairConfirm'),
+      t('userProfile.deleteKeyPairTitle'),
+      {
+        type: 'warning',
+        confirmButtonText: t('common.confirm'),
+        cancelButtonText: t('common.cancel'),
+      },
+    )
+
+    signatureActionLoading.value = true
+    await deleteKeyPair()
+    signatureKeyPair.value = null
+    signatureLoaded.value = true
+    ElMessage.success(t('userProfile.deleteKeyPairSuccess'))
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error(t('userProfile.deleteKeyPairFailed'))
+    }
+  } finally {
+    signatureActionLoading.value = false
+  }
+}
+
 onMounted(() => {
   loadProfile()
   fetchAdmissionStatus()
+  loadSignatureKeyPair()
 })
 </script>
 
@@ -235,6 +372,89 @@ onMounted(() => {
           </el-descriptions-item>
         </el-descriptions>
       </el-card>
+
+      <el-card class="section-card" shadow="never" data-testid="signature-card">
+        <template #header>
+          <div class="signature-card__header">
+            <div>
+              <div class="signature-card__title">{{ t('userProfile.digitalSignature') }}</div>
+              <div class="signature-card__description">{{ t('userProfile.digitalSignatureDescription') }}</div>
+            </div>
+            <el-space wrap>
+              <el-button
+                :loading="signatureLoading"
+                data-testid="signature-refresh-button"
+                @click="loadSignatureKeyPair"
+              >
+                {{ t('userProfile.refreshKeyPair') }}
+              </el-button>
+              <el-button
+                v-if="!signatureKeyPair"
+                type="primary"
+                :loading="signatureActionLoading"
+                data-testid="signature-generate-button"
+                @click="onGenerateKeyPair"
+              >
+                {{ t('userProfile.generateKeyPair') }}
+              </el-button>
+              <el-button
+                v-else
+                type="danger"
+                plain
+                :loading="signatureActionLoading"
+                data-testid="signature-delete-button"
+                @click="onDeleteKeyPair"
+              >
+                {{ t('userProfile.deleteKeyPair') }}
+              </el-button>
+            </el-space>
+          </div>
+        </template>
+
+        <div v-loading="signatureLoading">
+          <div class="signature-status-row">
+            <span class="signature-status-row__label">{{ t('userProfile.keyPairStatus') }}</span>
+            <el-tag :type="signatureStatusType" data-testid="signature-status">
+              {{ signatureStatusText }}
+            </el-tag>
+          </div>
+
+          <el-empty
+            v-if="signatureLoaded && !signatureKeyPair"
+            :description="t('userProfile.signatureEmptyDescription')"
+            :image-size="92"
+          />
+
+          <div v-else-if="signatureKeyPair" class="signature-details">
+            <el-descriptions :column="2" border>
+              <el-descriptions-item :label="t('userProfile.keyVersion')">
+                <span data-testid="signature-key-version">{{ signatureKeyVersionText }}</span>
+              </el-descriptions-item>
+              <el-descriptions-item :label="t('userProfile.keyUsage')">
+                {{ signatureKeyUsageText }}
+              </el-descriptions-item>
+              <el-descriptions-item :label="t('userProfile.createdAt')">
+                {{ formatDateTime(signatureKeyPair.createdAt) }}
+              </el-descriptions-item>
+              <el-descriptions-item :label="t('userProfile.expiresAt')">
+                {{ formatDateTime(signatureKeyPair.expiresAt) }}
+              </el-descriptions-item>
+            </el-descriptions>
+
+            <div class="signature-public-key">
+              <div class="signature-public-key__label">{{ t('userProfile.publicKeyPreview') }}</div>
+              <el-input
+                type="textarea"
+                :rows="4"
+                readonly
+                resize="none"
+                data-testid="signature-public-key"
+                :model-value="signaturePublicKeyPreview"
+              />
+            </div>
+          </div>
+        </div>
+      </el-card>
     </section>
   </PageContainer>
 </template>
@@ -257,5 +477,54 @@ onMounted(() => {
 
 .pwd-form {
   max-width: 500px;
+}
+
+.signature-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.signature-card__title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.signature-card__description {
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.signature-status-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.signature-status-row__label {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.signature-details {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.signature-public-key {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.signature-public-key__label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
 }
 </style>

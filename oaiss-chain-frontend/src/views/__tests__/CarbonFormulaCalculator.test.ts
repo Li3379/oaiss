@@ -8,8 +8,15 @@ vi.mock('vue-i18n', () => ({
 vi.mock('../../api/user', () => ({
   getProfile: vi.fn(() => Promise.resolve({
     username: 'enterprise001',
-    realName: '绿色能源科技有限公司',
-    company: '绿色能源科技有限公司',
+    realName: 'Green Energy Co',
+    company: 'Green Energy Co',
+  })),
+}))
+
+vi.mock('../../api/enterprise', () => ({
+  getEnterpriseInfo: vi.fn(() => Promise.resolve({
+    id: 1,
+    enterpriseName: 'Green Energy Co',
   })),
 }))
 
@@ -20,7 +27,7 @@ vi.mock('../../api/carbonFormula', () => ({
     desulfurizationEmission: 20,
     fuelDetails: [],
     reportingYear: '2026',
-    enterpriseName: '绿色能源科技有限公司',
+    enterpriseName: 'Green Energy Co',
     formulaReference: 'GB/T 32150-2015',
     calculatedAt: '2026-05-22T00:00:00Z',
   })),
@@ -31,7 +38,7 @@ vi.mock('../../api/carbonFormula', () => ({
     transmissionLoss: 10,
     formulaReference: 'GB/T 32150-2015',
     reportingYear: '2026',
-    enterpriseName: '绿色能源科技有限公司',
+    enterpriseName: 'Green Energy Co',
     calculatedAt: '2026-05-22T00:00:00Z',
   })),
 }))
@@ -46,6 +53,7 @@ vi.mock('element-plus', async (importOriginal) => {
 
 import CarbonFormulaCalculator from '../enterprise/CarbonFormulaCalculator.vue'
 import { getProfile } from '../../api/user'
+import { getEnterpriseInfo } from '../../api/enterprise'
 import { calculatePowerGeneration, calculatePowerGrid } from '../../api/carbonFormula'
 
 const stubs = {
@@ -101,16 +109,18 @@ describe('CarbonFormulaCalculator.vue', () => {
     vi.clearAllMocks()
   })
 
-  it('loads enterprise profile into both formula tabs', async () => {
+  it('loads enterprise info into both formula tabs', async () => {
     const wrapper = mountComponent()
     await flushPromises()
 
-    expect(getProfile).toHaveBeenCalled()
+    expect(getEnterpriseInfo).toHaveBeenCalled()
+    expect(getProfile).not.toHaveBeenCalled()
+
     const enterpriseInputs = wrapper
       .findAll('input[placeholder="carbonFormula.enterEnterpriseName"]')
       .map((input) => (input.element as HTMLInputElement).value)
 
-    expect(enterpriseInputs).toEqual(['绿色能源科技有限公司', '绿色能源科技有限公司'])
+    expect(enterpriseInputs).toEqual(['Green Energy Co', 'Green Energy Co'])
     wrapper.unmount()
   })
 
@@ -118,10 +128,16 @@ describe('CarbonFormulaCalculator.vue', () => {
     const wrapper = mountComponent()
     await flushPromises()
 
+    const vm = wrapper.vm as any
+    vm.pgForm.rawCoal.fc = 1
+
     await wrapper.findAll('button')[0].trigger('click')
 
     expect(calculatePowerGeneration).toHaveBeenCalledWith(
-      expect.objectContaining({ enterpriseName: '绿色能源科技有限公司' }),
+      expect.objectContaining({
+        enterpriseName: 'Green Energy Co',
+        rawCoalFc: 1,
+      }),
     )
     wrapper.unmount()
   })
@@ -142,7 +158,7 @@ describe('CarbonFormulaCalculator.vue', () => {
         transmissionVolume: 1,
         lineLossRate: 0.1,
         gridEmissionFactor: 1,
-        enterpriseName: '绿色能源科技有限公司',
+        enterpriseName: 'Green Energy Co',
       }),
     )
     wrapper.unmount()

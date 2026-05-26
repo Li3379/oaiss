@@ -12,6 +12,7 @@ vi.mock('element-plus', async (importOriginal) => {
 
 vi.mock('vue-router', () => ({
   useRouter: vi.fn(() => ({ push: vi.fn() })),
+  useRoute: vi.fn(() => ({ hash: '' })),
 }))
 
 vi.mock('../config/images', () => ({

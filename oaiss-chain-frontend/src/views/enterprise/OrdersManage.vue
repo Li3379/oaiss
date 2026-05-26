@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { computed, ref, reactive, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getMyTrades, cancelTrade } from '../../api/trade'
@@ -27,16 +27,57 @@ const total = ref(0)
 const detailDialogVisible = ref(false)
 const currentDetailTrade = ref(null)
 
+const filteredTableData = computed(() => {
+  const tradeNo = searchForm.tradeNo.trim().toLowerCase()
+  const tradeType = searchForm.tradeType
+  const [startDate, endDate] = searchForm.dateRange || []
+
+  return tableData.value.filter((row) => {
+    if (tradeNo && !String(row.tradeNo || '').toLowerCase().includes(tradeNo)) {
+      return false
+    }
+
+    if (tradeType && row.tradeType !== tradeType) {
+      return false
+    }
+
+    if (startDate || endDate) {
+      const createdAt = row.createdAt ? new Date(row.createdAt) : null
+      if (!createdAt || Number.isNaN(createdAt.getTime())) {
+        return false
+      }
+
+      if (startDate) {
+        const start = new Date(`${startDate}T00:00:00`)
+        if (createdAt < start) {
+          return false
+        }
+      }
+
+      if (endDate) {
+        const end = new Date(`${endDate}T23:59:59`)
+        if (createdAt > end) {
+          return false
+        }
+      }
+    }
+
+    return true
+  })
+})
+
+const displayTotal = computed(() => {
+  const hasLocalFilter = Boolean(searchForm.tradeNo || searchForm.tradeType || (searchForm.dateRange && searchForm.dateRange.length))
+  return hasLocalFilter ? filteredTableData.value.length : total.value
+})
+
 const loadTrades = async () => {
   try {
     loading.value = true
     const data = await getMyTrades({
       pageNum: currentPage.value,
       pageSize: pageSize.value,
-      tradeNo: searchForm.tradeNo || undefined,
       tradeType: searchForm.tradeType || undefined,
-      startDate: searchForm.dateRange?.[0] || undefined,
-      endDate: searchForm.dateRange?.[1] || undefined,
     })
     tableData.value = data?.items || []
     total.value = data?.total || 0
@@ -157,8 +198,8 @@ onMounted(() => {
     </el-card>
 
     <el-card class="section-card" shadow="never">
-      <div class="table-tip">{{ t('common.total', { count: selectedRows.length }) }}</div>
-      <el-table :data="tableData" border v-loading="loading" :empty-text="t('ordersManage.emptyText')" @selection-change="onSelectionChange">
+      <div class="table-tip">{{ t('common.total', { count: displayTotal }) }}</div>
+      <el-table :data="filteredTableData" border v-loading="loading" :empty-text="t('ordersManage.emptyText')" @selection-change="onSelectionChange">
         <el-table-column type="selection" width="56" />
         <el-table-column :label="t('tradingMarket.colIndex')" width="80">
           <template #default="scope">
@@ -198,7 +239,7 @@ onMounted(() => {
           background
           :page-sizes="[10, 20, 50]"
           layout="total, sizes, prev, pager, next, jumper"
-          :total="total"
+          :total="displayTotal"
           @size-change="onSizeChange"
           @current-change="onCurrentChange"
         />

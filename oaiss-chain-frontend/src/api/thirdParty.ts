@@ -14,6 +14,6 @@ export function getOrgInfo(): Promise<unknown> {
 }
 
 export function updateContact(data: { contactPerson: string; contactPhone: string }): Promise<void> {
-  if (!data?.contactPerson) return Promise.reject(new Error('联系人不能为空'))
+  if (!data?.contactPerson) return Promise.reject(new Error('Contact person is required'))
   return request.put('/third-party/contact', null, { params: data })
 }

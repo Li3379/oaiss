@@ -15,15 +15,16 @@ import {
   User,
   CircleCheck,
 } from '@element-plus/icons-vue'
-import { computed, ref } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { HERO_BG, INTRO_BG, GALLERY_IMAGES } from '../config/images'
 
 const { t } = useI18n()
 
 const router = useRouter()
+const route = useRoute()
 
 const mobileMenuOpen = ref(false)
 
@@ -48,7 +49,7 @@ const featureCards = computed(() => [
     title: t('officialHome.featureBlockchain'),
     description: t('officialHome.featureBlockchainDesc'),
     icon: Link,
-    route: '/enterprise/trading/market',
+    route: '/enterprise/blockchain/browser',
   },
   {
     title: t('officialHome.featureAI'),
@@ -60,7 +61,7 @@ const featureCards = computed(() => [
     title: t('officialHome.featureSignature'),
     description: t('officialHome.featureSignatureDesc'),
     icon: EditPen,
-    route: '/admin/system/carbon',
+    route: '/enterprise/user/profile',
   },
 ])
 
@@ -87,7 +88,34 @@ const roleCards = computed(() => [
     title: t('officialHome.roleThirdParty'),
     description: t('officialHome.roleThirdPartyDesc'),
     icon: Monitor,
-    route: '/admin/data/statistics',
+    route: '/third-party/monitor',
+  },
+])
+
+const footerLinkGroups = computed(() => [
+  {
+    title: t('officialHome.footerMoreLinks'),
+    links: [
+      { label: t('officialHome.footerWhitepaper'), target: 'build' },
+      { label: t('officialHome.footerDevDocs'), target: 'research' },
+      { label: t('officialHome.footerGovernance'), target: 'platform' },
+    ],
+  },
+  {
+    title: t('officialHome.footerInfoLinks'),
+    links: [
+      { label: t('officialHome.footerNews'), target: 'hero' },
+      { label: t('officialHome.footerAnnouncement'), target: 'build' },
+      { label: t('officialHome.footerPrivacy'), target: 'about' },
+    ],
+  },
+  {
+    title: t('officialHome.footerFollowUs'),
+    links: [
+      { label: t('officialHome.footerWechat'), target: 'about' },
+      { label: t('officialHome.footerVideo'), target: 'about' },
+      { label: t('officialHome.footerCommunity'), target: 'about' },
+    ],
   },
 ])
 
@@ -103,21 +131,35 @@ const galleryImages = GALLERY_IMAGES
 
 const bottomIcons = [Operation, DataAnalysis, Connection, Link, Lock, Notification]
 
-const onNavClick = (key) => {
+const scrollToSection = async (key: string) => {
+  await nextTick()
   const el = document.getElementById(key)
   if (el) {
     el.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
+}
+
+const onNavClick = (key: string) => {
+  void scrollToSection(key)
   mobileMenuOpen.value = false
 }
 
-const jumpToRoute = (path) => {
+const jumpToRoute = (path: string) => {
   router.push(path)
 }
 
 const onSocialClick = () => {
   ElMessage.success(t('officialHome.socialTriggered'))
 }
+
+watch(
+  () => route.hash,
+  (hash) => {
+    if (!hash) return
+    void scrollToSection(hash.slice(1))
+  },
+  { immediate: true },
+)
 </script>
 
 <template>
@@ -180,7 +222,7 @@ const onSocialClick = () => {
           <div class="feature-icon"><el-icon><component :is="item.icon" /></el-icon></div>
           <h3>{{ item.title }}</h3>
           <p>{{ item.description }}</p>
-          <el-button type="primary" plain @click="jumpToRoute(item.route)">{{ t('officialHome.btnEnter') }}</el-button>
+          <el-button type="primary" plain :data-route="item.route" @click="jumpToRoute(item.route)">{{ t('officialHome.btnEnter') }}</el-button>
         </article>
       </div>
     </section>
@@ -211,7 +253,7 @@ const onSocialClick = () => {
           <div class="role-icon"><el-icon><component :is="role.icon" /></el-icon></div>
           <h3>{{ role.title }}</h3>
           <p>{{ role.description }}</p>
-          <el-button text type="primary" @click="jumpToRoute(role.route)">{{ t('officialHome.btnAccessRole') }}</el-button>
+          <el-button text type="primary" :data-route="role.route" @click="jumpToRoute(role.route)">{{ t('officialHome.btnAccessRole') }}</el-button>
         </article>
       </div>
     </section>
@@ -234,23 +276,17 @@ const onSocialClick = () => {
 
     <footer id="about" class="footer">
       <div class="footer-columns">
-        <div>
-          <h4>{{ t('officialHome.footerMoreLinks') }}</h4>
-          <router-link to="/official-home#build">{{ t('officialHome.footerWhitepaper') }}</router-link>
-          <router-link to="/official-home#research">{{ t('officialHome.footerDevDocs') }}</router-link>
-          <router-link to="/official-home#platform">{{ t('officialHome.footerGovernance') }}</router-link>
-        </div>
-        <div>
-          <h4>{{ t('officialHome.footerInfoLinks') }}</h4>
-          <router-link to="/official-home#hero">{{ t('officialHome.footerNews') }}</router-link>
-          <router-link to="/official-home#build">{{ t('officialHome.footerAnnouncement') }}</router-link>
-          <router-link to="/official-home#about">{{ t('officialHome.footerPrivacy') }}</router-link>
-        </div>
-        <div>
-          <h4>{{ t('officialHome.footerFollowUs') }}</h4>
-          <router-link to="/official-home#about">{{ t('officialHome.footerWechat') }}</router-link>
-          <router-link to="/official-home#about">{{ t('officialHome.footerVideo') }}</router-link>
-          <router-link to="/official-home#about">{{ t('officialHome.footerCommunity') }}</router-link>
+        <div v-for="group in footerLinkGroups" :key="group.title">
+          <h4>{{ group.title }}</h4>
+          <button
+            v-for="link in group.links"
+            :key="link.label"
+            type="button"
+            class="footer-link"
+            @click="onNavClick(link.target)"
+          >
+            {{ link.label }}
+          </button>
         </div>
       </div>
       <div class="copyright">© 2026 OAISS. All rights reserved.</div>
@@ -589,6 +625,27 @@ const onSocialClick = () => {
   text-decoration: none;
   margin-bottom: 8px;
   font-size: 13px;
+}
+
+.footer a:hover {
+  color: #d6fff4;
+}
+
+.footer-link {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: #a8d8cf;
+  margin-bottom: 8px;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.footer-link:hover {
+  color: #d6fff4;
 }
 
 .copyright {

@@ -6,7 +6,7 @@ const router = useRouter()
 const { t } = useI18n()
 
 function goHome() {
-  router.push('/login')
+  router.push('/official-home')
 }
 
 function goBack() {

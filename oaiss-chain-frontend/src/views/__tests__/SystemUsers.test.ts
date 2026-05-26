@@ -1,6 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
+import { ref } from 'vue'
+
+vi.mock('vue-i18n', () => ({
+  useI18n: () => ({
+    t: (key: string) => key,
+    locale: ref('zh-CN'),
+  }),
+}))
 
 vi.mock('../../api/admin', () => ({
   getUserList: vi.fn(() => Promise.resolve({ items: [], total: 0 })),
@@ -17,8 +25,8 @@ vi.mock('element-plus', async (importOriginal) => {
 })
 
 import SystemUsers from '../admin/SystemUsers.vue'
-import { getUserList, updateUserStatus } from '../../api/admin'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { getUserList } from '../../api/admin'
+import { ElMessage } from 'element-plus'
 
 const stubs = {
   'el-card': { template: '<div class="el-card"><slot /></div>' },
@@ -57,7 +65,7 @@ const stubs = {
     emits: ['size-change', 'current-change', 'update:current-page', 'update:page-size'],
   },
   'el-select': {
-    template: '<select :value="modelValue" @change="$emit(\'update:modelValue\', $event.target.value)"><slot /></select>',
+    template: '<select :value="modelValue" :data-placeholder="placeholder" @change="$emit(\'update:modelValue\', $event.target.value)"><slot /></select>',
     props: ['modelValue', 'placeholder', 'style', 'clearable'],
     emits: ['update:modelValue'],
   },
@@ -72,6 +80,9 @@ function mountComponent() {
     global: {
       plugins: [createPinia()],
       stubs,
+      directives: {
+        loading: {},
+      },
     },
   })
 }
@@ -82,35 +93,34 @@ describe('SystemUsers.vue', () => {
     setActivePinia(createPinia())
   })
 
-  it('组件正确渲染', () => {
+  it('renders successfully', () => {
     const wrapper = mountComponent()
     expect(wrapper.exists()).toBe(true)
     wrapper.unmount()
   })
 
-  it('页面加载时获取用户列表', async () => {
+  it('loads user list on mount', async () => {
     const wrapper = mountComponent()
     await flushPromises()
     expect(getUserList).toHaveBeenCalled()
     wrapper.unmount()
   })
 
-  it('获取用户列表失败显示错误消息', async () => {
-    getUserList.mockRejectedValueOnce(new Error('network error'))
+  it('shows translated error when user list loading fails', async () => {
+    vi.mocked(getUserList).mockRejectedValueOnce(new Error('network error'))
     const wrapper = mountComponent()
     await flushPromises()
-    expect(ElMessage.error).toHaveBeenCalled()
+    expect(ElMessage.error).toHaveBeenCalledWith('systemUsers.loadFailed')
     wrapper.unmount()
   })
 
-  it('组件渲染用户列表数据', async () => {
-    getUserList.mockResolvedValueOnce({
-      items: [{ id: 1, username: 'user1', status: 'active' }],
-      total: 1,
-    })
+  it('uses neutral all-status placeholder instead of enabled', async () => {
     const wrapper = mountComponent()
     await flushPromises()
-    expect(getUserList).toHaveBeenCalled()
+
+    const selects = wrapper.findAll('select')
+    expect(selects[1]?.attributes('data-placeholder')).toBe('systemUsers.typeAll')
+
     wrapper.unmount()
   })
 })

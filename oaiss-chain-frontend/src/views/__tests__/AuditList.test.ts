@@ -1,10 +1,25 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
+import { ref } from 'vue'
+
+vi.mock('vue-i18n', () => ({
+  useI18n: () => ({
+    t: (key: string) => key,
+    locale: ref('zh-CN'),
+  }),
+}))
 
 vi.mock('../../api/carbon', () => ({
-  getReportList: vi.fn(() => Promise.resolve({ items: [], total: 0 })),
   reviewReport: vi.fn(() => Promise.resolve()),
+}))
+
+vi.mock('../../api/reviewer', () => ({
+  getPendingReports: vi.fn(() => Promise.resolve({ items: [], total: 0 })),
+  getReviewHistory: vi.fn(() => Promise.resolve({ items: [], total: 0 })),
+  getMyReviewerQualification: vi.fn(() => Promise.resolve([])),
+  getReviewerInfo: vi.fn(() => Promise.resolve(null)),
+  getStatistics: vi.fn(() => Promise.resolve(null)),
 }))
 
 vi.mock('element-plus', async (importOriginal) => {
@@ -17,11 +32,12 @@ vi.mock('element-plus', async (importOriginal) => {
 })
 
 import AuditList from '../auditor/AuditList.vue'
-import { getReportList, reviewReport } from '../../api/carbon'
+import { getPendingReports, getReviewHistory, getMyReviewerQualification, getReviewerInfo, getStatistics } from '../../api/reviewer'
 import { ElMessage } from 'element-plus'
 
 const stubs = {
   'el-card': { template: '<div class="el-card"><slot /></div>' },
+  'el-space': { template: '<div class="el-space"><slot /></div>', props: ['size'] },
   'el-breadcrumb': { template: '<div class="el-breadcrumb"><slot /></div>' },
   'el-breadcrumb-item': { template: '<span class="el-breadcrumb-item"><slot /></span>' },
   'el-form': {
@@ -68,7 +84,16 @@ const stubs = {
   },
   'el-radio': {
     template: '<label class="el-radio"><slot /></label>',
-    props: ['label'],
+    props: ['label', 'value'],
+  },
+  'el-tabs': {
+    template: '<div class="el-tabs"><slot /></div>',
+    props: ['modelValue'],
+    emits: ['update:modelValue', 'tab-change'],
+  },
+  'el-tab-pane': {
+    template: '<div class="el-tab-pane"><slot /></div>',
+    props: ['label', 'name'],
   },
 }
 
@@ -77,6 +102,9 @@ function mountComponent() {
     global: {
       plugins: [createPinia()],
       stubs,
+      directives: {
+        loading: {},
+      },
     },
   })
 }
@@ -87,35 +115,43 @@ describe('AuditList.vue', () => {
     setActivePinia(createPinia())
   })
 
-  it('组件正确渲染', () => {
+  it('renders successfully', () => {
     const wrapper = mountComponent()
     expect(wrapper.exists()).toBe(true)
     wrapper.unmount()
   })
 
-  it('页面加载时获取待审核报告列表', async () => {
+  it('loads pending reports and reviewer summary data on mount', async () => {
     const wrapper = mountComponent()
     await flushPromises()
-    expect(getReportList).toHaveBeenCalled()
+
+    expect(getPendingReports).toHaveBeenCalledWith({ pageNum: 1, pageSize: 10 })
+    expect(getMyReviewerQualification).toHaveBeenCalled()
+    expect(getReviewerInfo).toHaveBeenCalled()
+    expect(getStatistics).toHaveBeenCalled()
+
     wrapper.unmount()
   })
 
-  it('获取审核列表失败显示错误消息', async () => {
-    getReportList.mockRejectedValueOnce(new Error('network error'))
+  it('shows an error message when pending report loading fails', async () => {
+    vi.mocked(getPendingReports).mockRejectedValueOnce(new Error('network error'))
+
     const wrapper = mountComponent()
     await flushPromises()
-    expect(ElMessage.error).toHaveBeenCalled()
+
+    expect(ElMessage.error).toHaveBeenCalledWith('auditList.loadFailed')
     wrapper.unmount()
   })
 
-  it('组件渲染审核列表数据', async () => {
-    getReportList.mockResolvedValueOnce({
-      items: [{ id: 1, name: '审核1', status: 'pending' }],
-      total: 1,
-    })
+  it('loads review history when the tab switches to all reports', async () => {
     const wrapper = mountComponent()
     await flushPromises()
-    expect(getReportList).toHaveBeenCalled()
+
+    ;(wrapper.vm as any).activeTab = 'all'
+    await (wrapper.vm as any).onTabChange('all')
+    await flushPromises()
+
+    expect(getReviewHistory).toHaveBeenCalledWith({ pageNum: 1, pageSize: 10 })
     wrapper.unmount()
   })
 })

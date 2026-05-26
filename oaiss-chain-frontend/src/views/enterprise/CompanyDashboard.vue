@@ -6,7 +6,8 @@ import echarts from '../../utils/echarts'
 import { getMyReports } from '../../api/carbon'
 import { getMyTrades } from '../../api/trade'
 import { getMyScore } from '../../api/credit'
-import { getMyEnterpriseAdmission } from '../../api/enterprise'
+import { getMyAccount } from '../../api/carbonCoin'
+import { getMyEnterpriseAdmission, getQuotaInfo } from '../../api/enterprise'
 
 const { t } = useI18n()
 
@@ -26,7 +27,9 @@ const appliedFilters = ref({
 const timeDimension = ref('month')
 
 const assetPool = ref([])
-const userProfile = ref(null)
+const creditScore = ref(0)
+const quotaTotal = ref(0)
+const carbonCoinTotal = ref(0)
 const tradeData = ref([])
 const carbonReports = ref([])
 const admissionStatus = ref<Record<string, unknown> | null>(null)
@@ -61,36 +64,87 @@ const filteredFactor = computed(() => {
   return filteredAssets.value.length / (assetPool.value.length || 1)
 })
 
+const toTimeBucket = (input: string | undefined, dimension: string) => {
+  if (!input) return ''
+  const date = new Date(input)
+  if (Number.isNaN(date.getTime())) return ''
+
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+
+  if (dimension === 'day') return `${year}-${month}-${day}`
+  if (dimension === 'year') return `${year}`
+  return `${year}-${month}`
+}
+
+const aggregateSeries = <T>(
+  rows: T[],
+  getDate: (row: T) => string | undefined,
+  getValue: (row: T) => number,
+  dimension: string,
+) => {
+  const map = new Map<string, number>()
+
+  rows.forEach((row) => {
+    const bucket = toTimeBucket(getDate(row), dimension)
+    if (!bucket) return
+    map.set(bucket, (map.get(bucket) || 0) + Number(getValue(row) || 0))
+  })
+
+  const labels = Array.from(map.keys()).sort()
+  const values = labels.map((label) => map.get(label) || 0)
+
+  return { labels, values }
+}
+
 const currentData = computed(() => {
   const factor = filteredFactor.value
   const round = (n) => Math.round(n)
-
+  const dimension = timeDimension.value
   const trades = tradeData.value || []
   const reports = carbonReports.value || []
 
-  const labels = trades.map(t => {
-    if (t.createdAt) {
-      const d = new Date(t.createdAt)
-      return `${d.getMonth() + 1}/${d.getDate()}`
-    }
-    return ''
+  const tradeSeries = aggregateSeries(
+    trades,
+    (trade) => trade.createdAt,
+    (trade) => Number(trade.quantity || trade.totalAmount || 0),
+    dimension,
+  )
+
+  const reportTrendSeries = aggregateSeries(
+    reports,
+    (report) => report.createdAt || report.accountingPeriod,
+    (report) => Number(report.totalEmission || 0),
+    dimension,
+  )
+
+  const reportSuggestSeries = aggregateSeries(
+    reports,
+    (report) => report.createdAt || report.accountingPeriod,
+    (report) => Number(report.scope1Emission || 0) + Number(report.scope2Emission || 0),
+    dimension,
+  )
+
+  const creditTrendSource = tradeSeries.values.length ? tradeSeries.values : reportTrendSeries.values
+  const creditTrend = creditTrendSource.map((_, index) => {
+    const delta = (creditTrendSource.length - 1 - index) * 2
+    return Math.max(0, creditScore.value - delta)
   })
-  const tradeCount = trades.map(t => Number(t.quantity || t.totalAmount || 0))
-  const aiTrend = reports.map(r => Number(r.totalEmission || 0))
-  const aiSuggest = reports.map(r => Number(r.scope1Emission || 0) + Number(r.scope2Emission || 0))
-  const creditTrend = trades.map((_, i) => 60 + Math.min(i * 5, 40))
 
   const summary = {
-    carbonCoinTotal: userProfile.value?.carbonCoins || 0,
-    carbonQuotaTotal: userProfile.value?.carbonQuota || userProfile.value?.quota || 0,
-    creditScore: userProfile.value?.score || userProfile.value?.creditScore || 0,
+    carbonCoinTotal: carbonCoinTotal.value,
+    carbonQuotaTotal: quotaTotal.value,
+    creditScore: creditScore.value,
   }
 
   return {
-    labels,
-    tradeCount: tradeCount.map((v) => round(v * factor)),
-    aiTrend: aiTrend.map((v) => round(v * factor)),
-    aiSuggest: aiSuggest.map((v) => round(v * factor)),
+    tradeLabels: tradeSeries.labels,
+    tradeCount: tradeSeries.values.map((v) => round(v * factor)),
+    reportLabels: reportTrendSeries.labels,
+    aiTrend: reportTrendSeries.values.map((v) => round(v * factor)),
+    aiSuggest: reportSuggestSeries.values.map((v) => round(v * factor)),
+    creditLabels: tradeSeries.labels.length ? tradeSeries.labels : reportTrendSeries.labels,
     creditTrend: creditTrend.map((v) => round(v * (0.9 + factor * 0.1))),
     summary,
     emissionPie: [
@@ -200,15 +254,15 @@ const getChartConfigs = () => {
   return [
     {
       ref: chartTradeBarRef,
-      option: buildBarOption(t('companyDashboard.chartTransactionBar'), d.labels, d.tradeCount, '#2fb38f'),
+      option: buildBarOption(t('companyDashboard.chartTransactionBar'), d.tradeLabels, d.tradeCount, '#2fb38f'),
     },
     {
       ref: chartTrendLineRef,
-      option: buildLineOption(t('companyDashboard.chartAIPrediction'), d.labels, d.aiTrend, '#22a49a'),
+      option: buildLineOption(t('companyDashboard.chartAIPrediction'), d.reportLabels, d.aiTrend, '#22a49a'),
     },
     {
       ref: chartSuggestBarRef,
-      option: buildBarOption(t('companyDashboard.chartAISuggestion'), d.labels, d.aiSuggest, '#5ec97f'),
+      option: buildBarOption(t('companyDashboard.chartAISuggestion'), d.reportLabels, d.aiSuggest, '#5ec97f'),
     },
     {
       ref: chartEmissionPieRef,
@@ -220,7 +274,7 @@ const getChartConfigs = () => {
     },
     {
       ref: chartCreditLineRef,
-      option: buildLineOption(t('companyDashboard.chartCreditLine'), d.labels, d.creditTrend, '#4fa7d6'),
+      option: buildLineOption(t('companyDashboard.chartCreditLine'), d.creditLabels, d.creditTrend, '#4fa7d6'),
     },
   ]
 }
@@ -243,12 +297,31 @@ const renderCharts = async () => {
   })
 }
 
-const fetchUserProfile = async () => {
+const fetchCreditScore = async () => {
   try {
     const result = await getMyScore()
-    userProfile.value = result
+    creditScore.value = Number(result?.score || result?.creditScore || 0)
   } catch (error) {
     ElMessage.error(t('companyDashboard.loadUserFailed'))
+    creditScore.value = 0
+  }
+}
+
+const fetchQuotaSummary = async () => {
+  try {
+    const result = await getQuotaInfo()
+    quotaTotal.value = Number((result as Record<string, unknown>)?.totalQuota || 0)
+  } catch {
+    quotaTotal.value = 0
+  }
+}
+
+const fetchCarbonCoinSummary = async () => {
+  try {
+    const result = await getMyAccount()
+    carbonCoinTotal.value = Number(result?.balance || 0)
+  } catch {
+    carbonCoinTotal.value = 0
   }
 }
 
@@ -301,7 +374,9 @@ const loadDashboardData = async () => {
   loading.value = true
   try {
     await Promise.all([
-      fetchUserProfile(),
+      fetchCreditScore(),
+      fetchQuotaSummary(),
+      fetchCarbonCoinSummary(),
       fetchTradeData(),
       fetchCarbonReports(),
       fetchAdmissionStatus(),
@@ -366,17 +441,17 @@ onBeforeUnmount(() => {
       <div class="search-row">
         <div class="search-left">
           <el-input v-model="queryForm.assetNo" :placeholder="t('companyDashboard.searchAssetNo')" clearable />
-          <el-input v-model="queryForm.otherCondition" :placeholder="t('companyDashboard.searchOther')" clearable />
-          <el-input v-model="queryForm.keyword" :placeholder="t('companyDashboard.searchText')" clearable />
+          <el-input v-model="queryForm.otherCondition" :placeholder="t('companyDashboard.searchCategory')" clearable />
+          <el-input v-model="queryForm.keyword" :placeholder="t('companyDashboard.searchPeriodRegion')" clearable />
           <el-button type="primary" @click="onSearch" :loading="loading">{{ t('common.search') }}</el-button>
         </div>
 
         <div class="search-right">
           <span class="dimension-label">{{ t('companyDashboard.timeDimension') }}：</span>
           <el-radio-group v-model="timeDimension">
-            <el-radio-button label="day">{{ t('companyDashboard.timeDay') }}</el-radio-button>
-            <el-radio-button label="month">{{ t('companyDashboard.timeMonth') }}</el-radio-button>
-            <el-radio-button label="year">{{ t('companyDashboard.timeYear') }}</el-radio-button>
+            <el-radio-button value="day">{{ t('companyDashboard.timeDay') }}</el-radio-button>
+            <el-radio-button value="month">{{ t('companyDashboard.timeMonth') }}</el-radio-button>
+            <el-radio-button value="year">{{ t('companyDashboard.timeYear') }}</el-radio-button>
           </el-radio-group>
         </div>
       </div>

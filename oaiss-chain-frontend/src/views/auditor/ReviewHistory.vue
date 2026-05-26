@@ -7,11 +7,17 @@ import { formatDateTime } from '../../utils/format'
 
 const { t } = useI18n()
 
-const tableData = ref([])
+const tableData = ref<Record<string, any>[]>([])
 const loading = ref(false)
 const currentPage = ref(1)
 const pageSize = ref(10)
 const total = ref(0)
+
+function normalizeReviewResult(status?: number) {
+  if (status === 3 || status === 5) return 3
+  if (status === 4) return 4
+  return status
+}
 
 const fetchData = async () => {
   loading.value = true
@@ -20,7 +26,11 @@ const fetchData = async () => {
       pageNum: currentPage.value,
       pageSize: pageSize.value,
     })
-    tableData.value = response.items || []
+    tableData.value = (response.items || []).map((row: Record<string, any>) => ({
+      ...row,
+      enterpriseName: row.enterpriseName || '-',
+      reviewResult: normalizeReviewResult(row.reviewResult ?? row.status),
+    }))
     total.value = response.total || 0
   } catch {
     ElMessage.error(t('reviewHistory.loadFailed'))
@@ -70,7 +80,7 @@ onMounted(() => fetchData())
         </el-table-column>
         <el-table-column prop="reviewComment" :label="t('reviewHistory.colComment')" min-width="200" show-overflow-tooltip />
         <el-table-column prop="reviewTime" :label="t('reviewHistory.colReviewTime')" min-width="170">
-          <template #default="{ row }">{{ formatDateTime(row.reviewTime || row.createdAt) }}</template>
+          <template #default="{ row }">{{ formatDateTime(row.reviewedAt || row.reviewTime || row.updatedAt || row.createdAt) }}</template>
         </el-table-column>
       </el-table>
 

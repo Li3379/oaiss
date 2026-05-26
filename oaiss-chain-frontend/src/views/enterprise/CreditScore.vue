@@ -1,27 +1,31 @@
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
-import { getMyScore, getScoreHistory } from '../../api/credit'
+import { getMyScore, getScoreHistory, getScoreRanking } from '../../api/credit'
+import type { CreditScoreResponse, CreditEventResponse } from '../../types'
 import PageContainer from '../../components/PageContainer.vue'
 
 const { t } = useI18n()
 
-const scoreData = ref(null)
+const scoreData = ref<CreditScoreResponse | null>(null)
 const scoreLoading = ref(false)
 
-const historyData = ref([])
+const historyData = ref<CreditEventResponse[]>([])
 const historyLoading = ref(false)
 const currentPage = ref(1)
 const pageSize = ref(10)
 const total = ref(0)
+
+const rankingData = ref<CreditScoreResponse[]>([])
+const rankingLoading = ref(false)
 
 const loadScore = async () => {
   try {
     scoreLoading.value = true
     const result = await getMyScore()
     scoreData.value = result
-  } catch (error) {
+  } catch {
     ElMessage.error(t('creditScore.loadScoreFailed'))
   } finally {
     scoreLoading.value = false
@@ -37,50 +41,76 @@ const loadHistory = async () => {
     })
     historyData.value = result?.items || []
     total.value = result?.total || 0
-  } catch (error) {
+  } catch {
     ElMessage.error(t('creditScore.loadHistoryFailed'))
   } finally {
     historyLoading.value = false
   }
 }
 
-const onSizeChange = (size) => {
+const loadRanking = async () => {
+  try {
+    rankingLoading.value = true
+    const result = await getScoreRanking({
+      pageNum: 1,
+      pageSize: 10,
+    })
+    rankingData.value = result?.items || []
+  } catch {
+    ElMessage.error(t('creditScore.loadRankingFailed'))
+  } finally {
+    rankingLoading.value = false
+  }
+}
+
+const onSizeChange = (size: number) => {
   pageSize.value = size
   currentPage.value = 1
   loadHistory()
 }
 
-const onCurrentChange = (page) => {
+const onCurrentChange = (page: number) => {
   currentPage.value = page
   loadHistory()
 }
 
-const getScoreLevelType = (level: string) => {
+const getScoreLevelType = (level?: string) => {
   const map: Record<string, string> = {
-    'EXCELLENT': 'success',
-    'GOOD': 'primary',
-    'WARNING': 'warning',
-    'DANGER': 'danger',
-    'FROZEN': 'danger',
+    EXCELLENT: 'success',
+    GOOD: 'primary',
+    WARNING: 'warning',
+    DANGER: 'danger',
+    FROZEN: 'danger',
   }
-  return map[level] || 'info'
+  return level ? (map[level] || 'info') : 'info'
 }
 
-const getEventTypeTag = (type) => {
-  const map = {
-    'INITIAL': 'info',
-    'AUDIT_PASS': 'success',
-    'AUDIT_FAIL': 'danger',
-    'TRADE_COMPLETE': 'primary',
-    'PROJECT_VERIFY': 'success',
-    'MANUAL_ADJUST': 'warning',
+const getScoreLevelText = (level?: string) => {
+  const map: Record<string, string> = {
+    EXCELLENT: '优秀',
+    GOOD: '良好',
+    WARNING: '警告',
+    DANGER: '危险',
+    FROZEN: '冻结',
   }
-  return map[type] || 'info'
+  return level ? (map[level] || level) : 'N/A'
+}
+
+const getEventTypeTag = (type?: number) => {
+  const map: Record<number, string> = {
+    1: 'danger',
+    2: 'warning',
+    3: 'warning',
+    4: 'danger',
+    5: 'success',
+  }
+  return typeof type === 'number' ? (map[type] || 'info') : 'info'
 }
 
 onMounted(() => {
   loadScore()
   loadHistory()
+  loadRanking()
 })
 </script>
 
@@ -95,11 +125,11 @@ onMounted(() => {
           <div class="score-main">
             <div class="score-value">{{ scoreData.score || 0 }}</div>
             <el-tag :type="getScoreLevelType(scoreData.level)" size="large" class="score-level">
-              {{ scoreData.level || 'N/A' }}
+              {{ getScoreLevelText(scoreData.level) }}
             </el-tag>
           </div>
           <div class="score-meta">
-            <span>{{ t('creditScore.updateTime') }}：{{ scoreData.lastEvaluatedAt || '-' }}</span>
+            <span>{{ t('creditScore.updateTime') }}: {{ scoreData.lastEvaluatedAt || '-' }}</span>
           </div>
         </div>
         <el-empty v-else :description="t('creditScore.emptyText')" />
@@ -145,6 +175,35 @@ onMounted(() => {
             @current-change="onCurrentChange"
           />
         </div>
+      </el-card>
+
+      <el-card class="section-card" shadow="never">
+        <template #header>
+          <span class="card-header">{{ t('creditScore.scoreRanking') }}</span>
+        </template>
+        <el-table :data="rankingData" border v-loading="rankingLoading" data-testid="credit-ranking-table">
+          <el-table-column :label="t('common.colIndex')" width="80">
+            <template #default="scope">
+              {{ scope.$index + 1 }}
+            </template>
+          </el-table-column>
+          <el-table-column prop="enterpriseName" :label="t('creditScore.colEnterpriseName')" min-width="180" show-overflow-tooltip />
+          <el-table-column prop="score" :label="t('creditScore.colRankingScore')" min-width="100" />
+          <el-table-column prop="level" :label="t('creditScore.colRankingLevel')" min-width="120">
+            <template #default="{ row }">
+              <el-tag :type="getScoreLevelType(row.level)">
+                {{ getScoreLevelText(row.level) }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="tradeRestricted" :label="t('creditScore.colTradePermission')" min-width="120">
+            <template #default="{ row }">
+              <el-tag :type="row.tradeRestricted ? 'danger' : 'success'">
+                {{ row.tradeRestricted ? t('creditScore.tradeRestricted') : t('creditScore.tradeAllowed') }}
+              </el-tag>
+            </template>
+          </el-table-column>
+        </el-table>
       </el-card>
     </section>
   </PageContainer>

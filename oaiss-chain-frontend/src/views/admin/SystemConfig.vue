@@ -1,84 +1,54 @@
 <script setup lang="ts">
-import { computed, reactive, ref, onMounted, watch } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage } from 'element-plus'
+import { getConfig } from '../../api/admin'
 
 const { t } = useI18n()
 
-const STORAGE_KEY = 'oaiss_system_configs'
-
-const DEFAULT_CONFIGS = [
-  {
-    id: 1,
-    description: t('systemConfig.defaultConfig1Desc'),
-    name: 'core-service',
-    host: '10.0.8.21',
-    env: 'NODE_ENV=production',
-    serviceUrl: 'https://core.example.com/api',
-    updatedBy: 'admin01',
-  },
-  {
-    id: 2,
-    description: t('systemConfig.defaultConfig2Desc'),
-    name: 'chain-gateway',
-    host: '10.0.8.31',
-    env: 'CHAIN_MODE=mainnet',
-    serviceUrl: 'https://chain.example.com/gateway',
-    updatedBy: 'admin02',
-  },
-  {
-    id: 3,
-    description: t('systemConfig.defaultConfig3Desc'),
-    name: 'audit-service',
-    host: '10.0.8.41',
-    env: 'AUDIT_REGION=east',
-    serviceUrl: 'https://audit.example.com/v1',
-    updatedBy: 'admin03',
-  },
-]
+type ConfigRow = {
+  id: string
+  description: string
+  name: string
+  value: string
+  updatedBy: string
+}
 
 const searchForm = reactive({
   description: '',
   name: '',
 })
 
-const loadConfigs = () => {
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY)
-    return saved ? JSON.parse(saved) : DEFAULT_CONFIGS
-  } catch {
-    return DEFAULT_CONFIGS
-  }
-}
-
-const configList = ref(loadConfigs())
-
-watch(configList, (newVal) => {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(newVal))
-}, { deep: true })
-
-const selectedRows = ref([])
+const loading = ref(false)
+const configList = ref<ConfigRow[]>([])
 const page = ref(1)
 const pageSize = ref(10)
 
-const dialogVisible = ref(false)
-const dialogMode = ref('add')
-const editingId = ref(null)
-const formRef = ref()
-const formModel = reactive({
-  description: '',
-  name: '',
-  host: '',
-  env: '',
-  serviceUrl: '',
-})
+function normalizeValue(value: unknown) {
+  if (value === null || value === undefined || value === '') return '-'
+  if (typeof value === 'boolean') return value ? 'true' : 'false'
+  return String(value)
+}
 
-const formRules = {
-  description: [{ required: true, message: t('systemConfig.enterDesc'), trigger: 'blur' }],
-  name: [{ required: true, message: t('systemConfig.enterName'), trigger: 'blur' }],
-  host: [{ required: true, message: t('systemConfig.enterServerHost'), trigger: 'blur' }],
-  env: [{ required: true, message: t('systemConfig.enterEnvVar'), trigger: 'blur' }],
-  serviceUrl: [{ required: true, message: t('systemConfig.enterNetworkAddress'), trigger: 'blur' }],
+function buildRows(config: Record<string, unknown>): ConfigRow[] {
+  const mapping: Array<{ key: string; name: string; description: string }> = [
+    { key: 'systemName', name: 'systemName', description: t('systemConfig.descSystemName') },
+    { key: 'enableBlockChain', name: 'enableBlockChain', description: t('systemConfig.descEnableBlockchain') },
+    { key: 'maxUploadSize', name: 'maxUploadSize', description: t('systemConfig.descMaxUploadSize') },
+    { key: 'sessionTimeout', name: 'sessionTimeout', description: t('systemConfig.descSessionTimeout') },
+    { key: 'version', name: 'version', description: t('systemConfig.descVersion') },
+    { key: 'enableCaptcha', name: 'enableCaptcha', description: t('systemConfig.descEnableCaptcha') },
+  ]
+
+  return mapping
+    .filter(({ key }) => key in config)
+    .map(({ key, name, description }) => ({
+      id: key,
+      description,
+      name,
+      value: normalizeValue(config[key]),
+      updatedBy: t('systemConfig.updatedByBackend'),
+    }))
 }
 
 const filteredData = computed(() => {
@@ -96,114 +66,38 @@ const total = computed(() => filteredData.value.length)
 
 const pagedData = computed(() => {
   const start = (page.value - 1) * pageSize.value
-  const end = start + pageSize.value
-  return filteredData.value.slice(start, end)
+  return filteredData.value.slice(start, start + pageSize.value)
 })
+
+const loadConfigs = async () => {
+  try {
+    loading.value = true
+    const result = await getConfig() as Record<string, unknown>
+    configList.value = buildRows(result)
+  } catch {
+    ElMessage.error(t('systemConfig.loadFailed'))
+    configList.value = []
+  } finally {
+    loading.value = false
+  }
+}
 
 const onQuery = () => {
   page.value = 1
 }
 
-const onSelectionChange = (rows) => {
-  selectedRows.value = rows
-}
-
-const onSizeChange = (size) => {
+const onSizeChange = (size: number) => {
   pageSize.value = size
   page.value = 1
 }
 
-const onCurrentChange = (current) => {
+const onCurrentChange = (current: number) => {
   page.value = current
 }
 
-const resetForm = () => {
-  formModel.description = ''
-  formModel.name = ''
-  formModel.host = ''
-  formModel.env = ''
-  formModel.serviceUrl = ''
-}
-
-const openAddDialog = () => {
-  dialogMode.value = 'add'
-  editingId.value = null
-  resetForm()
-  dialogVisible.value = true
-}
-
-const openEditDialog = (row) => {
-  dialogMode.value = 'edit'
-  editingId.value = row.id
-  formModel.description = row.description
-  formModel.name = row.name
-  formModel.host = row.host
-  formModel.env = row.env
-  formModel.serviceUrl = row.serviceUrl
-  dialogVisible.value = true
-}
-
-const onCancelDialog = () => {
-  dialogVisible.value = false
-  ElMessage.info(t('common.cancelled'))
-}
-
-const onSaveDialog = async () => {
-  const valid = await formRef.value.validate().catch(() => false)
-  if (!valid) {
-    ElMessage.warning(t('common.failed'))
-    return
-  }
-
-  const payload = {
-    description: formModel.description.trim(),
-    name: formModel.name.trim(),
-    host: formModel.host.trim(),
-    env: formModel.env.trim(),
-    serviceUrl: formModel.serviceUrl.trim(),
-    updatedBy: t('systemConfig.defaultUpdatedBy'),
-  }
-
-  if (dialogMode.value === 'add') {
-    configList.value.unshift({
-      id: Date.now(),
-      ...payload,
-    })
-    ElMessage.success(t('systemConfig.createSuccess'))
-  } else {
-    const idx = configList.value.findIndex((item) => item.id === editingId.value)
-    if (idx > -1) {
-      configList.value[idx] = {
-        ...configList.value[idx],
-        ...payload,
-      }
-      ElMessage.success(t('systemConfig.editSuccess'))
-    }
-  }
-
-  dialogVisible.value = false
-  page.value = 1
-}
-
-const onDelete = async (row) => {
-  try {
-    await ElMessageBox.confirm(t('systemConfig.confirmDelete'), t('common.delete'), {
-      confirmButtonText: t('common.confirm'),
-      cancelButtonText: t('common.cancel'),
-      type: 'warning',
-    })
-
-    configList.value = configList.value.filter((item) => item.id !== row.id)
-    selectedRows.value = selectedRows.value.filter((item) => item.id !== row.id)
-    ElMessage.success(t('systemConfig.deleteSuccess'))
-
-    if ((page.value - 1) * pageSize.value >= filteredData.value.length && page.value > 1) {
-      page.value -= 1
-    }
-  } catch {
-    ElMessage.info(t('common.cancelled'))
-  }
-}
+onMounted(() => {
+  loadConfigs()
+})
 </script>
 
 <template>
@@ -227,7 +121,7 @@ const onDelete = async (row) => {
 
         <el-form-item>
           <el-button type="primary" @click="onQuery">{{ t('common.search') }}</el-button>
-          <el-button type="success" plain @click="openAddDialog">{{ t('common.create') }}</el-button>
+          <el-button plain @click="loadConfigs">{{ t('common.refresh') }}</el-button>
         </el-form-item>
       </el-form>
     </el-card>
@@ -235,18 +129,11 @@ const onDelete = async (row) => {
     <el-card class="section-card" shadow="never">
       <div class="table-tip">{{ t('common.total', { count: total }) }}</div>
 
-      <el-table :data="pagedData" border @selection-change="onSelectionChange">
-        <el-table-column type="selection" width="56" />
-        <el-table-column prop="host" :label="t('systemConfig.colServerHost')" min-width="140" />
-        <el-table-column prop="env" :label="t('systemConfig.colEnvVar')" min-width="180" show-overflow-tooltip />
-        <el-table-column prop="serviceUrl" :label="t('systemConfig.colNetworkAddress')" min-width="220" show-overflow-tooltip />
+      <el-table :data="pagedData" border v-loading="loading">
+        <el-table-column prop="description" :label="t('systemConfig.searchDesc')" min-width="220" />
+        <el-table-column prop="name" :label="t('systemConfig.searchName')" min-width="180" />
+        <el-table-column prop="value" :label="t('systemConfig.colConfigValue')" min-width="220" show-overflow-tooltip />
         <el-table-column prop="updatedBy" :label="t('systemConfig.colUpdatedBy')" min-width="120" />
-        <el-table-column :label="t('common.operation')" width="160" fixed="right">
-          <template #default="{ row }">
-            <el-button link type="primary" @click="openEditDialog(row)">{{ t('common.edit') }}</el-button>
-            <el-button link type="danger" @click="onDelete(row)">{{ t('common.delete') }}</el-button>
-          </template>
-        </el-table-column>
       </el-table>
 
       <div class="pagination-row">
@@ -262,40 +149,6 @@ const onDelete = async (row) => {
         />
       </div>
     </el-card>
-
-    <el-dialog
-      v-model="dialogVisible"
-      :title="dialogMode === 'add' ? t('systemConfig.dialogCreate') : t('systemConfig.dialogEdit')"
-      width="640px"
-      destroy-on-close
-    >
-      <el-form ref="formRef" :model="formModel" :rules="formRules" label-width="110px">
-        <el-form-item :label="t('systemConfig.searchDesc')" prop="description">
-          <el-input v-model="formModel.description" :placeholder="t('systemConfig.enterDesc')" />
-        </el-form-item>
-
-        <el-form-item :label="t('systemConfig.searchName')" prop="name">
-          <el-input v-model="formModel.name" :placeholder="t('systemConfig.enterName')" />
-        </el-form-item>
-
-        <el-form-item :label="t('systemConfig.colServerHost')" prop="host">
-          <el-input v-model="formModel.host" :placeholder="t('systemConfig.enterServerHost')" />
-        </el-form-item>
-
-        <el-form-item :label="t('systemConfig.colEnvVar')" prop="env">
-          <el-input v-model="formModel.env" :placeholder="t('systemConfig.enterEnvVar')" />
-        </el-form-item>
-
-        <el-form-item :label="t('systemConfig.colNetworkAddress')" prop="serviceUrl">
-          <el-input v-model="formModel.serviceUrl" :placeholder="t('systemConfig.enterNetworkAddress')" />
-        </el-form-item>
-      </el-form>
-
-      <template #footer>
-        <el-button @click="onCancelDialog">{{ t('common.cancel') }}</el-button>
-        <el-button type="primary" @click="onSaveDialog">{{ t('common.save') }}</el-button>
-      </template>
-    </el-dialog>
   </section>
 </template>
 

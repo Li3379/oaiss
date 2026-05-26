@@ -25,12 +25,12 @@ describe('auth utils', () => {
       expect(getRefreshToken()).toBe('test-refresh')
     })
 
-    it('stores access token in sessionStorage', () => {
+    it('stores access token in localStorage by default', () => {
       const header = btoa(JSON.stringify({ alg: 'HS256' }))
       const payload = btoa(JSON.stringify({ sub: '123', exp: 9999999999 }))
       const token = `${header}.${payload}.signature`
       setTokens(token, null)
-      expect(sessionStorage.getItem('access_token')).toBe(token)
+      expect(localStorage.getItem('access_token')).toBe(token)
     })
 
     it('stores refresh token in localStorage', () => {

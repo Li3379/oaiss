@@ -7,17 +7,20 @@
         <el-statistic :title="t('verifyList.statRejected')" :value="stats.rejected" />
         <div class="status-cell">
           <div class="status-label">{{ t('verifyList.blockchainStatus') }}</div>
-          <el-tag :type="blockchainStatus === t('verifyList.blockchainNormal') ? 'success' : 'danger'" size="large">{{ blockchainStatus }}</el-tag>
+          <el-tag :type="blockchainHealthy ? 'success' : 'danger'" size="large">
+            {{ blockchainStatus }}
+          </el-tag>
         </div>
       </div>
     </el-card>
 
     <el-card class="section-card" shadow="never">
       <div class="search-row">
-        <el-select v-model="statusFilter" :placeholder="t('verifyList.colStatus')" clearable style="width: 150px">
+        <el-select v-model="statusFilter" :placeholder="t('verifyList.colStatus')" clearable style="width: 180px">
+          <el-option :label="t('verifyList.statusPendingCertification')" :value="3" />
+          <el-option :label="t('verifyList.statusApproved')" :value="5" />
+          <el-option :label="t('verifyList.statusRejected')" :value="4" />
           <el-option :label="t('verifyList.statusPending')" :value="1" />
-          <el-option :label="t('verifyList.statusApproved')" :value="2" />
-          <el-option :label="t('verifyList.statusRejected')" :value="3" />
         </el-select>
         <el-input v-model="keyword" :placeholder="t('common.enterKeyword')" clearable style="width: 300px" />
         <el-button type="primary" @click="loadReports">{{ t('common.search') }}</el-button>
@@ -35,7 +38,7 @@
         <el-table-column prop="enterpriseName" :label="t('verifyList.colEnterpriseName')" min-width="150" />
         <el-table-column prop="accountingPeriod" :label="t('verifyList.colAccountingPeriod')" min-width="120" />
         <el-table-column prop="totalEmission" :label="t('verifyList.colTotalEmission')" min-width="180" show-overflow-tooltip />
-        <el-table-column prop="status" :label="t('verifyList.colStatus')" min-width="100">
+        <el-table-column prop="status" :label="t('verifyList.colStatus')" min-width="120">
           <template #default="{ row }">
             <el-tag :type="getStatusType(row.status)">{{ getStatusLabel(row.status) }}</el-tag>
           </template>
@@ -43,17 +46,25 @@
         <el-table-column prop="createdAt" :label="t('verifyList.colSubmitTime')" min-width="180">
           <template #default="{ row }">{{ formatDateTime(row.createdAt) }}</template>
         </el-table-column>
-        <el-table-column :label="t('verifyList.colOperation')" width="200" fixed="right">
+        <el-table-column :label="t('verifyList.colOperation')" width="220" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link @click="viewDetail(row)">{{ t('verifyList.btnView') }}</el-button>
             <el-button
-              v-if="row.status === 2"
-              type="success" link @click="onVerify(row, true)"
-            >{{ t('verifyList.btnApprove') }}</el-button>
+              v-if="canCertify(row)"
+              type="success"
+              link
+              @click="onVerify(row, true)"
+            >
+              {{ t('verifyList.btnApprove') }}
+            </el-button>
             <el-button
-              v-if="row.status === 2"
-              type="danger" link @click="onVerify(row, false)"
-            >{{ t('verifyList.btnReject') }}</el-button>
+              v-if="canCertify(row)"
+              type="danger"
+              link
+              @click="onVerify(row, false)"
+            >
+              {{ t('verifyList.btnReject') }}
+            </el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -80,53 +91,102 @@
         <el-descriptions-item :label="t('verifyList.colStatus')">
           <el-tag :type="getStatusType(currentReport.status)">{{ getStatusLabel(currentReport.status) }}</el-tag>
         </el-descriptions-item>
-        <el-descriptions-item :label="t('verifyList.colTotalEmission')">{{ currentReport.totalEmission }} {{ t('common.unit_ton') }}</el-descriptions-item>
-        <el-descriptions-item :label="t('verifyList.labelCoalEmission')">{{ currentReport.coalEmission }} {{ t('common.unit_ton') }}</el-descriptions-item>
-        <el-descriptions-item :label="t('verifyList.labelOilEmission')">{{ currentReport.oilEmission }} {{ t('common.unit_ton') }}</el-descriptions-item>
-        <el-descriptions-item :label="t('verifyList.labelGasEmission')">{{ currentReport.gasEmission }} {{ t('common.unit_ton') }}</el-descriptions-item>
-        <el-descriptions-item :label="t('verifyList.labelElectricityEmission')">{{ currentReport.electricityEmission }} {{ t('common.unit_ton') }}</el-descriptions-item>
+        <el-descriptions-item :label="t('verifyList.colTotalEmission')">
+          {{ currentReport.totalEmission }} {{ t('common.unit_ton') }}
+        </el-descriptions-item>
+        <el-descriptions-item label="Scope 1">{{ currentReport.scope1Emission ?? '-' }} {{ t('common.unit_ton') }}</el-descriptions-item>
+        <el-descriptions-item label="Scope 2">{{ currentReport.scope2Emission ?? '-' }} {{ t('common.unit_ton') }}</el-descriptions-item>
+        <el-descriptions-item label="Scope 3">{{ currentReport.scope3Emission ?? '-' }} {{ t('common.unit_ton') }}</el-descriptions-item>
         <el-descriptions-item :label="t('verifyList.colSubmitTime')">{{ formatDateTime(currentReport.createdAt) }}</el-descriptions-item>
-        <el-descriptions-item :label="t('verifyList.labelReviewComment')" :span="2">{{ currentReport.reviewComment || t('verifyList.noComment') }}</el-descriptions-item>
+        <el-descriptions-item :label="t('verifyList.labelReviewComment')" :span="2">
+          {{ currentReport.reviewComment || t('verifyList.noComment') }}
+        </el-descriptions-item>
       </el-descriptions>
     </el-dialog>
   </PageContainer>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getReportList, reviewReport } from '../../api/carbon'
+import { certifyReport, getReportList } from '../../api/carbon'
 import { getStatus } from '../../api/blockchain'
 import { formatDateTime } from '../../utils/format'
 import PageContainer from '../../components/PageContainer.vue'
 
 const { t } = useI18n()
 
-const reports = ref([])
+type ReportRow = Record<string, any>
+
+const reports = ref<ReportRow[]>([])
 const loading = ref(false)
 const currentPage = ref(1)
 const pageSize = ref(10)
 const total = ref(0)
 const keyword = ref('')
-const statusFilter = ref('')
+const statusFilter = ref<number | ''>('')
 
 const stats = ref({ pending: 0, approved: 0, rejected: 0 })
 const blockchainStatus = ref('')
 const statsLoading = ref(false)
 
 const detailVisible = ref(false)
-const currentReport = ref(null)
+const currentReport = ref<ReportRow | null>(null)
 
-// Status codes: 0=草稿, 1=待审核, 2=审核通过, 3=已驳回, 4=认证驳回, 5=已上链
-const getStatusLabel = (status) => {
-  const map = { 0: t('verifyList.statusDraft'), 1: t('verifyList.statusPending'), 2: t('verifyList.statusApproved'), 3: t('verifyList.statusRejected'), 4: t('verifyList.statusCertRejected'), 5: t('verifyList.statusOnChain') }
-  return map[status] || status
+const blockchainHealthy = computed(() => {
+  const normalized = blockchainStatus.value.trim().toLowerCase()
+  return normalized === '' || normalized === 'normal' || normalized === 'online' || normalized === 'healthy' || normalized === '姝ｅ父'
+})
+
+const STATUS_LABEL_MAP: Record<number, string> = {
+  0: 'statusDraft',
+  1: 'statusPending',
+  2: 'statusInReview',
+  3: 'statusPendingCertification',
+  4: 'statusRejected',
+  5: 'statusOnChain',
 }
 
-const getStatusType = (status) => {
-  const map = { 0: 'info', 1: 'warning', 2: 'success', 3: 'danger', 4: 'danger', 5: 'primary' }
-  return map[status] || 'info'
+const STATUS_FALLBACK_LABEL_MAP: Record<number, string> = {
+  0: 'Draft',
+  1: 'Pending',
+  2: 'In Review',
+  3: 'Pending Certification',
+  4: 'Rejected',
+  5: 'On Chain',
+}
+
+const STATUS_TYPE_MAP: Record<number, string> = {
+  0: 'info',
+  1: 'warning',
+  2: 'primary',
+  3: 'success',
+  4: 'danger',
+  5: 'success',
+}
+
+const getStatusLabel = (status?: number) => {
+  const key = typeof status === 'number' ? STATUS_LABEL_MAP[status] : ''
+  if (!key) return String(status ?? '-')
+  const translated = t(`verifyList.${key}`)
+  return translated === `verifyList.${key}`
+    ? (typeof status === 'number' ? STATUS_FALLBACK_LABEL_MAP[status] : translated)
+    : translated
+}
+
+const getStatusType = (status?: number) => {
+  return typeof status === 'number' ? (STATUS_TYPE_MAP[status] || 'info') : 'info'
+}
+
+const canCertify = (row: ReportRow) => Number(row.status) === 3
+
+const recomputeStats = (rows: ReportRow[]) => {
+  stats.value = {
+    pending: rows.filter((row) => Number(row.status) === 3).length,
+    approved: rows.filter((row) => Number(row.status) === 5).length,
+    rejected: rows.filter((row) => Number(row.status) === 4).length,
+  }
 }
 
 const loadReports = async () => {
@@ -136,17 +196,12 @@ const loadReports = async () => {
       page: currentPage.value,
       size: pageSize.value,
       keyword: keyword.value || undefined,
-      status: statusFilter.value || undefined,
+      status: statusFilter.value === '' ? undefined : Number(statusFilter.value),
     })
     reports.value = result?.items || []
     total.value = result?.total || 0
-
-    stats.value = {
-      pending: reports.value.filter(r => r.status === 2).length,
-      approved: reports.value.filter(r => r.status === 5).length,
-      rejected: reports.value.filter(r => r.status === 3 || r.status === 4).length,
-    }
-  } catch (error) {
+    recomputeStats(reports.value)
+  } catch {
     ElMessage.error(t('verifyList.loadFailed'))
   } finally {
     loading.value = false
@@ -165,47 +220,51 @@ const loadBlockchainStatus = async () => {
   }
 }
 
-const viewDetail = (row) => {
+const viewDetail = (row: ReportRow) => {
   currentReport.value = row
   detailVisible.value = true
 }
 
-const onVerify = async (row, approved) => {
-  const action = approved ? t('verifyList.btnApprove') : t('verifyList.btnReject')
+const onVerify = async (row: ReportRow, approved: boolean) => {
+  const actionText = approved ? t('verifyList.btnApprove') : t('verifyList.btnReject')
   try {
-    await ElMessageBox.confirm(t(approved ? 'verifyList.confirmApprove' : 'verifyList.confirmReject'), t('common.confirm'), {
-      confirmButtonText: t('common.confirm'),
-      cancelButtonText: t('common.cancel'),
-      type: 'warning',
-    })
-    await reviewReport({
-      reportId: row.id,
+    await ElMessageBox.confirm(
+      t(approved ? 'verifyList.confirmApprove' : 'verifyList.confirmReject'),
+      t('common.confirm'),
+      {
+        confirmButtonText: t('common.confirm'),
+        cancelButtonText: t('common.cancel'),
+        type: 'warning',
+      },
+    )
+    await certifyReport({
+      reportId: Number(row.id),
       approved,
       comment: approved ? t('verifyList.approveSuccess') : t('verifyList.rejectSuccess'),
     })
-    ElMessage.success(action)
-    loadReports()
-  } catch (error) {
+    ElMessage.success(actionText)
+    await loadReports()
+  } catch (error: any) {
     if (error !== 'cancel') {
-      ElMessage.error(`${t('verifyList.operationFailed')}: ${error.message || ''}`)
+      ElMessage.error(`${t('verifyList.operationFailed')}: ${error?.message || ''}`)
     }
   }
 }
 
-const onSizeChange = (size) => {
+const onSizeChange = (size: number) => {
   pageSize.value = size
   currentPage.value = 1
-  loadReports()
+  void loadReports()
 }
 
-const onCurrentChange = (page) => {
+const onCurrentChange = (page: number) => {
   currentPage.value = page
-  loadReports()
+  void loadReports()
 }
 
 onMounted(() => {
-  loadReports()
-  loadBlockchainStatus()
+  void loadReports()
+  void loadBlockchainStatus()
 })
 </script>
 

@@ -24,12 +24,25 @@ const predictionTypeOptions = [
 
 const horizonOptions = [7, 30, 90, 180]
 
+function asNumberArray(value: number[] | null | undefined): number[] {
+  return Array.isArray(value) ? value : []
+}
+
+function asStringArray(value: string[] | null | undefined): string[] {
+  return Array.isArray(value) ? value : []
+}
+
 function transformToDataPoints(response: MarketForecastResponse): MarketForecastDataPoint[] {
-  return response.forecastDates.map((date, i) => ({
+  const forecastDates = asStringArray(response.forecastDates)
+  const forecastPrices = asNumberArray(response.forecastPrices)
+  const lowerBound = asNumberArray(response.lowerBound)
+  const upperBound = asNumberArray(response.upperBound)
+
+  return forecastDates.map((date, i) => ({
     date,
-    price: response.forecastPrices[i],
-    lowerBound: response.lowerBound[i],
-    upperBound: response.upperBound[i],
+    price: forecastPrices[i] ?? 0,
+    lowerBound: lowerBound[i] ?? 0,
+    upperBound: upperBound[i] ?? 0,
   }))
 }
 
@@ -76,7 +89,10 @@ function renderChart() {
   }
 
   const points = dataPoints.value
-  if (points.length === 0) return
+  if (points.length === 0) {
+    chartInstance.clear()
+    return
+  }
 
   const option = {
     title: { text: t('marketPrediction.chartTitle'), left: 'center' },
@@ -198,7 +214,12 @@ onBeforeUnmount(() => {
           {{ days }} {{ t('marketPrediction.days') }}
         </el-button>
       </div>
-      <div ref="chartRef" class="chart-box" />
+      <el-empty
+        v-if="!loading && dataPoints.length === 0"
+        :description="t('marketPrediction.noData')"
+        class="chart-empty"
+      />
+      <div v-show="dataPoints.length > 0" ref="chartRef" class="chart-box" />
     </el-card>
   </section>
 </template>
@@ -272,9 +293,20 @@ onBeforeUnmount(() => {
   height: 420px;
 }
 
+.chart-empty {
+  min-height: 420px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 @media (max-width: 768px) {
   .chart-box {
     height: 300px;
+  }
+
+  .chart-empty {
+    min-height: 300px;
   }
 }
 </style>

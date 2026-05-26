@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { getReportList } from '../../api/carbon'
@@ -11,6 +11,20 @@ const searchForm = reactive({
 })
 
 const tableData = ref([])
+const filteredTableData = computed(() => {
+  const keyword = searchForm.keyword.trim().toLowerCase()
+  if (!keyword) return tableData.value
+
+  return tableData.value.filter((row) => {
+    const fields = [row.reportNo, row.enterpriseName, row.title, row.reviewerName, row.statusText]
+      .filter(Boolean)
+      .map((value) => String(value).toLowerCase())
+    return fields.some((value) => value.includes(keyword))
+  })
+})
+const displayTotal = computed(() => {
+  return searchForm.keyword.trim() ? filteredTableData.value.length : total.value
+})
 const loading = ref(false)
 const currentPage = ref(1)
 const pageSize = ref(10)
@@ -87,7 +101,7 @@ onMounted(() => {
     </el-card>
 
     <el-card class="section-card" shadow="never">
-      <el-table :data="tableData" border v-loading="loading">
+      <el-table :data="filteredTableData" border v-loading="loading">
         <el-table-column prop="reportNo" :label="t('systemCarbon.colReportNo')" min-width="140" />
         <el-table-column prop="enterpriseName" :label="t('systemCarbon.colEnterpriseName')" min-width="180" />
         <el-table-column prop="title" :label="t('systemCarbon.colReportTitle')" min-width="200" show-overflow-tooltip />
@@ -112,7 +126,7 @@ onMounted(() => {
           background
           :page-sizes="[10, 20, 50]"
           layout="total, sizes, prev, pager, next, jumper"
-          :total="total"
+          :total="displayTotal"
           @size-change="onSizeChange"
           @current-change="onCurrentChange"
         />

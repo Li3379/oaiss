@@ -186,6 +186,7 @@ const router = createRouter({ history: createWebHistory(), routes })
 router.beforeEach((to) => {
   const appStore = useAppStore(pinia)
 
+  if (to.name === 'NotFound') return true
   if (to.meta.public && appStore.loggedIn && !to.meta.keepWhenLoggedIn) {
     return appStore.homePath
   }

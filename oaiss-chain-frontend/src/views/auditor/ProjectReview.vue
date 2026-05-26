@@ -1,26 +1,40 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useI18n } from 'vue-i18n'
-import { getPendingVerification, reviewProject, verifyProject } from '../../api/carbonNeutral'
+import { getPendingVerification, verifyProject } from '../../api/carbonNeutral'
 import { deductPoints } from '../../api/credit'
 import { formatDateTime } from '../../utils/format'
 
 const { t } = useI18n()
 
-const tableData = ref([])
+type ProjectReviewRow = {
+  id?: number
+  enterpriseId?: number
+  ownerId?: number
+  expectedReduction?: number | string
+  monitoringData?: string
+  status?: number
+  verificationStatus?: number
+  [key: string]: unknown
+}
+
+const tableData = ref<ProjectReviewRow[]>([])
 const loading = ref(false)
 const currentPage = ref(1)
 const pageSize = ref(10)
 const total = ref(0)
 
-const reviewDialogVisible = ref(false)
-const reviewForm = ref({ projectId: null as number | null, approved: true, comment: '' })
-const reviewLoading = ref(false)
-
 const verifyDialogVisible = ref(false)
-const verifyForm = ref({ projectId: null as number | null, verified: true, comment: '' })
+const verifyForm = ref({
+  projectId: null as number | null,
+  verifiedReduction: '',
+  verificationReport: '',
+  monitoringData: '',
+  remark: '',
+})
 const verifyLoading = ref(false)
+const verifyErrorMessage = ref('')
 
 const deductDialogVisible = ref(false)
 const deductForm = ref({ enterpriseId: null as number | null, eventType: 1, description: '' })
@@ -33,7 +47,11 @@ const fetchData = async () => {
       pageNum: currentPage.value,
       pageSize: pageSize.value,
     })
-    tableData.value = response.items || []
+    tableData.value = (response.items || []).map((row: ProjectReviewRow) => ({
+      ...row,
+      status: Number(row.status ?? 0),
+      verificationStatus: Number(row.verificationStatus ?? 0),
+    }))
     total.value = response.total || 0
   } catch {
     ElMessage.error(t('projectReview.loadFailed'))
@@ -53,85 +71,127 @@ const onCurrentChange = (page: number) => {
   fetchData()
 }
 
-const openReviewDialog = (row: Record<string, unknown>) => {
-  reviewForm.value = { projectId: row.id as number, approved: true, comment: '' }
-  reviewDialogVisible.value = true
-}
-
-const submitReview = async () => {
-  reviewLoading.value = true
-  try {
-    await reviewProject(reviewForm.value.projectId!, {
-      approved: reviewForm.value.approved,
-      comment: reviewForm.value.comment,
-    })
-    ElMessage.success(reviewForm.value.approved ? t('projectReview.reviewApproved') : t('projectReview.reviewRejected'))
-    reviewDialogVisible.value = false
-    fetchData()
-  } catch {
-    ElMessage.error(t('projectReview.reviewFailed'))
-  } finally {
-    reviewLoading.value = false
+const openVerifyDialog = (row: ProjectReviewRow) => {
+  verifyErrorMessage.value = ''
+  verifyForm.value = {
+    projectId: row.id as number,
+    verifiedReduction: String(row.expectedReduction ?? ''),
+    verificationReport: '',
+    monitoringData: typeof row.monitoringData === 'string' ? row.monitoringData : '',
+    remark: '',
   }
-}
-
-const openVerifyDialog = (row: Record<string, unknown>) => {
-  verifyForm.value = { projectId: row.id as number, verified: true, comment: '' }
   verifyDialogVisible.value = true
 }
 
 const submitVerify = async () => {
+  verifyErrorMessage.value = ''
+  const verifiedReduction = Number(verifyForm.value.verifiedReduction)
+  if (!Number.isFinite(verifiedReduction) || verifiedReduction <= 0) {
+    const invalidMessage = t('projectReview.verifiedReductionInvalid')
+    verifyErrorMessage.value = invalidMessage === 'projectReview.verifiedReductionInvalid'
+      ? `${t('projectReview.labelVerifiedReduction')} > 0`
+      : invalidMessage
+    ElMessage.warning(verifyErrorMessage.value)
+    return
+  }
+
   verifyLoading.value = true
   try {
     await verifyProject({
       projectId: verifyForm.value.projectId!,
-      verified: verifyForm.value.verified,
-      comment: verifyForm.value.comment,
+      verifiedReduction,
+      verificationReport: verifyForm.value.verificationReport || undefined,
+      monitoringData: verifyForm.value.monitoringData || undefined,
+      remark: verifyForm.value.remark || undefined,
     })
-    ElMessage.success(verifyForm.value.verified ? t('projectReview.verifyPassed') : t('projectReview.verifyFailed'))
+    ElMessage.success(t('projectReview.verifyPassed'))
     verifyDialogVisible.value = false
     fetchData()
-  } catch {
-    ElMessage.error(t('projectReview.verifySubmitFailed'))
+  } catch (error: any) {
+    const backendMessage = error?.response?.data?.data?.[0] || error?.response?.data?.message || error?.message
+    verifyErrorMessage.value = backendMessage || t('projectReview.verifySubmitFailed')
+    ElMessage.error(backendMessage || t('projectReview.verifySubmitFailed'))
   } finally {
     verifyLoading.value = false
   }
 }
 
-const openDeductDialog = (row: Record<string, unknown>) => {
-  deductForm.value = { enterpriseId: row.enterpriseId as number, eventType: 1, description: '' }
+const openDeductDialog = (row: ProjectReviewRow) => {
+  const resolvedEnterpriseId = Number(row.enterpriseId ?? row.ownerId ?? 0)
+  if (!Number.isFinite(resolvedEnterpriseId) || resolvedEnterpriseId <= 0) {
+    ElMessage.error(t('projectReview.deductFailed'))
+    return
+  }
+  deductForm.value = { enterpriseId: resolvedEnterpriseId, eventType: 1, description: '' }
   deductDialogVisible.value = true
 }
 
 const submitDeduct = async () => {
+  const description = deductForm.value.description.trim()
+  if (!description) {
+    ElMessage.warning(t('projectReview.enterDescription'))
+    return
+  }
+
   deductLoading.value = true
   try {
     await deductPoints({
       enterpriseId: deductForm.value.enterpriseId!,
       eventType: deductForm.value.eventType,
-      description: deductForm.value.description,
+      description,
     })
     ElMessage.success(t('projectReview.deductSuccess'))
     deductDialogVisible.value = false
-  } catch {
-    ElMessage.error(t('projectReview.deductFailed'))
+  } catch (error: any) {
+    const backendMessage = error?.response?.data?.data?.[0] || error?.response?.data?.message || error?.message
+    ElMessage.error(backendMessage || t('projectReview.deductFailed'))
   } finally {
     deductLoading.value = false
   }
 }
 
-const getStatusTag = (status: string) => {
-  const map: Record<string, string> = {
-    DRAFT: 'info',
-    PENDING_REVIEW: 'warning',
-    APPROVED: 'success',
-    IN_PROGRESS: 'primary',
-    PENDING_VERIFICATION: 'warning',
-    CERTIFIED: 'success',
-    TERMINATED: 'danger',
-  }
-  return map[status] || 'info'
+const STATUS_MAP: Record<number, string> = {
+  0: 'info',
+  1: 'warning',
+  2: 'success',
+  3: 'primary',
+  4: 'success',
+  5: 'danger',
+  6: 'danger',
 }
+
+const VERIFICATION_STATUS_MAP: Record<number, string> = {
+  0: 'info',
+  1: 'warning',
+  2: 'success',
+  3: 'danger',
+}
+
+const getStatusTag = (status: number) => {
+  return STATUS_MAP[status] || 'info'
+}
+
+const getVerificationTag = (status: number) => {
+  return VERIFICATION_STATUS_MAP[status] || 'info'
+}
+
+const canVerify = (row: ProjectReviewRow) => {
+  return Number(row.verificationStatus) === 1
+}
+
+const canDeduct = (row: ProjectReviewRow) => {
+  return Number(row.verificationStatus) === 1
+}
+
+const hasRows = computed(() => tableData.value.length > 0)
+
+const queueTitle = computed(() => {
+  return t('projectReview.queueVerification')
+})
+
+const queueDescription = computed(() => {
+  return t('projectReview.queueVerificationDesc')
+})
 
 onMounted(() => fetchData())
 </script>
@@ -146,13 +206,24 @@ onMounted(() => fetchData())
     </el-card>
 
     <el-card class="section-card" shadow="never">
+      <div class="queue-summary">
+        <div>
+          <div class="queue-title">{{ queueTitle }}</div>
+          <div class="queue-desc">{{ queueDescription }}</div>
+        </div>
+      </div>
       <el-table :data="tableData" border v-loading="loading">
         <el-table-column prop="projectName" :label="t('projectReview.colProjectName')" min-width="180" show-overflow-tooltip />
-        <el-table-column prop="enterpriseName" :label="t('projectReview.colEnterpriseName')" min-width="160" />
-        <el-table-column prop="projectType" :label="t('projectReview.colProjectType')" min-width="120" />
+        <el-table-column prop="ownerName" :label="t('projectReview.colEnterpriseName')" min-width="160" />
+        <el-table-column prop="projectTypeName" :label="t('projectReview.colProjectType')" min-width="120" />
         <el-table-column prop="status" :label="t('common.status')" min-width="120">
           <template #default="{ row }">
             <el-tag :type="getStatusTag(row.status)">{{ row.statusText || row.status }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="verificationStatus" :label="t('projectReview.colVerificationStatus')" min-width="140">
+          <template #default="{ row }">
+            <el-tag :type="getVerificationTag(row.verificationStatus)">{{ row.verificationStatusText || row.verificationStatus }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="expectedReduction" :label="t('projectReview.colExpectedReduction')" min-width="130" />
@@ -161,12 +232,14 @@ onMounted(() => fetchData())
         </el-table-column>
         <el-table-column :label="t('common.operation')" width="280" fixed="right">
           <template #default="{ row }">
-            <el-button v-if="row.status === 'PENDING_REVIEW'" link type="primary" @click="openReviewDialog(row)">{{ t('projectReview.review') }}</el-button>
-            <el-button v-if="row.status === 'PENDING_VERIFICATION'" link type="success" @click="openVerifyDialog(row)">{{ t('projectReview.verify') }}</el-button>
-            <el-button v-if="row.status === 'PENDING_REVIEW' || row.status === 'PENDING_VERIFICATION'" link type="warning" @click="openDeductDialog(row)">{{ t('projectReview.deductCredit') }}</el-button>
+            <el-button v-if="canVerify(row)" link type="success" @click="openVerifyDialog(row)">{{ t('projectReview.verify') }}</el-button>
+            <el-button v-if="canDeduct(row)" link type="warning" @click="openDeductDialog(row)">{{ t('projectReview.deductCredit') }}</el-button>
+            <span v-if="!canVerify(row) && !canDeduct(row)" class="empty-op">-</span>
           </template>
         </el-table-column>
       </el-table>
+
+      <el-empty v-if="!loading && !hasRows" :description="t('projectReview.emptyText')" />
 
       <div class="pagination-row">
         <el-pagination
@@ -182,37 +255,22 @@ onMounted(() => fetchData())
       </div>
     </el-card>
 
-    <!-- Review Dialog -->
-    <el-dialog v-model="reviewDialogVisible" :title="t('projectReview.reviewDialogTitle')" width="600px" destroy-on-close>
-      <el-form label-width="100px">
-        <el-form-item :label="t('projectReview.labelResult')">
-          <el-radio-group v-model="reviewForm.approved">
-            <el-radio :label="true">{{ t('projectReview.approve') }}</el-radio>
-            <el-radio :label="false">{{ t('projectReview.reject') }}</el-radio>
-          </el-radio-group>
-        </el-form-item>
-        <el-form-item :label="t('projectReview.labelComment')">
-          <el-input v-model="reviewForm.comment" type="textarea" :rows="4" :placeholder="t('projectReview.enterComment')" />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="reviewDialogVisible = false">{{ t('common.cancel') }}</el-button>
-        <el-button type="primary" :loading="reviewLoading" @click="submitReview">{{ t('common.submit') }}</el-button>
-      </template>
-    </el-dialog>
-
     <!-- Verify Dialog -->
     <el-dialog v-model="verifyDialogVisible" :title="t('projectReview.verifyDialogTitle')" width="600px" destroy-on-close>
       <el-form label-width="100px">
-        <el-form-item :label="t('projectReview.labelResult')">
-          <el-radio-group v-model="verifyForm.verified">
-            <el-radio :label="true">{{ t('projectReview.verifyPass') }}</el-radio>
-            <el-radio :label="false">{{ t('projectReview.verifyFail') }}</el-radio>
-          </el-radio-group>
+        <el-form-item :label="t('projectReview.labelVerifiedReduction')">
+          <el-input v-model="verifyForm.verifiedReduction" />
         </el-form-item>
-        <el-form-item :label="t('projectReview.labelComment')">
-          <el-input v-model="verifyForm.comment" type="textarea" :rows="4" :placeholder="t('projectReview.enterComment')" />
+        <el-form-item :label="t('projectReview.labelVerificationReport')">
+          <el-input v-model="verifyForm.verificationReport" type="textarea" :rows="3" :placeholder="t('projectReview.enterVerificationReport')" />
         </el-form-item>
+        <el-form-item :label="t('projectReview.labelMonitoringData')">
+          <el-input v-model="verifyForm.monitoringData" type="textarea" :rows="3" :placeholder="t('projectReview.enterMonitoringData')" />
+        </el-form-item>
+        <el-form-item :label="t('projectReview.labelRemark')">
+          <el-input v-model="verifyForm.remark" type="textarea" :rows="3" :placeholder="t('projectReview.enterRemark')" />
+        </el-form-item>
+        <div v-if="verifyErrorMessage" class="form-error-text">{{ verifyErrorMessage }}</div>
       </el-form>
       <template #footer>
         <el-button @click="verifyDialogVisible = false">{{ t('common.cancel') }}</el-button>
@@ -254,9 +312,38 @@ onMounted(() => fetchData())
   border-radius: 12px;
 }
 
+.queue-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.queue-title {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.queue-desc {
+  margin-top: 4px;
+  color: var(--el-text-color-secondary);
+  font-size: 13px;
+}
+
+.empty-op {
+  color: #999;
+}
+
 .pagination-row {
   margin-top: 14px;
   display: flex;
   justify-content: flex-end;
+}
+
+.form-error-text {
+  color: var(--el-color-danger);
+  margin-top: 4px;
+  padding-left: 100px;
+  font-size: 13px;
 }
 </style>

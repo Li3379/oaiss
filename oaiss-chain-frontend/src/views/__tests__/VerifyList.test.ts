@@ -1,14 +1,21 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { nextTick } from 'vue'
+
+vi.mock('vue-i18n', () => ({
+  useI18n: () => ({
+    t: (key: string) => key,
+  }),
+}))
 
 vi.mock('../../api/carbon', () => ({
   getReportList: vi.fn(() => Promise.resolve({ items: [], total: 0 })),
   reviewReport: vi.fn(() => Promise.resolve()),
+  certifyReport: vi.fn(() => Promise.resolve()),
 }))
 
 vi.mock('../../api/blockchain', () => ({
-  getStatus: vi.fn(() => Promise.resolve({ data: {} })),
+  getStatus: vi.fn(() => Promise.resolve({ status: 'Normal' })),
 }))
 
 vi.mock('element-plus', async (importOriginal) => {
@@ -28,12 +35,13 @@ vi.mock('../../components/PageContainer.vue', () => ({
 }))
 
 import VerifyList from '../admin/VerifyList.vue'
-import { getReportList, reviewReport } from '../../api/carbon'
+import { getReportList } from '../../api/carbon'
 import { getStatus } from '../../api/blockchain'
 import { ElMessage } from 'element-plus'
 
 const stubs = {
   'el-card': { template: '<div class="el-card"><slot /></div>' },
+  'el-statistic': { template: '<div class="el-statistic"></div>', props: ['title', 'value'] },
   'el-breadcrumb': { template: '<div class="el-breadcrumb"><slot /></div>' },
   'el-breadcrumb-item': { template: '<span class="el-breadcrumb-item"><slot /></span>' },
   'el-form': {
@@ -62,7 +70,7 @@ const stubs = {
     template: '<td><slot :row="{}" :$index="0" /></td>',
     props: ['prop', 'label', 'minWidth', 'width', 'fixed', 'showOverflowTooltip'],
   },
-  'el-tag': { template: '<span class="el-tag"><slot /></span>', props: ['type'] },
+  'el-tag': { template: '<span class="el-tag"><slot /></span>', props: ['type', 'size'] },
   'el-pagination': {
     template: '<div class="el-pagination"></div>',
     props: ['currentPage', 'pageSize', 'background', 'pageSizes', 'layout', 'total'],
@@ -83,12 +91,17 @@ const stubs = {
     props: ['label', 'value'],
   },
   'el-descriptions': { template: '<div class="el-descriptions"><slot /></div>', props: ['column', 'border'] },
-  'el-descriptions-item': { template: '<div class="el-descriptions-item"><slot /></div>', props: ['label'] },
+  'el-descriptions-item': { template: '<div class="el-descriptions-item"><slot /></div>', props: ['label', 'span'] },
 }
 
 function mountVerifyList() {
   return mount(VerifyList, {
-    global: { stubs },
+    global: {
+      stubs,
+      directives: {
+        loading: {},
+      },
+    },
     attachTo: document.body,
   })
 }
@@ -103,7 +116,7 @@ describe('VerifyList.vue', () => {
     vi.clearAllMocks()
   })
 
-  it('组件正确渲染', async () => {
+  it('renders page container and section cards', async () => {
     const wrapper = mountVerifyList()
     await flush()
     expect(wrapper.find('.page-container').exists()).toBe(true)
@@ -111,7 +124,7 @@ describe('VerifyList.vue', () => {
     wrapper.unmount()
   })
 
-  it('页面加载时调用API', async () => {
+  it('loads report list and blockchain status on mount', async () => {
     const wrapper = mountVerifyList()
     await flush()
     expect(getReportList).toHaveBeenCalled()
@@ -119,25 +132,22 @@ describe('VerifyList.vue', () => {
     wrapper.unmount()
   })
 
-  it('API调用失败显示错误消息', async () => {
-    getReportList.mockRejectedValueOnce(new Error('网络错误'))
+  it('shows translated load error when report query fails', async () => {
+    vi.mocked(getReportList).mockRejectedValueOnce(new Error('network'))
     const wrapper = mountVerifyList()
     await flush()
-    expect(ElMessage.error).toHaveBeenCalledWith('加载报告列表失败')
+    expect(ElMessage.error).toHaveBeenCalledWith('verifyList.loadFailed')
     wrapper.unmount()
   })
 
-  it('组件渲染数据', async () => {
-    getReportList.mockResolvedValueOnce({
-      items: [
-        { id: 1, reportNo: 'RPT-001', enterpriseName: '测试企业', status: 'PENDING', totalEmission: 100 },
-      ],
+  it('renders stats row after receiving data', async () => {
+    vi.mocked(getReportList).mockResolvedValueOnce({
+      items: [{ id: 1, reportNo: 'RPT-001', enterpriseName: 'Demo', status: 3, totalEmission: 100 }],
       total: 1,
-    })
+    } as any)
 
     const wrapper = mountVerifyList()
     await flush()
-    expect(getReportList).toHaveBeenCalled()
     expect(wrapper.find('.stats-row').exists()).toBe(true)
     wrapper.unmount()
   })

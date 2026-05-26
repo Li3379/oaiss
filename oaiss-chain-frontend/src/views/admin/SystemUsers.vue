@@ -26,6 +26,26 @@ const statusOptions = [
 ]
 
 const userList = ref([])
+const displayList = computed(() => {
+  const userType = searchForm.userType === '' ? '' : Number(searchForm.userType)
+  const status = searchForm.status === '' ? '' : Number(searchForm.status)
+
+  return userList.value.filter((row) => {
+    if (userType !== '' && row.userType !== userType) {
+      return false
+    }
+
+    if (status !== '' && row.status !== status) {
+      return false
+    }
+
+    return true
+  })
+})
+const displayTotal = computed(() => {
+  const hasFilter = searchForm.userType !== '' || searchForm.status !== ''
+  return hasFilter ? displayList.value.length : total.value
+})
 const loading = ref(false)
 const currentPage = ref(1)
 const pageSize = ref(10)
@@ -131,7 +151,7 @@ onMounted(() => {
         </el-form-item>
 
         <el-form-item :label="t('common.status')">
-          <el-select v-model="searchForm.status" :placeholder="t('systemUsers.statusEnabled')" style="width: 140px" clearable>
+          <el-select v-model="searchForm.status" :placeholder="t('systemUsers.typeAll')" style="width: 140px" clearable>
             <el-option v-for="item in statusOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
         </el-form-item>
@@ -143,7 +163,7 @@ onMounted(() => {
     </el-card>
 
     <el-card class="section-card" shadow="never">
-      <el-table :data="userList" border v-loading="loading">
+      <el-table :data="displayList" border v-loading="loading">
         <el-table-column prop="username" :label="t('systemUsers.colUsername')" min-width="120" />
         <el-table-column prop="email" :label="t('systemUsers.colEmail')" min-width="180" />
         <el-table-column prop="userType" :label="t('systemUsers.colUserType')" min-width="120">
@@ -175,7 +195,7 @@ onMounted(() => {
           background
           :page-sizes="[10, 20, 50]"
           layout="total, sizes, prev, pager, next, jumper"
-          :total="total"
+          :total="displayTotal"
           @size-change="onSizeChange"
           @current-change="onCurrentChange"
         />

@@ -4,6 +4,7 @@ import { ElMessage } from 'element-plus'
 import { useI18n } from 'vue-i18n'
 import { calculatePowerGeneration, calculatePowerGrid } from '../../api/carbonFormula'
 import { getProfile } from '../../api/user'
+import { getEnterpriseInfo } from '../../api/enterprise'
 import type { PowerGenerationCalculationResponse, PowerGridCalculationResponse } from '../../types/carbonFormula'
 import PageContainer from '../../components/PageContainer.vue'
 
@@ -57,6 +58,29 @@ const gridForm = ref({
 const gridLoading = ref(false)
 const gridResult = ref<PowerGridCalculationResponse | null>(null)
 
+function hasPowerGenerationInputs() {
+  const f = pgForm.value
+  const fuelHasValue = fuelSections.some(({ key }) => {
+    const params = f[key]
+    return [params.fc, params.ncv, params.cc, params.of].some((value) => value !== null)
+  })
+
+  return fuelHasValue || [f.carbonateConsumed, f.desulfEmissionFactor, f.desulfConversionRate].some((value) => value !== null)
+}
+
+function hasPowerGridInputs() {
+  const f = gridForm.value
+  return [
+    f.transmissionVolume,
+    f.lineLossRate,
+    f.gridEmissionFactor,
+    f.generationVolume,
+    f.importedElectricity,
+    f.exportedElectricity,
+    f.importEmissionFactor,
+  ].some((value) => value !== null)
+}
+
 function applyEnterpriseName(name: string) {
   if (!name) return
   pgForm.value.enterpriseName = name
@@ -65,19 +89,31 @@ function applyEnterpriseName(name: string) {
 
 async function loadEnterpriseName() {
   try {
-    const profile = await getProfile()
-    const enterpriseName = String(
-      (profile as Record<string, unknown>)?.company
-      || (profile as Record<string, unknown>)?.realName
-      || '',
-    )
-    applyEnterpriseName(enterpriseName)
+    const enterprise = await getEnterpriseInfo() as Record<string, unknown>
+    const enterpriseName = String(enterprise?.enterpriseName || '')
+    if (enterpriseName) {
+      applyEnterpriseName(enterpriseName)
+      return
+    }
   } catch {
-    // Keep manual entry available if profile prefill is unavailable.
+    // Fall back to a weaker profile-based guess only if enterprise info is unavailable.
+  }
+
+  try {
+    const profile = await getProfile()
+    const enterpriseName = String((profile as Record<string, unknown>)?.company || '')
+    if (enterpriseName) applyEnterpriseName(enterpriseName)
+  } catch {
+    // Keep manual entry available if both prefill sources are unavailable.
   }
 }
 
 const onCalculatePowerGeneration = async () => {
+  if (!hasPowerGenerationInputs()) {
+    ElMessage.warning(t('carbonFormula.incompleteForm'))
+    return
+  }
+
   try {
     pgLoading.value = true
     const f = pgForm.value
@@ -121,6 +157,11 @@ const onCalculatePowerGeneration = async () => {
 }
 
 const onCalculatePowerGrid = async () => {
+  if (!hasPowerGridInputs()) {
+    ElMessage.warning(t('carbonFormula.incompleteForm'))
+    return
+  }
+
   try {
     gridLoading.value = true
     const payload = {

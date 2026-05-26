@@ -4,10 +4,11 @@ import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { getMyAccount, getTransactions, transferCoins } from '../../api/carbonCoin'
 import PageContainer from '../../components/PageContainer.vue'
+import type { CarbonCoinAccountResponse } from '../../types'
 
 const { t } = useI18n()
 
-const accountData = ref(null)
+const accountData = ref<CarbonCoinAccountResponse | null>(null)
 const accountLoading = ref(false)
 
 const transactionData = ref([])
@@ -138,6 +139,12 @@ const getTransactionTypeText = (type) => {
   return map[type] || t('common.status')
 }
 
+const getAccountStatusType = (status?: number) => (status === 1 ? 'success' : 'warning')
+
+const getAccountStatusText = (status?: number) => (
+  status === 1 ? t('carbonCoin.statusActive') : t('carbonCoin.statusInactive')
+)
+
 
 const getAmountClass = (type) => {
   const positiveTypes = [1, 2, 6]
@@ -169,10 +176,13 @@ onMounted(() => {
             <div class="info-value">{{ accountData.balance || 0 }}</div>
             <div class="info-unit">{{ t('carbonCoin.unit') }}</div>
           </div>
-          <div class="info-card">
-            <div class="info-label">{{ t('carbonCoin.frozenAmount') }}</div>
-            <div class="info-value frozen">{{ accountData.frozenAmount || 0 }}</div>
-            <div class="info-unit">{{ t('carbonCoin.unit') }}</div>
+          <div class="info-card" data-testid="carbon-coin-status-card">
+            <div class="info-label">{{ t('carbonCoin.accountStatus') }}</div>
+            <div class="info-status">
+              <el-tag :type="getAccountStatusType(accountData.status)" size="large">
+                {{ getAccountStatusText(accountData.status) }}
+              </el-tag>
+            </div>
           </div>
           <div class="info-card">
             <div class="info-label">{{ t('carbonCoin.totalRecharge') }}</div>
@@ -338,12 +348,14 @@ onMounted(() => {
   opacity: 0.8;
 }
 
-.info-value.frozen {
-  color: var(--el-color-danger);
-}
-
 .info-value.spent {
   color: var(--el-color-warning);
+}
+
+.info-status {
+  margin-top: 18px;
+  display: flex;
+  justify-content: center;
 }
 
 .amount-positive {

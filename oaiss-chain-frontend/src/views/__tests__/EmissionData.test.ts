@@ -3,9 +3,13 @@ import { mount, flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 
 vi.mock('../../api/emission', () => ({
-  getEnterpriseRatings: vi.fn(() => Promise.resolve({ items: [], total: 0 })),
+  getMyRating: vi.fn(() => Promise.resolve([])),
   getIndustryRankings: vi.fn(() => Promise.resolve({ items: [] })),
   predictEmission: vi.fn(() => Promise.resolve({ data: {} })),
+}))
+
+vi.mock('../../api/enterprise', () => ({
+  getEnterpriseInfo: vi.fn(() => Promise.resolve({ id: 1001 })),
 }))
 
 vi.mock('element-plus', async (importOriginal) => {
@@ -18,8 +22,8 @@ vi.mock('element-plus', async (importOriginal) => {
 })
 
 import EmissionData from '../enterprise/EmissionData.vue'
-import { getEnterpriseRatings, getIndustryRankings, predictEmission } from '../../api/emission'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { getMyRating, getIndustryRankings } from '../../api/emission'
+import { ElMessage } from 'element-plus'
 
 const stubs = {
   'el-card': { template: '<div class="el-card"><slot /></div>' },
@@ -67,10 +71,29 @@ const stubs = {
     props: ['modelValue', 'placeholder', 'style', 'clearable'],
     emits: ['update:modelValue'],
   },
+  'el-tabs': {
+    template: '<div class="el-tabs"><slot /></div>',
+    props: ['modelValue'],
+    emits: ['update:modelValue'],
+  },
+  'el-tab-pane': { template: '<div class="el-tab-pane"><slot /></div>', props: ['label', 'name', 'disabled'] },
   'el-option': {
     template: '<option :value="value"><slot /></option>',
     props: ['label', 'value'],
   },
+  'el-date-picker': {
+    template: '<input class="date-picker" :value="modelValue" @input="$emit(\'update:modelValue\', $event.target.value)" />',
+    props: ['modelValue', 'type', 'valueFormat', 'placeholder'],
+    emits: ['update:modelValue', 'change'],
+  },
+  'el-input-number': {
+    template: '<input role="spinbutton" :value="modelValue ?? \'\'" @input="$emit(\'update:modelValue\', Number($event.target.value))" />',
+    props: ['modelValue', 'min', 'max'],
+    emits: ['update:modelValue'],
+  },
+  'el-alert': { template: '<div class="el-alert"><slot /></div>', props: ['title', 'type', 'closable', 'showIcon'] },
+  'el-descriptions': { template: '<div class="el-descriptions"><slot /></div>', props: ['title', 'column', 'border'] },
+  'el-descriptions-item': { template: '<div class="el-descriptions-item"><slot /></div>', props: ['label', 'span'] },
 }
 
 function mountComponent() {
@@ -98,12 +121,13 @@ describe('EmissionData.vue', () => {
   it('页面加载时调用API', async () => {
     const wrapper = mountComponent()
     await flushPromises()
-    expect(getEnterpriseRatings).toHaveBeenCalled()
+    expect(getMyRating).toHaveBeenCalled()
+    expect(getIndustryRankings).toHaveBeenCalled()
     wrapper.unmount()
   })
 
   it('API调用失败显示错误消息', async () => {
-    getEnterpriseRatings.mockRejectedValueOnce(new Error('network error'))
+    getMyRating.mockRejectedValueOnce(new Error('network error'))
     const wrapper = mountComponent()
     await flushPromises()
     expect(ElMessage.error).toHaveBeenCalled()
@@ -111,10 +135,10 @@ describe('EmissionData.vue', () => {
   })
 
   it('组件渲染数据', async () => {
-    getEnterpriseRatings.mockResolvedValueOnce({ data: { rating: 'A' } })
+    getMyRating.mockResolvedValueOnce([{ ratingLevel: 'A', totalEmission: 100, emissionIntensity: 1.2, ratingScore: 95, ratingYear: '2026' }])
     const wrapper = mountComponent()
     await flushPromises()
-    expect(getEnterpriseRatings).toHaveBeenCalled()
+    expect(getMyRating).toHaveBeenCalled()
     wrapper.unmount()
   })
 })

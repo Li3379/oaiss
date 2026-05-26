@@ -15,10 +15,15 @@ vi.mock('../../api/trade', () => ({
 }))
 
 vi.mock('../../api/credit', () => ({
-  getMyScore: vi.fn(() => Promise.resolve({ data: { score: 0 } })),
+  getMyScore: vi.fn(() => Promise.resolve({ score: 0 })),
+}))
+
+vi.mock('../../api/carbonCoin', () => ({
+  getMyAccount: vi.fn(() => Promise.resolve({ balance: 0 })),
 }))
 
 vi.mock('../../api/enterprise', () => ({
+  getQuotaInfo: vi.fn(() => Promise.resolve({ totalQuota: 0 })),
   getMyEnterpriseAdmission: vi.fn(() => Promise.resolve([])),
 }))
 
@@ -50,6 +55,8 @@ import CompanyDashboard from '../enterprise/CompanyDashboard.vue'
 import { getMyReports } from '../../api/carbon'
 import { getMyTrades } from '../../api/trade'
 import { getMyScore } from '../../api/credit'
+import { getMyAccount } from '../../api/carbonCoin'
+import { getQuotaInfo } from '../../api/enterprise'
 import { ElMessage } from 'element-plus'
 
 const stubs = {
@@ -142,6 +149,8 @@ describe('CompanyDashboard.vue', () => {
     expect(getMyReports).toHaveBeenCalled()
     expect(getMyTrades).toHaveBeenCalled()
     expect(getMyScore).toHaveBeenCalled()
+    expect(getMyAccount).toHaveBeenCalled()
+    expect(getQuotaInfo).toHaveBeenCalled()
     wrapper.unmount()
   })
 
@@ -175,10 +184,10 @@ describe('CompanyDashboard.vue', () => {
       total: 1,
     })
     getMyScore.mockResolvedValueOnce({
-      carbonCoins: 12,
-      carbonQuota: 50,
       score: 88,
     })
+    getMyAccount.mockResolvedValueOnce({ balance: 12 })
+    getQuotaInfo.mockResolvedValueOnce({ totalQuota: 50 })
 
     const wrapper = mountComponent()
     await flushPromises()

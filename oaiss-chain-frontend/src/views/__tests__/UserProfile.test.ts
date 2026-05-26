@@ -1,6 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
+import { ref } from 'vue'
+
+vi.mock('vue-i18n', () => ({
+  useI18n: () => ({
+    t: (key: string) => key,
+    locale: ref('zh-CN'),
+  }),
+}))
 
 vi.mock('../../api/user', () => ({
   getProfile: vi.fn(() => Promise.resolve({ data: {} })),

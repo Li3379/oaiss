@@ -101,7 +101,7 @@ describe('CarbonNeutralDetail.vue', () => {
   it('根据路由参数加载数据', async () => {
     const wrapper = mountDetail()
     await flush()
-    expect(getProject).toHaveBeenCalledWith('1')
+    expect(getProject).toHaveBeenCalledWith(1)
     wrapper.unmount()
   })
 })

@@ -50,7 +50,7 @@ export function reviewProject(projectId: number, data: { approved: boolean; comm
   return request.post(`/carbon-neutral/${projectId}/review`, data)
 }
 
-export function verifyProject(data: { projectId: number; verified: boolean; comment: string }): Promise<void> {
+export function verifyProject(data: ProjectVerificationRequest): Promise<void> {
   if (!data?.projectId) return Promise.reject(new Error('项目ID不能为空'))
   return request.post('/carbon-neutral/verify', data)
 }

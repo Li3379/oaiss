@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { reactive, ref, onMounted } from "vue"
+import { computed, reactive, ref, onMounted } from "vue"
 import { useI18n } from "vue-i18n"
 import { ElMessage, ElMessageBox } from "element-plus"
-import { getMyTrades, createP2PTrade, cancelTrade } from "../../api/trade"
+import { getMyTrades, createP2PTrade, cancelTrade, confirmTrade } from "../../api/trade"
+import { useAppStore } from "../../store"
 
 const { t } = useI18n()
+const appStore = useAppStore()
 
 const loading = ref(false)
 const searchForm = reactive({
@@ -20,6 +22,44 @@ const pageSize = ref(10)
 const total = ref(0)
 
 const tableData = ref([])
+
+const filteredTableData = computed(() => {
+  const keyword = searchForm.name.trim().toLowerCase()
+  const orderNo = searchForm.orderNo.trim().toLowerCase()
+
+  return tableData.value.filter((row) => {
+    if (keyword) {
+      const matchesKeyword = [row.buyerName, row.sellerName]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(keyword))
+
+      if (!matchesKeyword) {
+        return false
+      }
+    }
+
+    if (orderNo && !String(row.tradeNo || "").toLowerCase().includes(orderNo)) {
+      return false
+    }
+
+    if (searchForm.identity && appStore.userId) {
+      if (searchForm.identity === "tradingP2P.identityBuyer" && row.buyerId !== appStore.userId) {
+        return false
+      }
+
+      if (searchForm.identity === "tradingP2P.identitySeller" && row.sellerId !== appStore.userId) {
+        return false
+      }
+    }
+
+    return true
+  })
+})
+
+const displayTotal = computed(() => {
+  const hasLocalFilter = Boolean(searchForm.name || searchForm.orderNo || searchForm.identity)
+  return hasLocalFilter ? filteredTableData.value.length : total.value
+})
 
 const dialogVisible = ref(false)
 const dialogFormRef = ref()
@@ -57,8 +97,6 @@ const loadTrades = async () => {
     const result = await getMyTrades({
       pageNum: page.value,
       pageSize: pageSize.value,
-      keyword: searchForm.name || undefined,
-      tradeNo: searchForm.orderNo || undefined,
     })
     tableData.value = result?.items || []
     total.value = result?.total || 0
@@ -151,6 +189,31 @@ const onCancelTrade = async (row) => {
   }
 }
 
+const onConfirmTrade = async (row) => {
+  if (row.status !== 0) {
+    ElMessage.warning(t("tradingP2P.canOnlyConfirmPending"))
+    return
+  }
+
+  try {
+    await ElMessageBox.confirm(t("tradingP2P.confirmTradePrompt"), t("common.confirm"), {
+      confirmButtonText: t("common.confirm"),
+      cancelButtonText: t("common.cancel"),
+      type: "warning",
+    })
+
+    await confirmTrade(row.id)
+    ElMessage.success(t("tradingP2P.confirmSuccess"))
+    await loadTrades()
+  } catch (error) {
+    if (error !== "cancel") {
+      ElMessage.error(t("tradingP2P.confirmFailed") + ": " + ((error as Error).message || ""))
+    } else {
+      ElMessage.info(t("common.cancelled"))
+    }
+  }
+}
+
 onMounted(() => {
   loadTrades()
 })
@@ -167,12 +230,12 @@ onMounted(() => {
 
     <el-card class="section-card" shadow="never">
       <el-form :inline="true" class="search-form">
-        <el-form-item :label="t('tradingP2P.colBuyerName')">
+        <el-form-item :label="t('tradingP2P.colCounterpartyName')">
           <el-input v-model="searchForm.name" :placeholder="t('common.enterKeyword')" clearable />
         </el-form-item>
 
-        <el-form-item :label="t('ordersManage.colTradeType')">
-          <el-select v-model="searchForm.identity" :placeholder="t('tradingP2P.colTradeType')" clearable>
+        <el-form-item :label="t('tradingP2P.identityFilterLabel')">
+          <el-select v-model="searchForm.identity" :placeholder="t('tradingP2P.identityFilterPlaceholder')" clearable>
             <el-option v-for="item in identityOptions" :key="item" :label="t(item)" :value="item" />
           </el-select>
         </el-form-item>
@@ -189,7 +252,7 @@ onMounted(() => {
     </el-card>
 
     <el-card class="section-card" shadow="never">
-      <el-table :data="tableData" border v-loading="loading" :empty-text="t('tradingP2P.emptyText')">
+      <el-table :data="filteredTableData" border v-loading="loading" :empty-text="t('tradingP2P.emptyText')">
         <el-table-column :label="t('tradingMarket.colIndex')" width="80">
           <template #default="scope">
             {{ (page - 1) * pageSize + scope.$index + 1 }}
@@ -209,7 +272,10 @@ onMounted(() => {
         <el-table-column prop="createdAt" :label="t('tradingP2P.colCreateTime')" min-width="160" />
         <el-table-column :label="t('tradingP2P.colOperation')" width="120" fixed="right">
           <template #default="{ row }">
-            <el-button v-if="row.status === 0" link type="danger" @click="onCancelTrade(row)">{{ t('ordersManage.btnCancel') }}</el-button>
+            <div v-if="row.status === 0" class="action-buttons">
+              <el-button link type="primary" @click="onConfirmTrade(row)">{{ t('common.confirm') }}</el-button>
+              <el-button link type="danger" @click="onCancelTrade(row)">{{ t('ordersManage.btnCancel') }}</el-button>
+            </div>
             <span v-else style="color: #909399; font-size: 12px;">-</span>
           </template>
         </el-table-column>
@@ -222,7 +288,7 @@ onMounted(() => {
           background
           :page-sizes="[10, 20, 50]"
           layout="total, sizes, prev, pager, next, jumper"
-          :total="total"
+          :total="displayTotal"
           @size-change="onSizeChange"
           @current-change="onPageChange"
         />
@@ -273,5 +339,11 @@ onMounted(() => {
   margin-top: 14px;
   display: flex;
   justify-content: flex-end;
+}
+
+.action-buttons {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 </style>

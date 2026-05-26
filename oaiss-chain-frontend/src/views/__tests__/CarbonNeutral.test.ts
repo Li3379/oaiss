@@ -3,7 +3,7 @@ import { mount, flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 
 vi.mock('../../api/carbonNeutral', () => ({
-  getProjects: vi.fn(() => Promise.resolve({ items: [], total: 0 })),
+  getMyProjects: vi.fn(() => Promise.resolve({ items: [], total: 0 })),
   createProject: vi.fn(() => Promise.resolve()),
 }))
 
@@ -17,7 +17,7 @@ vi.mock('element-plus', async (importOriginal) => {
 })
 
 import CarbonNeutral from '../enterprise/CarbonNeutral.vue'
-import { getProjects, createProject } from '../../api/carbonNeutral'
+import { getMyProjects, createProject } from '../../api/carbonNeutral'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 const stubs = {
@@ -96,12 +96,12 @@ describe('CarbonNeutral.vue', () => {
   it('页面加载时调用API', async () => {
     const wrapper = mountComponent()
     await flushPromises()
-    expect(getProjects).toHaveBeenCalled()
+    expect(getMyProjects).toHaveBeenCalled()
     wrapper.unmount()
   })
 
   it('API调用失败显示错误消息', async () => {
-    getProjects.mockRejectedValueOnce(new Error('network error'))
+    getMyProjects.mockRejectedValueOnce(new Error('network error'))
     const wrapper = mountComponent()
     await flushPromises()
     expect(ElMessage.error).toHaveBeenCalled()
@@ -109,13 +109,13 @@ describe('CarbonNeutral.vue', () => {
   })
 
   it('组件渲染数据', async () => {
-    getProjects.mockResolvedValueOnce({
+    getMyProjects.mockResolvedValueOnce({
       items: [{ id: 1, name: '项目1', status: 'active' }],
       total: 1,
     })
     const wrapper = mountComponent()
     await flushPromises()
-    expect(getProjects).toHaveBeenCalled()
+    expect(getMyProjects).toHaveBeenCalled()
     wrapper.unmount()
   })
 })
