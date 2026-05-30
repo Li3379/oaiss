@@ -2,6 +2,7 @@ package com.oaiss.chain.aop;
 
 import com.oaiss.chain.annotation.RateLimit;
 import com.oaiss.chain.constant.ErrorCode;
+import com.oaiss.chain.dto.LoginRequest;
 import com.oaiss.chain.exception.BusinessException;
 import com.oaiss.chain.security.JwtUserDetails;
 import jakarta.servlet.http.HttpServletRequest;
@@ -115,12 +116,12 @@ public class RateLimitAspect {
                 keyBuilder.append("ip:").append(ip);
             }
             case USER -> {
-                String userId = getCurrentUserId();
+                String userId = resolveRateLimitUserKey(joinPoint);
                 keyBuilder.append("user:").append(userId);
             }
             case IP_USER -> {
                 String ip = getClientIp();
-                String userId = getCurrentUserId();
+                String userId = resolveRateLimitUserKey(joinPoint);
                 keyBuilder.append("ip:").append(ip).append(":user:").append(userId);
             }
             default -> keyBuilder.append("global");
@@ -172,5 +173,25 @@ public class RateLimitAspect {
             }
         }
         return "anonymous";
+    }
+
+    /**
+     * Resolve a stable rate-limit user key for authenticated and pre-auth requests.
+     */
+    private String resolveRateLimitUserKey(ProceedingJoinPoint joinPoint) {
+        String currentUserId = getCurrentUserId();
+        if (!"anonymous".equals(currentUserId)) {
+            return currentUserId;
+        }
+
+        for (Object arg : joinPoint.getArgs()) {
+            if (arg instanceof LoginRequest loginRequest
+                    && loginRequest.getUsername() != null
+                    && !loginRequest.getUsername().isBlank()) {
+                return loginRequest.getUsername().trim();
+            }
+        }
+
+        return currentUserId;
     }
 }

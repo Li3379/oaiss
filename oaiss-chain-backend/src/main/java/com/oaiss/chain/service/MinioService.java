@@ -9,6 +9,8 @@ import io.minio.messages.DeleteObject;
 import io.minio.messages.Item;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -48,6 +50,7 @@ public class MinioService {
     /**
      * 初始化存储桶（如果不存在则创建）
      */
+    @EventListener(ApplicationReadyEvent.class)
     public void initBucket() {
         try {
             boolean exists = minioClient.bucketExists(BucketExistsArgs.builder()
@@ -320,6 +323,20 @@ public class MinioService {
      * @return 文件列表（带分页信息）
      */
     public FileListResult listFiles(String prefix, Integer page, Integer size) {
+        return listFiles(prefix, page, size, null, true);
+    }
+
+    /**
+     * 列出文件夹下的文件（按用户权限过滤）
+     *
+     * @param prefix 文件夹前缀
+     * @param page 页码（从1开始）
+     * @param size 每页大小
+     * @param requesterUserId 请求用户ID
+     * @param adminView 是否管理员视图
+     * @return 文件列表（带分页信息）
+     */
+    public FileListResult listFiles(String prefix, Integer page, Integer size, Long requesterUserId, boolean adminView) {
         try {
             if (page == null || page < 1) page = 1;
             if (size == null || size < 1) size = 20;
@@ -334,6 +351,12 @@ public class MinioService {
 
             for (Result<Item> result : results) {
                 Item item = result.get();
+                if (!adminView) {
+                    Long fileOwner = getFileOwner(item.objectName());
+                    if (requesterUserId == null || !requesterUserId.equals(fileOwner)) {
+                        continue;
+                    }
+                }
                 allFiles.add(new FileInfo(
                         item.objectName(),
                         item.size(),
@@ -431,11 +454,24 @@ public class MinioService {
     private String generateObjectName(String folder, String extension) {
         String uuid = UUID.randomUUID().toString().replace("-", "");
         String timestamp = String.valueOf(System.currentTimeMillis());
-        
-        if (folder != null && !folder.isEmpty()) {
-            return folder + "/" + timestamp + "_" + uuid + extension;
+
+        String normalizedFolder = normalizeFolder(folder);
+        if (normalizedFolder != null && !normalizedFolder.isEmpty()) {
+            return normalizedFolder + "/" + timestamp + "_" + uuid + extension;
         }
         return timestamp + "_" + uuid + extension;
+    }
+
+    private String normalizeFolder(String folder) {
+        if (folder == null) {
+            return null;
+        }
+
+        String normalized = folder.trim();
+        while (normalized.endsWith("/")) {
+            normalized = normalized.substring(0, normalized.length() - 1);
+        }
+        return normalized;
     }
 
     /**

@@ -8,10 +8,12 @@ import com.oaiss.chain.dto.CarbonNeutralProjectResponse;
 import com.oaiss.chain.dto.ProjectVerificationRequest;
 import com.oaiss.chain.entity.CarbonNeutralProject;
 import com.oaiss.chain.entity.Enterprise;
+import com.oaiss.chain.entity.Reviewer;
 import com.oaiss.chain.entity.User;
 import com.oaiss.chain.exception.BusinessException;
 import com.oaiss.chain.repository.CarbonNeutralProjectRepository;
 import com.oaiss.chain.repository.EnterpriseRepository;
+import com.oaiss.chain.repository.ReviewerRepository;
 import com.oaiss.chain.repository.UserRepository;
 import com.oaiss.chain.security.JwtUserDetails;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +28,8 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.LinkedHashSet;
+import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
@@ -55,6 +59,7 @@ public class CarbonNeutralProjectService {
 
     private final CarbonNeutralProjectRepository projectRepository;
     private final EnterpriseRepository enterpriseRepository;
+    private final ReviewerRepository reviewerRepository;
     private final UserRepository userRepository;
     private final ObjectMapper objectMapper;
 
@@ -240,7 +245,7 @@ public class CarbonNeutralProjectService {
             throw new BusinessException(3003, "项目不在可核证状态");
         }
 
-        project.setVerifierId(verifierId);
+        project.setVerifierId(resolveVerifierUserId(verifierId));
         project.setVerificationStatus(VERIFY_STATUS_PENDING);
         project = projectRepository.save(project);
 
@@ -441,8 +446,12 @@ public class CarbonNeutralProjectService {
     public Page<CarbonNeutralProjectResponse> getPendingVerificationProjects(Long verifierId,
                                                                               Integer page, Integer size) {
         PageRequest pageable = PageRequest.of(page - 1, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+        Set<Long> verifierLookupIds = buildVerifierLookupIds(verifierId);
         Page<CarbonNeutralProject> projects = projectRepository
-                .findByVerifierIdAndVerificationStatusAndDeletedFalse(verifierId, VERIFY_STATUS_PENDING, pageable);
+                .findByVerifierIdInAndVerificationStatusAndDeletedFalse(
+                        verifierLookupIds,
+                        VERIFY_STATUS_PENDING,
+                        pageable);
         return projects.map(this::toResponse);
     }
 
@@ -488,11 +497,7 @@ public class CarbonNeutralProjectService {
                     .map(User::getRealName).orElse(null);
         }
 
-        String verifierName = null;
-        if (p.getVerifierId() != null) {
-            verifierName = userRepository.findById(p.getVerifierId())
-                    .map(User::getRealName).orElse(null);
-        }
+        String verifierName = resolveVerifierName(p.getVerifierId());
 
         BigDecimal availableCredits = p.getIssuedCredits().subtract(
                 p.getUsedCredits() != null ? p.getUsedCredits() : BigDecimal.ZERO);
@@ -588,5 +593,41 @@ public class CarbonNeutralProjectService {
             case VERIFY_STATUS_FAILED -> "核证失败";
             default -> "未知状态";
         };
+    }
+    private Long resolveVerifierUserId(Long verifierId) {
+        if (verifierId == null) {
+            throw new BusinessException(3006, "Verifier ID is required");
+        }
+
+        return reviewerRepository.findByUserIdAndDeletedFalse(verifierId)
+                .map(Reviewer::getUserId)
+                .or(() -> reviewerRepository.findById(verifierId).map(Reviewer::getUserId))
+                .or(() -> userRepository.findById(verifierId).map(User::getId))
+                .orElseThrow(() -> new BusinessException(3002, "Verifier not found"));
+    }
+
+    private Set<Long> buildVerifierLookupIds(Long verifierId) {
+        Set<Long> ids = new LinkedHashSet<>();
+        if (verifierId != null) {
+            ids.add(verifierId);
+            reviewerRepository.findByUserIdAndDeletedFalse(verifierId)
+                    .map(Reviewer::getId)
+                    .ifPresent(ids::add);
+        }
+        return ids;
+    }
+
+    private String resolveVerifierName(Long verifierId) {
+        if (verifierId == null) {
+            return null;
+        }
+
+        return reviewerRepository.findByUserIdAndDeletedFalse(verifierId)
+                .map(Reviewer::getUserId)
+                .or(() -> reviewerRepository.findById(verifierId).map(Reviewer::getUserId))
+                .flatMap(userRepository::findById)
+                .map(User::getRealName)
+                .or(() -> userRepository.findById(verifierId).map(User::getRealName))
+                .orElse(null);
     }
 }

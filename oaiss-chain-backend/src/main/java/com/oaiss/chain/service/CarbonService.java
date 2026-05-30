@@ -2,7 +2,6 @@ package com.oaiss.chain.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.oaiss.chain.dto.ApiResponse;
 import com.oaiss.chain.dto.CarbonReportRequest;
 import com.oaiss.chain.dto.CarbonReportResponse;
 import com.oaiss.chain.dto.ReviewRequest;
@@ -28,15 +27,18 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-/**
- * 碳核算服务
- * 
- * @author OAISS Team
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class CarbonService {
+
+    private static final String ENTERPRISE_NOT_FOUND = "Enterprise info not found";
+    private static final String NO_PERMISSION = "No permission to operate this report";
+    private static final String REVIEW_STATUS_INVALID = "Report status does not allow review";
+    private static final String REVIEW_DECISION_INVALID = "Invalid reviewer decision";
+    private static final String CERTIFY_STATUS_INVALID = "Only approved reports can be certified";
+    private static final String CERTIFY_DECISION_INVALID = "Invalid certification decision";
+    private static final String CERTIFICATION_COMMENT_PREFIX = "Certification Comment: ";
 
     private final CarbonReportRepository carbonReportRepository;
     private final EnterpriseRepository enterpriseRepository;
@@ -46,16 +48,11 @@ public class CarbonService {
     private final EmissionRatingService emissionRatingService;
     private final BlockchainServicePort blockchainService;
 
-    /**
-     * 创建碳报告（草稿）
-     */
     @Transactional
-    public CarbonReportResponse createReport(JwtUserDetails currentUser, 
-            CarbonReportRequest request) {
+    public CarbonReportResponse createReport(JwtUserDetails currentUser, CarbonReportRequest request) {
         Enterprise enterprise = enterpriseRepository.findByUserId(currentUser.getUserId())
-                .orElseThrow(() -> CarbonException.submitFailed("未找到关联企业信息"));
+                .orElseThrow(() -> CarbonException.submitFailed(ENTERPRISE_NOT_FOUND));
 
-        // Parse emission data JSON to calculate totals
         BigDecimal[] totals = parseEmissionTotals(request.getEmissionData());
         BigDecimal scope1 = totals[0];
         BigDecimal scope2 = totals[1];
@@ -82,35 +79,26 @@ public class CarbonService {
 
         report = carbonReportRepository.save(report);
         log.info("Carbon report created: {} by user {}", report.getReportNo(), currentUser.getUsername());
-
         return toResponse(report);
     }
 
-    /**
-     * 提交碳报告
-     */
     @Transactional
     public CarbonReportResponse submitReport(JwtUserDetails currentUser, Long reportId) {
         CarbonReport report = carbonReportRepository.findById(reportId)
                 .orElseThrow(() -> CarbonException.reportNotFound(reportId));
 
-        // 验证报告所有权
         Enterprise enterprise = enterpriseRepository.findByUserId(currentUser.getUserId())
-                .orElseThrow(() -> CarbonException.submitFailed("未找到关联企业信息"));
+                .orElseThrow(() -> CarbonException.submitFailed(ENTERPRISE_NOT_FOUND));
         if (!report.getEnterpriseId().equals(enterprise.getId())) {
-            throw CarbonException.submitFailed("无权操作此报告");
+            throw CarbonException.submitFailed(NO_PERMISSION);
         }
 
-        // 验证状态
         ReportStatusEnum status = ReportStatusEnum.fromCode(report.getStatus());
         if (!status.isSubmittable()) {
             throw CarbonException.reportAlreadySubmitted(reportId);
         }
 
-        // 计算碳排放量
         calculateEmissions(report);
-
-        // 更新状态
         report.setStatus(ReportStatusEnum.SUBMITTED.getCode());
         report = carbonReportRepository.save(report);
 
@@ -118,67 +106,60 @@ public class CarbonService {
         return toResponse(report);
     }
 
-    /**
-     * 审核碳报告
-     */
     @Transactional
     public CarbonReportResponse reviewReport(JwtUserDetails currentUser, ReviewRequest request) {
         CarbonReport report = carbonReportRepository.findById(request.getReportId())
                 .orElseThrow(() -> CarbonException.reportNotFound(request.getReportId()));
 
-        // 验证状态
         ReportStatusEnum status = ReportStatusEnum.fromCode(report.getStatus());
         if (!status.isReviewable()) {
-            throw CarbonException.submitFailed("报告状态不允许审核");
+            throw CarbonException.submitFailed(REVIEW_STATUS_INVALID);
+        }
+        if (!isReviewerDecision(request.getReviewResult())) {
+            throw CarbonException.submitFailed(REVIEW_DECISION_INVALID);
         }
 
-        // 更新审核信息
         report.setReviewerId(currentUser.getUserId());
         report.setReviewComment(CommonUtils.sanitizeHtml(CommonUtils.sanitizeInput(request.getReviewComment())));
         report.setReviewedAt(LocalDateTime.now());
-        report.setStatus(request.getReviewResult()); // 3-通过, 4-拒绝
-
-        // Cascading side effects for approved reports (D-01/D-02/D-03/D-05)
-        if (request.getReviewResult() == ReportStatusEnum.APPROVED.getCode()) {
-            Long enterpriseId = report.getEnterpriseId();
-
-            // 1. Credit score bonus (+5 points)
-            creditScoreService.addBonusPoints(enterpriseId, 5,
-                "碳报告审核通过奖励", currentUser.getUserId());
-
-            // 2. Emission rating calculation
-            // Extract year from accountingPeriod (e.g., "2024-Q1" -> "2024", "2024" -> "2024")
-            String ratingYear = report.getAccountingPeriod();
-            if (ratingYear == null || ratingYear.isEmpty()) {
-                ratingYear = String.valueOf(LocalDateTime.now().getYear());
-            } else if (ratingYear.length() > 4) {
-                ratingYear = ratingYear.substring(0, 4);
-            }
-            emissionRatingService.rateEnterprise(enterpriseId,
-                ratingYear,
-                report.getTotalEmission(),
-                null,
-                currentUser.getUserId());
-
-            // 3. Blockchain mock record
-            String txHash = blockchainService.commitReportToChain(
-                report.getId(), report.getEmissionData());
-            report.setBlockchainTxHash(txHash);
-            report.setOnChainAt(LocalDateTime.now());
-
-            // 4. Transition to ON_CHAIN(5) per D-05
-            report.setStatus(ReportStatusEnum.ON_CHAIN.getCode());
-        }
+        report.setStatus(request.getReviewResult());
 
         report = carbonReportRepository.save(report);
-
-        log.info("Carbon report reviewed: {} -> status={}", report.getReportNo(), request.getReviewResult());
+        log.info("Carbon report reviewed: {} -> status={}", report.getReportNo(), report.getStatus());
         return toResponse(report);
     }
 
-    /**
-     * 获取报告详情
-     */
+    @Transactional
+    public CarbonReportResponse certifyReport(JwtUserDetails currentUser, ReviewRequest request) {
+        CarbonReport report = carbonReportRepository.findById(request.getReportId())
+                .orElseThrow(() -> CarbonException.reportNotFound(request.getReportId()));
+
+        ReportStatusEnum status = ReportStatusEnum.fromCode(report.getStatus());
+        if (status != ReportStatusEnum.APPROVED) {
+            throw CarbonException.submitFailed(CERTIFY_STATUS_INVALID);
+        }
+        if (!isCertificationDecision(request.getReviewResult())) {
+            throw CarbonException.submitFailed(CERTIFY_DECISION_INVALID);
+        }
+
+        if (request.getReviewResult() == ReportStatusEnum.ON_CHAIN.getCode()) {
+            applyApprovedReportSideEffects(report, currentUser.getUserId());
+            report.setStatus(ReportStatusEnum.ON_CHAIN.getCode());
+        } else {
+            if (request.getReviewComment() != null && !request.getReviewComment().isBlank()) {
+                String sanitizedComment = CommonUtils.sanitizeHtml(CommonUtils.sanitizeInput(request.getReviewComment()));
+                report.setReviewComment(mergeCertificationComment(report.getReviewComment(), sanitizedComment));
+            }
+            report.setStatus(ReportStatusEnum.REJECTED.getCode());
+            report.setBlockchainTxHash(null);
+            report.setOnChainAt(null);
+        }
+
+        report = carbonReportRepository.save(report);
+        log.info("Carbon report certified: {} -> status={}", report.getReportNo(), report.getStatus());
+        return toResponse(report);
+    }
+
     @Transactional(readOnly = true)
     public CarbonReportResponse getReport(Long reportId) {
         CarbonReport report = carbonReportRepository.findById(reportId)
@@ -186,39 +167,34 @@ public class CarbonService {
         return toResponse(report);
     }
 
-    /**
-     * 分页查询报告
-     */
-    public Page<CarbonReportResponse> listReports(Long enterpriseId, Integer status, 
-            String keyword, Integer page, Integer size) {
+    public Page<CarbonReportResponse> listReports(Long enterpriseId, Integer status, String keyword, Integer page, Integer size) {
         Pageable pageable = PageRequest.of(page - 1, size, Sort.by(Sort.Direction.DESC, "createdAt"));
         Page<CarbonReport> reports = carbonReportRepository.search(enterpriseId, status, keyword, pageable);
         return reports.map(this::toResponse);
     }
 
-    /**
-     * 获取企业的报告列表
-     */
-    public Page<CarbonReportResponse> listMyReports(JwtUserDetails currentUser, 
-            Integer status, Integer page, Integer size) {
+    public Page<CarbonReportResponse> listMyReports(
+            JwtUserDetails currentUser,
+            Integer status,
+            String title,
+            String accountingPeriod,
+            Integer page,
+            Integer size) {
         Enterprise enterprise = enterpriseRepository.findByUserId(currentUser.getUserId())
-                .orElseThrow(() -> CarbonException.submitFailed("未找到关联企业信息"));
-        
+                .orElseThrow(() -> CarbonException.submitFailed(ENTERPRISE_NOT_FOUND));
+
         Pageable pageable = PageRequest.of(page - 1, size, Sort.by(Sort.Direction.DESC, "createdAt"));
-        Page<CarbonReport> reports;
-        if (status != null) {
-            reports = carbonReportRepository.findByEnterpriseIdAndStatusAndDeletedFalse(
-                    enterprise.getId(), status, pageable);
-        } else {
-            reports = carbonReportRepository.findByEnterpriseIdAndDeletedFalse(
-                    enterprise.getId(), pageable);
-        }
+        String normalizedTitle = normalizeFilter(title);
+        String normalizedAccountingPeriod = normalizeFilter(accountingPeriod);
+        Page<CarbonReport> reports = carbonReportRepository.searchMyReports(
+                enterprise.getId(),
+                status,
+                normalizedTitle,
+                normalizedAccountingPeriod,
+                pageable);
         return reports.map(this::toResponse);
     }
 
-    /**
-     * 删除碳报告（仅草稿可删除）
-     */
     @Transactional
     public void deleteReport(JwtUserDetails currentUser, Long reportId) {
         CarbonReport report = carbonReportRepository.findById(reportId)
@@ -233,12 +209,6 @@ public class CarbonService {
         log.info("Carbon report deleted: {}", report.getReportNo());
     }
 
-    // ==================== 私有方法 ====================
-
-    /**
-     * 计算碳排放量
-     * 根据排放因子和活动数据计算
-     */
     private void calculateEmissions(CarbonReport report) {
         BigDecimal[] totals = parseEmissionTotals(report.getEmissionData());
         report.setScope1Emission(totals[0]);
@@ -247,10 +217,61 @@ public class CarbonService {
         report.setTotalEmission(totals[3]);
     }
 
-    /**
-     * 解析排放数据JSON，计算各范围排放量
-     * @return [scope1, scope2, scope3, total]
-     */
+    private void applyApprovedReportSideEffects(CarbonReport report, Long operatorUserId) {
+        Long enterpriseId = report.getEnterpriseId();
+
+        creditScoreService.addBonusPoints(
+                enterpriseId,
+                5,
+                "Carbon report certification reward",
+                operatorUserId);
+
+        String ratingYear = report.getAccountingPeriod();
+        if (ratingYear == null || ratingYear.isEmpty()) {
+            ratingYear = String.valueOf(LocalDateTime.now().getYear());
+        } else if (ratingYear.length() > 4) {
+            ratingYear = ratingYear.substring(0, 4);
+        }
+        emissionRatingService.rateEnterprise(
+                enterpriseId,
+                ratingYear,
+                report.getTotalEmission(),
+                null,
+                operatorUserId);
+
+        String txHash = blockchainService.commitReportToChain(report.getId(), report.getEmissionData());
+        report.setBlockchainTxHash(txHash);
+        report.setOnChainAt(LocalDateTime.now());
+    }
+
+    private boolean isReviewerDecision(Integer decision) {
+        return decision != null
+                && (decision == ReportStatusEnum.APPROVED.getCode()
+                || decision == ReportStatusEnum.REJECTED.getCode());
+    }
+
+    private boolean isCertificationDecision(Integer decision) {
+        return decision != null
+                && (decision == ReportStatusEnum.ON_CHAIN.getCode()
+                || decision == ReportStatusEnum.REJECTED.getCode());
+    }
+
+    private String mergeCertificationComment(String existingComment, String certificationComment) {
+        if (existingComment == null || existingComment.isBlank()) {
+            return CERTIFICATION_COMMENT_PREFIX + certificationComment;
+        }
+        return existingComment + System.lineSeparator() + CERTIFICATION_COMMENT_PREFIX + certificationComment;
+    }
+
+    private String normalizeFilter(String value) {
+        if (value == null) {
+            return null;
+        }
+
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+
     private BigDecimal[] parseEmissionTotals(String emissionData) {
         BigDecimal scope1 = BigDecimal.ZERO;
         BigDecimal scope2 = BigDecimal.ZERO;
@@ -259,7 +280,6 @@ public class CarbonService {
             if (emissionData != null) {
                 JsonNode data = objectMapper.readTree(emissionData);
 
-                // 范围1: 直接排放
                 if (data.has("scope1")) {
                     for (JsonNode item : data.get("scope1")) {
                         BigDecimal activity = new BigDecimal(item.get("activity_data").asText("0"));
@@ -268,7 +288,6 @@ public class CarbonService {
                     }
                 }
 
-                // 范围2: 间接排放（电力等）
                 if (data.has("scope2")) {
                     for (JsonNode item : data.get("scope2")) {
                         BigDecimal activity = new BigDecimal(item.get("activity_data").asText("0"));
@@ -277,7 +296,6 @@ public class CarbonService {
                     }
                 }
 
-                // 范围3: 其他间接排放
                 if (data.has("scope3")) {
                     for (JsonNode item : data.get("scope3")) {
                         BigDecimal activity = new BigDecimal(item.get("activity_data").asText("0"));
@@ -292,20 +310,19 @@ public class CarbonService {
         return new BigDecimal[]{scope1, scope2, scope3, scope1.add(scope2).add(scope3)};
     }
 
-    /**
-     * Entity转Response
-     */
     private CarbonReportResponse toResponse(CarbonReport report) {
         String enterpriseName = null;
         String reviewerName = null;
 
         if (report.getEnterpriseId() != null) {
             enterpriseName = enterpriseRepository.findById(report.getEnterpriseId())
-                    .map(Enterprise::getEnterpriseName).orElse(null);
+                    .map(Enterprise::getEnterpriseName)
+                    .orElse(null);
         }
         if (report.getReviewerId() != null) {
             reviewerName = userRepository.findById(report.getReviewerId())
-                    .map(User::getRealName).orElse(null);
+                    .map(User::getRealName)
+                    .orElse(null);
         }
 
         String statusText = null;

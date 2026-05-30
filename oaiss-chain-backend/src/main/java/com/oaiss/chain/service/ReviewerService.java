@@ -1,9 +1,14 @@
 package com.oaiss.chain.service;
 
 import com.oaiss.chain.entity.CarbonReport;
+import com.oaiss.chain.entity.Enterprise;
 import com.oaiss.chain.entity.Reviewer;
+import com.oaiss.chain.entity.User;
+import com.oaiss.chain.enums.ReportStatusEnum;
 import com.oaiss.chain.repository.CarbonReportRepository;
+import com.oaiss.chain.repository.EnterpriseRepository;
 import com.oaiss.chain.repository.ReviewerRepository;
+import com.oaiss.chain.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -28,17 +33,31 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class ReviewerService {
 
+    private static final List<Integer> HISTORY_STATUSES = List.of(
+            ReportStatusEnum.APPROVED.getCode(),
+            ReportStatusEnum.REJECTED.getCode(),
+            ReportStatusEnum.ON_CHAIN.getCode()
+    );
+
     private final ReviewerRepository reviewerRepository;
     private final CarbonReportRepository carbonReportRepository;
+    private final EnterpriseRepository enterpriseRepository;
+    private final UserRepository userRepository;
 
     /**
      * 获取当前审核员信息
      */
     @Transactional(readOnly = true)
     public Reviewer getReviewerInfo(Long userId) {
-        return reviewerRepository.findByUserIdAndDeletedFalse(userId)
+        Reviewer reviewer = reviewerRepository.findByUserIdAndDeletedFalse(userId)
                 .filter(r -> !r.getDeleted())
                 .orElseThrow(() -> new RuntimeException("审核员信息不存在"));
+
+        userRepository.findByIdAndDeletedFalse(userId)
+                .map(User::getRealName)
+                .filter(name -> name != null && !name.isBlank())
+                .ifPresent(reviewer::setName);
+        return reviewer;
     }
 
     /**
@@ -46,12 +65,13 @@ public class ReviewerService {
      */
     @Transactional(readOnly = true)
     public Page<CarbonReport> getPendingReports(Long userId, Integer page, Integer size) {
-        // 验证审核员身份
-        Reviewer reviewer = getReviewerInfo(userId);
+        getReviewerInfo(userId);
 
-        // 查询待审核报告（状态为1-待审核）
         Pageable pageable = PageRequest.of(page - 1, size, Sort.by(Sort.Direction.DESC, "createdAt"));
-        return carbonReportRepository.findByStatusAndDeletedFalse(1, pageable);
+        Page<CarbonReport> reports = carbonReportRepository.findByStatusAndDeletedFalse(
+                ReportStatusEnum.SUBMITTED.getCode(), pageable);
+        reports.forEach(this::enrichReportDisplayFields);
+        return reports;
     }
 
     /**
@@ -59,12 +79,13 @@ public class ReviewerService {
      */
     @Transactional(readOnly = true)
     public Page<CarbonReport> getReviewHistory(Long userId, Integer page, Integer size) {
-        // 验证审核员身份
         Reviewer reviewer = getReviewerInfo(userId);
 
-        // 查询已审核的报告（状态为2-已通过或3-已驳回）
         Pageable pageable = PageRequest.of(page - 1, size, Sort.by(Sort.Direction.DESC, "updatedAt"));
-        return carbonReportRepository.findByStatusInAndDeletedFalse(List.of(2, 3), pageable);
+        Page<CarbonReport> history = carbonReportRepository.findByReviewerIdAndStatusInAndDeletedFalse(
+                reviewer.getUserId(), HISTORY_STATUSES, pageable);
+        history.forEach(this::enrichReportDisplayFields);
+        return history;
     }
 
     /**
@@ -79,16 +100,14 @@ public class ReviewerService {
         stats.put("level", reviewer.getLevel());
         stats.put("organization", reviewer.getOrganization());
 
-        // 统计待审核数量
-        long pendingCount = carbonReportRepository.countByStatusAndDeletedFalse(1);
+        long pendingCount = carbonReportRepository.countByStatusAndDeletedFalse(ReportStatusEnum.SUBMITTED.getCode());
         stats.put("pendingCount", pendingCount);
 
-        // 统计已通过数量
-        long passedCount = carbonReportRepository.countByStatusAndDeletedFalse(2);
+        long passedCount = carbonReportRepository.countByStatusAndDeletedFalse(ReportStatusEnum.APPROVED.getCode())
+                + carbonReportRepository.countByStatusAndDeletedFalse(ReportStatusEnum.ON_CHAIN.getCode());
         stats.put("passedCount", passedCount);
 
-        // 统计已驳回数量
-        long rejectedCount = carbonReportRepository.countByStatusAndDeletedFalse(3);
+        long rejectedCount = carbonReportRepository.countByStatusAndDeletedFalse(ReportStatusEnum.REJECTED.getCode());
         stats.put("rejectedCount", rejectedCount);
 
         return stats;
@@ -103,5 +122,15 @@ public class ReviewerService {
         reviewer.setCompletedReviews(reviewer.getCompletedReviews() + 1);
         reviewerRepository.save(reviewer);
         log.info("审核员完成审核数更新: userId={}, completedReviews={}", userId, reviewer.getCompletedReviews());
+    }
+
+    private void enrichReportDisplayFields(CarbonReport report) {
+        enterpriseRepository.findById(report.getEnterpriseId())
+                .map(Enterprise::getEnterpriseName)
+                .ifPresent(report::setEnterpriseName);
+
+        if (report.getStatus() != null) {
+            report.setStatusText(ReportStatusEnum.fromCode(report.getStatus()).getDescription());
+        }
     }
 }

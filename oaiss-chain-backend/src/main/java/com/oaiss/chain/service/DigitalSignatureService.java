@@ -149,8 +149,6 @@ public class DigitalSignatureService {
                 .orElseThrow(() -> BlockchainException.rsaKeyPairNotFound(userId));
 
         // 检查密钥状态
-        validateKeyStatus(keyPair);
-
         return toResponse(keyPair);
     }
 

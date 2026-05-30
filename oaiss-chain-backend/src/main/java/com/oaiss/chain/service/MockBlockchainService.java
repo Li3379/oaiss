@@ -5,10 +5,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.context.annotation.Primary;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
-import org.springframework.context.annotation.Primary;
 
 import java.time.LocalDateTime;
 import java.util.*;
@@ -23,7 +21,7 @@ import java.util.*;
  */
 @Slf4j
 @Service
-@Primary
+@Profile("!fabric")
 public class MockBlockchainService implements BlockchainServicePort {
 
     /**

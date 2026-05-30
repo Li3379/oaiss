@@ -58,8 +58,13 @@ public class TradeService {
             throw TradeException.tradeNotFound(0L); // 不匹配类型
         }
 
-        Long sellerId = request.getSellerId();
+        // 如果请求未携带 sellerId，则默认使用当前登录用户作为卖方
+        Long sellerId = request.getSellerId() != null ? request.getSellerId() : currentUser.getUserId();
         Long buyerId = request.getBuyerId();
+
+        if (buyerId == null) {
+            throw new TradeException(ErrorCode.PARAM_ERROR, "买方ID不能为空");
+        }
 
         // 验证双方不能相同
         if (sellerId.equals(buyerId)) {
@@ -241,11 +246,14 @@ public class TradeService {
      * 查询我的交易（作为买方或卖方）
      */
     public Page<TradeResponse> listMyTrades(JwtUserDetails currentUser,
-            Integer tradeType, Integer status, Integer page, Integer size) {
+            Integer tradeType, Integer status, String tradeNo,
+            java.time.LocalDateTime startTime, java.time.LocalDateTime endTime,
+            Integer page, Integer size) {
         size = CommonUtils.sanitizePageSize(size);
         Pageable pageable = PageRequest.of(page - 1, size, Sort.by(Sort.Direction.DESC, "createdAt"));
         Long userId = currentUser.getUserId();
-        Page<Transaction> trades = transactionRepository.findByUserIdRelated(userId, tradeType, status, pageable);
+        Page<Transaction> trades = transactionRepository.findByUserIdRelated(
+                userId, tradeType, status, tradeNo, startTime, endTime, pageable);
         Map<Long, String> userNames = resolveUserNames(trades.getContent());
         return trades.map(t -> toResponse(t, userNames));
     }
