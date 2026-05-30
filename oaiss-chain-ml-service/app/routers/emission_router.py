@@ -6,9 +6,11 @@ carbon emission time-series forecasting.
 """
 
 import logging
+from typing import Annotated
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
+from app.security import require_ml_service_secret
 from app.schemas.emission import EmissionForecastRequest, EmissionForecastResponse
 from app.services.emission_service import EmissionService
 
@@ -30,6 +32,7 @@ emission_service = EmissionService()
 )
 def predict_emission(
     request: EmissionForecastRequest,
+    _authorized: Annotated[None, Depends(require_ml_service_secret)],
 ) -> EmissionForecastResponse:
     """Predict future carbon emissions using Prophet regression."""
     logger.info(

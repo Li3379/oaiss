@@ -3,9 +3,11 @@ FastAPI router for carbon market prediction endpoints.
 """
 
 import logging
+from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 
+from app.security import require_ml_service_secret
 from app.schemas.market import MarketForecastRequest, MarketForecastResponse
 from app.services.market_service import MarketService
 
@@ -28,6 +30,7 @@ market_service = MarketService()
 )
 def predict_trend(
     request: MarketForecastRequest,
+    _authorized: Annotated[None, Depends(require_ml_service_secret)],
 ) -> MarketForecastResponse:
     """Predict carbon market trend direction and forecast prices."""
     logger.info(
@@ -59,6 +62,7 @@ def predict_trend(
 )
 def predict_price(
     request: MarketForecastRequest,
+    _authorized: Annotated[None, Depends(require_ml_service_secret)],
 ) -> MarketForecastResponse:
     """Predict carbon price with confidence intervals."""
     logger.info(
@@ -90,6 +94,7 @@ def predict_price(
 )
 def predict_supply_demand(
     request: MarketForecastRequest,
+    _authorized: Annotated[None, Depends(require_ml_service_secret)],
 ) -> MarketForecastResponse:
     """Predict supply and demand volume trends."""
     logger.info(

@@ -11,6 +11,10 @@ pip install -r requirements.txt
 # Run locally
 uvicorn app.main:app --host 0.0.0.0 --port 8001
 
+# Optional: require backend shared secret on prediction endpoints
+export ML_SERVICE_SECRET=your-shared-secret
+uvicorn app.main:app --host 0.0.0.0 --port 8001
+
 # Run with Docker
 docker-compose up ml-service
 ```
@@ -21,6 +25,9 @@ docker-compose up ml-service
 |----------|--------|-------------|
 | `/health` | GET | Health check |
 | `/docs` | GET | OpenAPI documentation |
+
+When `ML_SERVICE_SECRET` is configured, prediction endpoints require the
+`X-ML-Service-Secret` header. `/health` remains unauthenticated for probes.
 
 ## Project Structure
 

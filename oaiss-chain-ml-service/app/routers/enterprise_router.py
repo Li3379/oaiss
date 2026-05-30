@@ -6,9 +6,11 @@ using IsolationForest anomaly detection + XGBoost classification.
 """
 
 import logging
+from typing import Annotated
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
+from app.security import require_ml_service_secret
 from app.schemas.enterprise import (
     EnterpriseInferenceRequest,
     EnterpriseInferenceResponse,
@@ -35,6 +37,7 @@ enterprise_service = EnterpriseService()
 )
 async def infer_enterprise(
     request: EnterpriseInferenceRequest,
+    _authorized: Annotated[None, Depends(require_ml_service_secret)],
 ) -> EnterpriseInferenceResponse:
     """Generate enterprise compliance risk assessment.
 

@@ -4,12 +4,12 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/hyperledger/fabric-contract-api-go/contractapi"
+	"github.com/hyperledger/fabric-chaincode-go/shim"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
 
-// MockStub implements a minimal ChaincodeStubInterface for testing
+// MockStub provides just enough behavior for the lightweight unit tests below.
 type MockStub struct {
 	mock.Mock
 	state map[string][]byte
@@ -40,41 +40,35 @@ func (ms *MockStub) DelState(key string) error {
 	return nil
 }
 
-// MockContext wraps the mock stub
+// MockContext exists only to keep the test package aligned with current Fabric APIs.
 type MockContext struct {
 	stub *MockStub
 }
 
-func (mc *MockContext) GetStub() contractapi.ChaincodeStubInterface {
-	// Return nil — we use our own mock methods directly
+func (mc *MockContext) GetStub() shim.ChaincodeStubInterface {
 	return nil
 }
 
-// TestCreateCarbonReport creates a report and verifies it's stored
+// TestCreateCarbonReport creates a report and verifies it's stored.
 func TestCreateCarbonReport(t *testing.T) {
-	cc := &CarbonChaincode{}
 	stub := NewMockStub()
-
-	// Directly call with a context that uses our mock stub
-	// Since contractapi requires full interface, we test the logic manually
 	reportID := "REPORT_1"
 	reportData := "{\"enterpriseId\":\"ENT_001\",\"emissions\":500}"
 
 	report := &CarbonReport{
-		ReportID:    reportID,
-		Data:        reportData,
-		Status:      "COMMITTED",
-		TxHash:      "tx_mock_12345",
-		CreatedAt:   "2026-05-15T10:00:00Z",
+		ReportID:  reportID,
+		Data:      reportData,
+		Status:    "COMMITTED",
+		TxHash:    "tx_mock_12345",
+		CreatedAt: "2026-05-15T10:00:00Z",
 	}
 
 	reportBytes, err := json.Marshal(report)
 	assert.NoError(t, err)
 
-	// Simulate PutState
-	stub.PutState(reportID, reportBytes)
+	err = stub.PutState(reportID, reportBytes)
+	assert.NoError(t, err)
 
-	// Verify state was stored
 	stored, err := stub.GetState(reportID)
 	assert.NoError(t, err)
 	assert.NotNil(t, stored)
@@ -87,23 +81,24 @@ func TestCreateCarbonReport(t *testing.T) {
 	assert.Equal(t, "tx_mock_12345", storedReport.TxHash)
 }
 
-// TestCreateCarbonReportDuplicate verifies duplicate creation fails
+// TestCreateCarbonReportDuplicate verifies duplicate creation fails.
 func TestCreateCarbonReportDuplicate(t *testing.T) {
 	stub := NewMockStub()
 	reportID := "REPORT_1"
 
-	// Pre-populate state
 	existingReport := &CarbonReport{ReportID: reportID, Status: "COMMITTED"}
-	existingBytes, _ := json.Marshal(existingReport)
-	stub.PutState(reportID, existingBytes)
+	existingBytes, err := json.Marshal(existingReport)
+	assert.NoError(t, err)
 
-	// Verify existing state blocks new creation
+	err = stub.PutState(reportID, existingBytes)
+	assert.NoError(t, err)
+
 	existing, err := stub.GetState(reportID)
 	assert.NoError(t, err)
 	assert.NotNil(t, existing, "Existing report should block duplicate creation")
 }
 
-// TestCreateTradeRecord creates a trade and verifies it's stored
+// TestCreateTradeRecord creates a trade and verifies it's stored.
 func TestCreateTradeRecord(t *testing.T) {
 	stub := NewMockStub()
 	tradeID := "TRADE_1"
@@ -119,7 +114,8 @@ func TestCreateTradeRecord(t *testing.T) {
 	tradeBytes, err := json.Marshal(trade)
 	assert.NoError(t, err)
 
-	stub.PutState(tradeID, tradeBytes)
+	err = stub.PutState(tradeID, tradeBytes)
+	assert.NoError(t, err)
 
 	stored, err := stub.GetState(tradeID)
 	assert.NoError(t, err)
@@ -132,22 +128,24 @@ func TestCreateTradeRecord(t *testing.T) {
 	assert.Equal(t, "tx_mock_12345", storedTrade.TxHash)
 }
 
-// TestVerifyReport verifies a report can be retrieved
+// TestVerifyReport verifies a report can be retrieved.
 func TestVerifyReport(t *testing.T) {
 	stub := NewMockStub()
 	reportID := "REPORT_1"
 
 	report := &CarbonReport{
-		ReportID:    reportID,
-		Data:        "{\"emissions\":500}",
-		Status:      "COMMITTED",
-		TxHash:      "tx_mock_12345",
-		CreatedAt:   "2026-05-15T10:00:00Z",
+		ReportID:  reportID,
+		Data:      "{\"emissions\":500}",
+		Status:    "COMMITTED",
+		TxHash:    "tx_mock_12345",
+		CreatedAt: "2026-05-15T10:00:00Z",
 	}
-	reportBytes, _ := json.Marshal(report)
-	stub.PutState(reportID, reportBytes)
+	reportBytes, err := json.Marshal(report)
+	assert.NoError(t, err)
 
-	// Verify report exists
+	err = stub.PutState(reportID, reportBytes)
+	assert.NoError(t, err)
+
 	stored, err := stub.GetState(reportID)
 	assert.NoError(t, err)
 	assert.NotNil(t, stored)
@@ -158,7 +156,7 @@ func TestVerifyReport(t *testing.T) {
 	assert.Equal(t, reportID, storedReport.ReportID)
 }
 
-// TestVerifyReportNotFound verifies missing report returns nil
+// TestVerifyReportNotFound verifies missing report returns nil.
 func TestVerifyReportNotFound(t *testing.T) {
 	stub := NewMockStub()
 
@@ -167,7 +165,7 @@ func TestVerifyReportNotFound(t *testing.T) {
 	assert.Nil(t, stored, "Non-existent report should return nil")
 }
 
-// TestGetTransactionByID returns a valid JSON response
+// TestGetTransactionByID returns a valid JSON response.
 func TestGetTransactionByID(t *testing.T) {
 	cc := &CarbonChaincode{}
 	result, err := cc.GetTransactionByID(nil, "tx123")
@@ -176,7 +174,7 @@ func TestGetTransactionByID(t *testing.T) {
 	assert.Contains(t, result, "VALID")
 }
 
-// TestQueryBlock returns a valid JSON response
+// TestQueryBlock returns a valid JSON response.
 func TestQueryBlock(t *testing.T) {
 	cc := &CarbonChaincode{}
 	result, err := cc.QueryBlock(nil, "5")

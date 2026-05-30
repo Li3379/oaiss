@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/hyperledger/fabric-contract-api-go/contractapi"
@@ -25,6 +26,7 @@ type TradeRecord struct {
 	BuyerID     string `json:"buyerId"`
 	Amount      string `json:"amount"`
 	Price       string `json:"price"`
+	Data        string `json:"data"`
 	TxHash      string `json:"txHash"`
 	CreatedAt   string `json:"createdAt"`
 }
@@ -161,10 +163,11 @@ func main() {
 	chaincode, err := contractapi.NewChaincode(&CarbonChaincode{})
 	if err != nil {
 		fmt.Printf("Error creating chaincode: %v\n", err)
-		return
+		os.Exit(1)
 	}
 
 	if err := chaincode.Start(); err != nil {
 		fmt.Printf("Error starting chaincode: %v\n", err)
+		os.Exit(1)
 	}
 }
