@@ -29,6 +29,7 @@ import java.util.Date;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -134,14 +135,16 @@ class FabricCAServiceTest {
         // Mock WebClient chain: builder -> webClient -> requestBodyUriSpec -> ...
         WebClient webClient = mock(WebClient.class);
         WebClient.RequestBodyUriSpec requestBodyUriSpec = mock(WebClient.RequestBodyUriSpec.class);
+        WebClient.RequestHeadersSpec<?> headersSpec = mock(WebClient.RequestHeadersSpec.class);
         WebClient.ResponseSpec responseSpec = mock(WebClient.ResponseSpec.class);
 
         when(webClientBuilder.build()).thenReturn(webClient);
         when(webClient.post()).thenReturn(requestBodyUriSpec);
         when(requestBodyUriSpec.uri(anyString())).thenReturn(requestBodyUriSpec);
         when(requestBodyUriSpec.header(anyString(), anyString())).thenReturn(requestBodyUriSpec);
-        when(requestBodyUriSpec.bodyValue(any())).thenReturn(requestBodyUriSpec);
-        when(requestBodyUriSpec.retrieve()).thenReturn(responseSpec);
+        // Use doReturn to avoid Mockito generic type checking issues
+        doReturn(headersSpec).when(requestBodyUriSpec).bodyValue(any());
+        when(headersSpec.retrieve()).thenReturn(responseSpec);
         when(responseSpec.bodyToMono(String.class)).thenReturn(Mono.just(caResponseJson));
 
         FabricCAService service = new FabricCAService(props, webClientBuilder);

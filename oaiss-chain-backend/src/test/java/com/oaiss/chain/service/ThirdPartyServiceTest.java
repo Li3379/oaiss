@@ -129,6 +129,10 @@ class ThirdPartyServiceTest {
                 .thenReturn(new PageImpl<>(Collections.emptyList()));
         when(carbonReportRepository.findByStatusAndDeletedFalse(eq(1), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(Collections.emptyList()));
+        when(carbonReportRepository.findByStatusAndDeletedFalse(eq(4), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(Collections.emptyList()));
+        when(carbonReportRepository.findByStatusInAndDeletedFalse(anyList(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(Collections.emptyList()));
 
         ApiResponse<Map<String, Object>> result = thirdPartyService.getStatistics(currentUser);
 

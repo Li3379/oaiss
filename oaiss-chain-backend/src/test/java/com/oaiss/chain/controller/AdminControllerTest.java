@@ -55,6 +55,15 @@ class AdminControllerTest {
     @MockBean
     private JwtTokenProvider jwtTokenProvider;
 
+    @MockBean
+    private com.oaiss.chain.repository.AccountPermissionListRepository permissionRepository;
+
+    @MockBean
+    private com.oaiss.chain.service.EnterpriseAdmissionService enterpriseAdmissionService;
+
+    @MockBean
+    private com.oaiss.chain.service.ReviewerQualificationService reviewerQualificationService;
+
     private User testUser1;
     private User testUser2;
     private User testUser3;

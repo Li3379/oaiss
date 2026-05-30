@@ -77,6 +77,16 @@ class MinioServiceTest {
     }
 
     @Test
+    @DisplayName("应用就绪时初始化存储桶")
+    void testInitBucketOnApplicationReadyEvent() throws Exception {
+        when(minioClient.bucketExists(any(BucketExistsArgs.class))).thenReturn(false);
+
+        minioService.initBucket();
+
+        verify(minioClient).makeBucket(any(MakeBucketArgs.class));
+    }
+
+    @Test
     @DisplayName("上传文件成功")
     void testUploadFileSuccess() throws Exception {
         InputStream inputStream = new ByteArrayInputStream("test content".getBytes());

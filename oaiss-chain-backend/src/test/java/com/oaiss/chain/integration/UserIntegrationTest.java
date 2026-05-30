@@ -1,6 +1,7 @@
 package com.oaiss.chain.integration;
 
 import com.oaiss.chain.BaseIntegrationTest;
+import com.oaiss.chain.H2IntegrationTest;
 import com.oaiss.chain.dto.LoginRequest;
 import com.oaiss.chain.dto.RegisterRequest;
 import com.oaiss.chain.entity.Enterprise;
@@ -24,11 +25,11 @@ import static org.junit.jupiter.api.Assertions.*;
 /**
  * 用户认证集成测试
  * Integration tests for user authentication
- * 
- * Note: Requires Docker to run. Disabled if Docker is not available.
+ *
+ * Uses H2 in-memory database for fast execution without Docker.
+ * For full integration tests with real MySQL/Redis, use BaseIntegrationTest.
  */
-@Disabled("Requires Docker for Testcontainers. Enable when Docker is available.")
-class UserIntegrationTest extends BaseIntegrationTest {
+class UserIntegrationTest extends H2IntegrationTest {
 
     @Autowired
     private UserRepository userRepository;
@@ -62,6 +63,7 @@ class UserIntegrationTest extends BaseIntegrationTest {
             RegisterRequest request = RegisterRequest.builder()
                     .username("test_enterprise")
                     .password("Test123456")
+                    .confirmPassword("Test123456")
                     .email("test@example.com")
                     .phone("13800138000")
                     .realName("测试企业")
@@ -90,6 +92,7 @@ class UserIntegrationTest extends BaseIntegrationTest {
             RegisterRequest request1 = RegisterRequest.builder()
                     .username("duplicate_user")
                     .password("Test123456")
+                    .confirmPassword("Test123456")
                     .email("user1@example.com")
                     .phone("13800138001")
                     .userType(1)
@@ -100,6 +103,7 @@ class UserIntegrationTest extends BaseIntegrationTest {
             RegisterRequest request2 = RegisterRequest.builder()
                     .username("duplicate_user")
                     .password("Test123456")
+                    .confirmPassword("Test123456")
                     .email("user2@example.com")
                     .phone("13800138002")
                     .userType(1)
@@ -119,6 +123,7 @@ class UserIntegrationTest extends BaseIntegrationTest {
             RegisterRequest request = RegisterRequest.builder()
                     .username("login_test_user")
                     .password("Test123456")
+                    .confirmPassword("Test123456")
                     .email("login@example.com")
                     .phone("13800138003")
                     .realName("登录测试用户")
@@ -164,6 +169,7 @@ class UserIntegrationTest extends BaseIntegrationTest {
 
     @Nested
     @DisplayName("Redis缓存集成测试")
+    @Disabled("Requires a real authenticated Redis instance or Testcontainers-based BaseIntegrationTest")
     class RedisCacheIntegrationTests {
 
         @Test

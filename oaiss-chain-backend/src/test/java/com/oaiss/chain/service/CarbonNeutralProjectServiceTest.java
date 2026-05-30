@@ -6,10 +6,12 @@ import com.oaiss.chain.dto.CarbonNeutralProjectResponse;
 import com.oaiss.chain.dto.ProjectVerificationRequest;
 import com.oaiss.chain.entity.CarbonNeutralProject;
 import com.oaiss.chain.entity.Enterprise;
+import com.oaiss.chain.entity.Reviewer;
 import com.oaiss.chain.entity.User;
 import com.oaiss.chain.exception.BusinessException;
 import com.oaiss.chain.repository.CarbonNeutralProjectRepository;
 import com.oaiss.chain.repository.EnterpriseRepository;
+import com.oaiss.chain.repository.ReviewerRepository;
 import com.oaiss.chain.repository.UserRepository;
 import com.oaiss.chain.security.JwtUserDetails;
 import org.junit.jupiter.api.BeforeEach;
@@ -46,6 +48,9 @@ class CarbonNeutralProjectServiceTest {
 
     @Mock
     private EnterpriseRepository enterpriseRepository;
+
+    @Mock
+    private ReviewerRepository reviewerRepository;
 
     @Mock
     private UserRepository userRepository;
@@ -227,13 +232,17 @@ class CarbonNeutralProjectServiceTest {
     @DisplayName("提交核证申请成功")
     void testSubmitForVerificationSuccess() {
         testProject.setStatus(CarbonNeutralProjectService.STATUS_IMPLEMENTING);
+        Reviewer reviewer = Reviewer.builder().userId(2L).build();
+        reviewer.setId(9L);
         when(projectRepository.findById(1L)).thenReturn(Optional.of(testProject));
         when(enterpriseRepository.findByUserIdAndDeletedFalse(1L)).thenReturn(Optional.of(testEnterprise));
+        when(reviewerRepository.findByUserIdAndDeletedFalse(2L)).thenReturn(Optional.of(reviewer));
         when(projectRepository.save(any())).thenReturn(testProject);
 
         CarbonNeutralProjectResponse response = service.submitForVerification(testUser, 1L, 2L);
 
         assertNotNull(response);
+        verify(projectRepository).save(argThat(project -> Long.valueOf(2L).equals(project.getVerifierId())));
     }
 
     @Test
@@ -395,13 +404,20 @@ class CarbonNeutralProjectServiceTest {
     void testGetPendingVerificationProjectsSuccess() {
         List<CarbonNeutralProject> projects = List.of(testProject);
         Page<CarbonNeutralProject> page = new PageImpl<>(projects);
-        when(projectRepository.findByVerifierIdAndVerificationStatusAndDeletedFalse(anyLong(), anyInt(), any(Pageable.class))).thenReturn(page);
+        Reviewer reviewer = Reviewer.builder().userId(1L).build();
+        reviewer.setId(7L);
+        when(reviewerRepository.findByUserIdAndDeletedFalse(1L)).thenReturn(Optional.of(reviewer));
+        when(projectRepository.findByVerifierIdInAndVerificationStatusAndDeletedFalse(anyCollection(), anyInt(), any(Pageable.class))).thenReturn(page);
         when(enterpriseRepository.findById(1L)).thenReturn(Optional.of(testEnterprise));
 
         Page<CarbonNeutralProjectResponse> response = service.getPendingVerificationProjects(1L, 1, 10);
 
         assertNotNull(response);
         assertEquals(1, response.getTotalElements());
+        verify(projectRepository).findByVerifierIdInAndVerificationStatusAndDeletedFalse(
+                argThat(ids -> ids.contains(1L) && ids.contains(7L)),
+                eq(CarbonNeutralProjectService.VERIFY_STATUS_PENDING),
+                any(Pageable.class));
     }
 
     @Test

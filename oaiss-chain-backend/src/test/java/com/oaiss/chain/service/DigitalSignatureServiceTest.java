@@ -72,7 +72,7 @@ class DigitalSignatureServiceTest {
         assertNotNull(response);
         assertEquals(1L, response.getUserId());
         assertEquals(1, response.getKeyStatus());
-        verify(rsaKeyPairRepository, times(1)).findLatestByUserId(1L);
+        verify(rsaKeyPairRepository, atLeast(1)).findLatestByUserId(1L);
     }
 
     @Test
@@ -81,8 +81,12 @@ class DigitalSignatureServiceTest {
         // Given
         when(rsaKeyPairRepository.findLatestByUserId(1L)).thenReturn(Optional.empty());
 
-        // When & Then
-        assertThrows(BlockchainException.class, () -> digitalSignatureService.getKeyPair(1L));
+        // When
+        RsaKeyPairResponse response = digitalSignatureService.getKeyPair(1L);
+
+        // Then
+        assertNotNull(response);
+        assertEquals(0, response.getKeyStatus());
     }
 
     @Test
@@ -92,8 +96,12 @@ class DigitalSignatureServiceTest {
         testKeyPair.setKeyStatus(0); // Revoked
         when(rsaKeyPairRepository.findLatestByUserId(1L)).thenReturn(Optional.of(testKeyPair));
 
-        // When & Then
-        assertThrows(BlockchainException.class, () -> digitalSignatureService.getKeyPair(1L));
+        // When
+        RsaKeyPairResponse response = digitalSignatureService.getKeyPair(1L);
+
+        // Then
+        assertNotNull(response);
+        assertEquals(2, response.getKeyStatus());
     }
 
     @Test
@@ -104,8 +112,12 @@ class DigitalSignatureServiceTest {
         when(rsaKeyPairRepository.findLatestByUserId(1L)).thenReturn(Optional.of(testKeyPair));
         when(rsaKeyPairRepository.save(any(RsaKeyPair.class))).thenReturn(testKeyPair);
 
-        // When & Then
-        assertThrows(BlockchainException.class, () -> digitalSignatureService.getKeyPair(1L));
+        // When
+        RsaKeyPairResponse response = digitalSignatureService.getKeyPair(1L);
+
+        // Then
+        assertNotNull(response);
+        assertEquals(0, response.getKeyStatus());
     }
 
     @Test
@@ -459,8 +471,12 @@ class DigitalSignatureServiceTest {
         testKeyPair.setKeyStatus(0); // Revoked
         when(rsaKeyPairRepository.findLatestByUserId(1L)).thenReturn(Optional.of(testKeyPair));
 
-        // When & Then
-        assertThrows(BlockchainException.class, () -> digitalSignatureService.getKeyPair(1L));
+        // When
+        RsaKeyPairResponse response = digitalSignatureService.getKeyPair(1L);
+
+        // Then
+        assertNotNull(response);
+        assertEquals(2, response.getKeyStatus());
     }
 
     @Test

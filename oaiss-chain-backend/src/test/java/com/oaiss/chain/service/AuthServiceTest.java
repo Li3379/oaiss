@@ -459,7 +459,7 @@ class AuthServiceTest {
         // Given
         loginRequest.setCaptchaKey("captcha_key");
         loginRequest.setCaptcha("1234");
-        when(captchaService.verifyCaptcha("captcha_key", "1234")).thenReturn(true);
+        when(captchaService.verifyCaptchaDetailed("captcha_key", "1234")).thenReturn(CaptchaVerifyResult.SUCCESS);
         when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
         when(passwordEncoder.matches("password123", "encodedPassword")).thenReturn(true);
         when(jwtTokenProvider.generateAccessToken(any(), any(), anyList(), any(), any())).thenReturn("access-token");
@@ -481,7 +481,7 @@ class AuthServiceTest {
         loginRequest.setCaptchaKey("captcha_key");
         loginRequest.setCaptcha("wrong");
         
-        when(captchaService.verifyCaptcha("captcha_key", "wrong")).thenReturn(false);
+        when(captchaService.verifyCaptchaDetailed("captcha_key", "wrong")).thenReturn(CaptchaVerifyResult.WRONG_CODE);
 
         // When & Then
         assertThrows(AuthenticationException.class, () -> authService.login(loginRequest));
@@ -492,7 +492,7 @@ class AuthServiceTest {
     void testLoginFailCaptchaExpired() {
         // Given
         loginRequest.setCaptchaKey("captcha_key");
-        when(captchaService.verifyCaptcha("captcha_key", "1234")).thenReturn(false);
+        when(captchaService.verifyCaptchaDetailed("captcha_key", "1234")).thenReturn(CaptchaVerifyResult.EXPIRED);
         loginRequest.setCaptcha("1234");
 
         // When & Then

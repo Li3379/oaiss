@@ -1,6 +1,8 @@
 package com.oaiss.chain.controller;
 
+import com.oaiss.chain.constant.ErrorCode;
 import com.oaiss.chain.dto.MarketForecastResponse;
+import com.oaiss.chain.exception.BusinessException;
 import com.oaiss.chain.security.JwtTokenProvider;
 import com.oaiss.chain.service.ml.MarketPredictionService;
 import org.junit.jupiter.api.DisplayName;
@@ -46,80 +48,84 @@ class MarketPredictionControllerTest {
             .modelVersion("1.0.0")
             .build();
 
-    @Nested
-    @DisplayName("POST /api/v1/ai/market/trend")
-    class PredictTrendTests {
+    @Test
+    @DisplayName("POST /ai/market/trend - should return 200 with forecast for ENTERPRISE role")
+    @WithMockUser(roles = "ENTERPRISE")
+    void shouldReturnForecastForEnterprise() throws Exception {
+        when(marketPredictionService.predictMarketTrend(anyInt()))
+                .thenReturn(sampleResponse);
 
-        @Test
-        @DisplayName("should return 200 with forecast for ENTERPRISE role")
-        @WithMockUser(roles = "ENTERPRISE")
-        void shouldReturnForecastForEnterprise() throws Exception {
-            when(marketPredictionService.predictMarketTrend(anyInt()))
-                    .thenReturn(sampleResponse);
-
-            mockMvc.perform(post("/api/v1/ai/market/trend")
-                            .with(csrf())
-                            .param("horizonDays", "30")
-                            .contentType(MediaType.APPLICATION_JSON))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data.trend").value("up"))
-                    .andExpect(jsonPath("$.data.forecastPrices").isArray())
-                    .andExpect(jsonPath("$.data.modelVersion").value("1.0.0"));
-        }
-
+        mockMvc.perform(post("/ai/market/trend")
+                        .with(csrf())
+                        .param("horizonDays", "30")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.trend").value("up"))
+                .andExpect(jsonPath("$.data.forecastPrices").isArray())
+                .andExpect(jsonPath("$.data.modelVersion").value("1.0.0"));
     }
 
-    @Nested
-    @DisplayName("POST /api/v1/ai/market/price")
-    class PredictPriceTests {
+    @Test
+    @DisplayName("POST /ai/market/price - should return 200 with price forecast for ADMIN role")
+    @WithMockUser(roles = "ADMIN")
+    void shouldReturnPriceForecastForAdmin() throws Exception {
+        when(marketPredictionService.predictCarbonPrice(anyInt()))
+                .thenReturn(sampleResponse);
 
-        @Test
-        @DisplayName("should return 200 with price forecast for ADMIN role")
-        @WithMockUser(roles = "ADMIN")
-        void shouldReturnPriceForecastForAdmin() throws Exception {
-            when(marketPredictionService.predictCarbonPrice(anyInt()))
-                    .thenReturn(sampleResponse);
-
-            mockMvc.perform(post("/api/v1/ai/market/price")
-                            .with(csrf())
-                            .param("horizonDays", "7")
-                            .contentType(MediaType.APPLICATION_JSON))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data.forecastPrices").isArray())
-                    .andExpect(jsonPath("$.data.lowerBound").isArray())
-                    .andExpect(jsonPath("$.data.upperBound").isArray());
-        }
+        mockMvc.perform(post("/ai/market/price")
+                        .with(csrf())
+                        .param("horizonDays", "7")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.forecastPrices").isArray())
+                .andExpect(jsonPath("$.data.lowerBound").isArray())
+                .andExpect(jsonPath("$.data.upperBound").isArray());
     }
 
-    @Nested
-    @DisplayName("POST /api/v1/ai/market/supply-demand")
-    class PredictSupplyDemandTests {
+    @Test
+    @DisplayName("POST /ai/market/supply-demand - should return 200 with supply/demand forecast")
+    @WithMockUser(roles = "ENTERPRISE")
+    void shouldReturnSupplyDemandForecast() throws Exception {
+        when(marketPredictionService.predictSupplyDemand(anyInt()))
+                .thenReturn(sampleResponse);
 
-        @Test
-        @DisplayName("should return 200 with supply/demand forecast")
-        @WithMockUser(roles = "ENTERPRISE")
-        void shouldReturnSupplyDemandForecast() throws Exception {
-            when(marketPredictionService.predictSupplyDemand(anyInt()))
-                    .thenReturn(sampleResponse);
+        mockMvc.perform(post("/ai/market/supply-demand")
+                        .with(csrf())
+                        .param("horizonDays", "14")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.trend").value("up"));
+    }
 
-            mockMvc.perform(post("/api/v1/ai/market/supply-demand")
-                            .with(csrf())
-                            .param("horizonDays", "14")
-                            .contentType(MediaType.APPLICATION_JSON))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data.trend").value("up"));
-        }
+    @Test
+    @DisplayName("POST /ai/market/supply-demand - should reject horizonDays exceeding 365")
+    @WithMockUser(roles = "ENTERPRISE")
+    void shouldRejectExcessiveHorizonDays() throws Exception {
+        mockMvc.perform(post("/ai/market/supply-demand")
+                        .with(csrf())
+                        .param("horizonDays", "400")
+                .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest());
+    }
 
-        @Test
-        @DisplayName("should reject horizonDays exceeding 365")
-        @WithMockUser(roles = "ENTERPRISE")
-        void shouldRejectExcessiveHorizonDays() throws Exception {
-            mockMvc.perform(post("/api/v1/ai/market/supply-demand")
-                            .with(csrf())
-                            .param("horizonDays", "400")
-                            .contentType(MediaType.APPLICATION_JSON))
-                    .andExpect(status().isBadRequest());
-        }
+    @Test
+    @DisplayName("POST /ai/market/trend - should return empty forecast when historical data is insufficient")
+    @WithMockUser(roles = "ENTERPRISE")
+    void shouldReturnEmptyForecastWhenHistoricalDataIsInsufficient() throws Exception {
+        when(marketPredictionService.predictMarketTrend(anyInt()))
+                .thenThrow(new BusinessException(
+                        ErrorCode.INSUFFICIENT_DATA,
+                        "Need at least 10 historical trade records for market prediction"));
+
+        mockMvc.perform(post("/ai/market/trend")
+                        .with(csrf())
+                        .param("horizonDays", "30")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.forecastDates").isArray())
+                .andExpect(jsonPath("$.data.forecastDates").isEmpty())
+                .andExpect(jsonPath("$.data.trend").value("insufficient-data"))
+                .andExpect(jsonPath("$.data.modelVersion").value("N/A"));
     }
 
 }

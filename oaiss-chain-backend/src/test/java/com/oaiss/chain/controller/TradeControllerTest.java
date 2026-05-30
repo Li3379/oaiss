@@ -625,7 +625,7 @@ class TradeControllerTest {
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
         Page<TradeResponse> page = new PageImpl<>(List.of(tradeResponse));
-        when(tradeService.listMyTrades(any(JwtUserDetails.class), isNull(), isNull(), eq(1), eq(10)))
+        when(tradeService.listMyTrades(any(JwtUserDetails.class), isNull(), isNull(), isNull(), isNull(), isNull(), eq(1), eq(10)))
                 .thenReturn(page);
 
         // When & Then
@@ -634,7 +634,7 @@ class TradeControllerTest {
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.data.content").isArray());
 
-        verify(tradeService, times(1)).listMyTrades(any(JwtUserDetails.class), isNull(), isNull(), eq(1), eq(10));
+        verify(tradeService, times(1)).listMyTrades(any(JwtUserDetails.class), isNull(), isNull(), isNull(), isNull(), isNull(), eq(1), eq(10));
     }
 
     @Test
@@ -647,7 +647,7 @@ class TradeControllerTest {
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
         Page<TradeResponse> page = new PageImpl<>(List.of(tradeResponse));
-        when(tradeService.listMyTrades(any(JwtUserDetails.class), eq(1), eq(1), eq(1), eq(20)))
+        when(tradeService.listMyTrades(any(JwtUserDetails.class), eq(1), eq(1), isNull(), isNull(), isNull(), eq(1), eq(20)))
                 .thenReturn(page);
 
         // When & Then
@@ -659,7 +659,7 @@ class TradeControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200));
 
-        verify(tradeService, times(1)).listMyTrades(any(JwtUserDetails.class), eq(1), eq(1), eq(1), eq(20));
+        verify(tradeService, times(1)).listMyTrades(any(JwtUserDetails.class), eq(1), eq(1), isNull(), isNull(), isNull(), eq(1), eq(20));
     }
 
     @Test
@@ -673,7 +673,7 @@ class TradeControllerTest {
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
         // Mock service to throw authorization exception
-        when(tradeService.listMyTrades(any(JwtUserDetails.class), isNull(), isNull(), eq(1), eq(10)))
+        when(tradeService.listMyTrades(any(JwtUserDetails.class), isNull(), isNull(), isNull(), isNull(), isNull(), eq(1), eq(10)))
                 .thenThrow(new BusinessException(403, "无权限查询我的交易"));
 
         // When & Then - GlobalExceptionHandler converts to HTTP 400 with code 403
@@ -681,6 +681,6 @@ class TradeControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(403));
 
-        verify(tradeService, times(1)).listMyTrades(any(JwtUserDetails.class), isNull(), isNull(), eq(1), eq(10));
+        verify(tradeService, times(1)).listMyTrades(any(JwtUserDetails.class), isNull(), isNull(), isNull(), isNull(), isNull(), eq(1), eq(10));
     }
 }

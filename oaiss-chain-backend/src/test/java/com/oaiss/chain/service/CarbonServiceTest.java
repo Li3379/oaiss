@@ -29,15 +29,16 @@ import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.Optional;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
-/**
- * CarbonService 单元测试
- * CarbonService Unit Tests
- */
 @ExtendWith(MockitoExtension.class)
 class CarbonServiceTest {
 
@@ -52,6 +53,15 @@ class CarbonServiceTest {
 
     @Mock
     private ObjectMapper objectMapper;
+
+    @Mock
+    private CreditScoreService creditScoreService;
+
+    @Mock
+    private EmissionRatingService emissionRatingService;
+
+    @Mock
+    private BlockchainServicePort blockchainService;
 
     @InjectMocks
     private CarbonService carbonService;
@@ -85,6 +95,8 @@ class CarbonServiceTest {
                 .totalEmission(BigDecimal.ZERO)
                 .build();
         testReport.setId(1L);
+        testReport.setCreatedAt(LocalDateTime.now());
+        testReport.setUpdatedAt(LocalDateTime.now());
 
         reportRequest = new CarbonReportRequest();
         reportRequest.setAccountingPeriod("2024-Q1");
@@ -94,167 +106,191 @@ class CarbonServiceTest {
     }
 
     @Test
-    @DisplayName("创建碳报告成功")
+    @DisplayName("create report success")
     void testCreateReportSuccess() {
-        // Given
         when(enterpriseRepository.findByUserId(1L)).thenReturn(Optional.of(testEnterprise));
         when(carbonReportRepository.save(any(CarbonReport.class))).thenReturn(testReport);
 
-        // When
         CarbonReportResponse response = carbonService.createReport(currentUser, reportRequest);
 
-        // Then
         assertNotNull(response);
         verify(carbonReportRepository, times(1)).save(any(CarbonReport.class));
     }
 
     @Test
-    @DisplayName("创建碳报告失败-企业不存在")
+    @DisplayName("create report fails when enterprise missing")
     void testCreateReportFailEnterpriseNotFound() {
-        // Given
         when(enterpriseRepository.findByUserId(1L)).thenReturn(Optional.empty());
 
-        // When & Then
         assertThrows(CarbonException.class, () -> carbonService.createReport(currentUser, reportRequest));
         verify(carbonReportRepository, never()).save(any());
     }
 
     @Test
-    @DisplayName("提交碳报告成功")
+    @DisplayName("submit report success")
     void testSubmitReportSuccess() throws Exception {
-        // Given
         testReport.setStatus(ReportStatusEnum.DRAFT.getCode());
         testReport.setEmissionData("{\"scope1\":[],\"scope2\":[],\"scope3\":[]}");
-        
-        // Create a real ObjectMapper for this test
+
         ObjectMapper realMapper = new ObjectMapper();
-        com.fasterxml.jackson.databind.JsonNode mockNode = realMapper.readTree("{\"scope1\":[],\"scope2\":[],\"scope3\":[]}");
-        
+        var mockNode = realMapper.readTree("{\"scope1\":[],\"scope2\":[],\"scope3\":[]}");
+
         when(carbonReportRepository.findById(1L)).thenReturn(Optional.of(testReport));
         when(enterpriseRepository.findByUserId(1L)).thenReturn(Optional.of(testEnterprise));
         when(objectMapper.readTree(any(String.class))).thenReturn(mockNode);
         when(carbonReportRepository.save(any(CarbonReport.class))).thenReturn(testReport);
 
-        // When
         CarbonReportResponse response = carbonService.submitReport(currentUser, 1L);
 
-        // Then
         assertNotNull(response);
         verify(carbonReportRepository, times(1)).save(any(CarbonReport.class));
     }
 
     @Test
-    @DisplayName("提交碳报告失败-报告不存在")
+    @DisplayName("submit report fails when report missing")
     void testSubmitReportFailReportNotFound() {
-        // Given
         when(carbonReportRepository.findById(999L)).thenReturn(Optional.empty());
 
-        // When & Then
         assertThrows(CarbonException.class, () -> carbonService.submitReport(currentUser, 999L));
     }
 
     @Test
-    @DisplayName("审核碳报告成功")
+    @DisplayName("review approved report stops at approved status")
     void testReviewReportSuccess() {
-        // Given
         testReport.setStatus(ReportStatusEnum.SUBMITTED.getCode());
-        ReviewRequest reviewRequest = new ReviewRequest();
-        reviewRequest.setReportId(1L);
-        reviewRequest.setReviewResult(ReportStatusEnum.APPROVED.getCode());
-        reviewRequest.setReviewComment("Approved");
+        ReviewRequest reviewRequest = new ReviewRequest(1L, ReportStatusEnum.APPROVED.getCode(), "Approved");
 
         when(carbonReportRepository.findById(1L)).thenReturn(Optional.of(testReport));
-        when(carbonReportRepository.save(any(CarbonReport.class))).thenReturn(testReport);
+        when(carbonReportRepository.save(any(CarbonReport.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        // When
         CarbonReportResponse response = carbonService.reviewReport(currentUser, reviewRequest);
 
-        // Then
         assertNotNull(response);
-        verify(carbonReportRepository, times(1)).save(any(CarbonReport.class));
+        assertEquals(ReportStatusEnum.APPROVED.getCode(), response.getStatus());
+        verify(blockchainService, never()).commitReportToChain(any(), any());
+        verify(creditScoreService, never()).addBonusPoints(any(), any(), any(), any());
     }
 
     @Test
-    @DisplayName("获取报告详情成功")
+    @DisplayName("admin certification pushes approved report on-chain")
+    void testCertifyReportSuccess() {
+        testReport.setStatus(ReportStatusEnum.APPROVED.getCode());
+        testReport.setTotalEmission(BigDecimal.TEN);
+        ReviewRequest certificationRequest = new ReviewRequest(1L, ReportStatusEnum.ON_CHAIN.getCode(), "certified");
+
+        when(carbonReportRepository.findById(1L)).thenReturn(Optional.of(testReport));
+        when(carbonReportRepository.save(any(CarbonReport.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(blockchainService.commitReportToChain(1L, testReport.getEmissionData())).thenReturn("tx-123");
+
+        CarbonReportResponse response = carbonService.certifyReport(currentUser, certificationRequest);
+
+        assertNotNull(response);
+        assertEquals(ReportStatusEnum.ON_CHAIN.getCode(), response.getStatus());
+        assertEquals("tx-123", response.getBlockchainTxHash());
+        verify(blockchainService, times(1)).commitReportToChain(1L, testReport.getEmissionData());
+        verify(creditScoreService, times(1)).addBonusPoints(eq(1L), eq(5), any(), eq(1L));
+        verify(emissionRatingService, times(1)).rateEnterprise(eq(1L), eq("2024"), eq(BigDecimal.TEN), eq(null), eq(1L));
+    }
+
+    @Test
+    @DisplayName("admin certification rejects non-approved report")
+    void testCertifyReportFailsWhenStatusInvalid() {
+        testReport.setStatus(ReportStatusEnum.SUBMITTED.getCode());
+        ReviewRequest certificationRequest = new ReviewRequest(1L, ReportStatusEnum.ON_CHAIN.getCode(), "certified");
+
+        when(carbonReportRepository.findById(1L)).thenReturn(Optional.of(testReport));
+
+        assertThrows(CarbonException.class, () -> carbonService.certifyReport(currentUser, certificationRequest));
+        verify(blockchainService, never()).commitReportToChain(any(), any());
+    }
+
+    @Test
+    @DisplayName("get report success")
     void testGetReportSuccess() {
-        // Given
         when(carbonReportRepository.findById(1L)).thenReturn(Optional.of(testReport));
         when(enterpriseRepository.findById(1L)).thenReturn(Optional.of(testEnterprise));
 
-        // When
         CarbonReportResponse response = carbonService.getReport(1L);
 
-        // Then
         assertNotNull(response);
         assertEquals("CR20240101001", response.getReportNo());
     }
 
     @Test
-    @DisplayName("获取报告详情失败-不存在")
+    @DisplayName("get report fails when not found")
     void testGetReportFailNotFound() {
-        // Given
         when(carbonReportRepository.findById(999L)).thenReturn(Optional.empty());
 
-        // When & Then
         assertThrows(CarbonException.class, () -> carbonService.getReport(999L));
     }
 
     @Test
-    @DisplayName("分页查询报告")
+    @DisplayName("list reports")
     void testListReports() {
-        // Given
         Page<CarbonReport> page = new PageImpl<>(Arrays.asList(testReport));
         when(carbonReportRepository.search(any(), any(), any(), any(Pageable.class))).thenReturn(page);
         when(enterpriseRepository.findById(1L)).thenReturn(Optional.of(testEnterprise));
 
-        // When
         Page<CarbonReportResponse> result = carbonService.listReports(null, null, null, 1, 10);
 
-        // Then
         assertNotNull(result);
         assertEquals(1, result.getContent().size());
     }
 
     @Test
-    @DisplayName("查询我的报告")
+    @DisplayName("list my reports")
     void testListMyReports() {
-        // Given
         Page<CarbonReport> page = new PageImpl<>(Arrays.asList(testReport));
         when(enterpriseRepository.findByUserId(1L)).thenReturn(Optional.of(testEnterprise));
-        when(carbonReportRepository.findByEnterpriseIdAndDeletedFalse(eq(1L), any(Pageable.class))).thenReturn(page);
+        when(carbonReportRepository.searchMyReports(eq(1L), eq(null), eq(null), eq(null), any(Pageable.class))).thenReturn(page);
         when(enterpriseRepository.findById(1L)).thenReturn(Optional.of(testEnterprise));
 
-        // When
-        Page<CarbonReportResponse> result = carbonService.listMyReports(currentUser, null, 1, 10);
+        Page<CarbonReportResponse> result = carbonService.listMyReports(currentUser, null, null, null, 1, 10);
 
-        // Then
         assertNotNull(result);
         assertEquals(1, result.getContent().size());
     }
 
     @Test
-    @DisplayName("删除碳报告成功")
+    @DisplayName("list my reports with title and accounting period filters")
+    void testListMyReportsWithFilters() {
+        Page<CarbonReport> page = new PageImpl<>(Arrays.asList(testReport));
+        when(enterpriseRepository.findByUserId(1L)).thenReturn(Optional.of(testEnterprise));
+        when(carbonReportRepository.searchMyReports(eq(1L), eq(ReportStatusEnum.DRAFT.getCode()), eq("Test"), eq("2024-Q1"), any(Pageable.class)))
+                .thenReturn(page);
+        when(enterpriseRepository.findById(1L)).thenReturn(Optional.of(testEnterprise));
+
+        Page<CarbonReportResponse> result = carbonService.listMyReports(
+                currentUser,
+                ReportStatusEnum.DRAFT.getCode(),
+                "  Test  ",
+                " 2024-Q1 ",
+                1,
+                10);
+
+        assertNotNull(result);
+        assertEquals(1, result.getContent().size());
+        verify(carbonReportRepository).searchMyReports(eq(1L), eq(ReportStatusEnum.DRAFT.getCode()), eq("Test"), eq("2024-Q1"), any(Pageable.class));
+    }
+
+    @Test
+    @DisplayName("delete report success")
     void testDeleteReportSuccess() {
-        // Given
         testReport.setStatus(ReportStatusEnum.DRAFT.getCode());
         when(carbonReportRepository.findById(1L)).thenReturn(Optional.of(testReport));
         when(carbonReportRepository.save(any(CarbonReport.class))).thenReturn(testReport);
 
-        // When
         carbonService.deleteReport(currentUser, 1L);
 
-        // Then
         verify(carbonReportRepository, times(1)).save(any(CarbonReport.class));
     }
 
     @Test
-    @DisplayName("删除碳报告失败-非草稿状态")
+    @DisplayName("delete report fails when not draft")
     void testDeleteReportFailNotDraft() {
-        // Given
         testReport.setStatus(ReportStatusEnum.SUBMITTED.getCode());
         when(carbonReportRepository.findById(1L)).thenReturn(Optional.of(testReport));
 
-        // When & Then
         assertThrows(CarbonException.class, () -> carbonService.deleteReport(currentUser, 1L));
         verify(carbonReportRepository, never()).save(any());
     }

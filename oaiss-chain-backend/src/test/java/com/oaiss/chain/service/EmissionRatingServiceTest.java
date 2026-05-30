@@ -112,13 +112,17 @@ class EmissionRatingServiceTest {
     }
 
     @Test
-    @DisplayName("评级 - 已存在时抛出异常")
-    void rateEnterprise_AlreadyExists_ShouldThrow() {
+    @DisplayName("评级 - 已存在时更新")
+    void rateEnterprise_AlreadyExists_ShouldUpdate() {
         when(ratingRepository.findByEnterpriseIdAndRatingYearAndDeletedFalse(1L, "2025"))
                 .thenReturn(Optional.of(buildRating("2025")));
+        when(ratingRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        assertThrows(BusinessException.class, () ->
-                emissionRatingService.rateEnterprise(1L, "2025", new BigDecimal("500"), null, 1L));
+        EmissionRating rating = emissionRatingService.rateEnterprise(
+                1L, "2025", new BigDecimal("500"), null, 1L);
+
+        assertNotNull(rating);
+        verify(ratingRepository).save(any(EmissionRating.class));
     }
 
     @Test

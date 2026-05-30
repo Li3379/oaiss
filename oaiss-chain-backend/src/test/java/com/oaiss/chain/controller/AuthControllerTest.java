@@ -1,6 +1,7 @@
 package com.oaiss.chain.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.oaiss.chain.annotation.RateLimit;
 import com.oaiss.chain.dto.*;
 import com.oaiss.chain.exception.AuthenticationException;
 import com.oaiss.chain.exception.BusinessException;
@@ -24,8 +25,11 @@ import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.lang.reflect.Method;
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
@@ -106,6 +110,16 @@ class AuthControllerTest {
     }
 
     // ==================== Login Tests ====================
+
+    @Test
+    @DisplayName("公开认证端点配置生产限流")
+    void publicAuthEndpoints_shouldHaveRateLimitAnnotations() throws Exception {
+        assertRateLimit("login", new Class[]{LoginRequest.class}, "auth:login", 5, 60, RateLimit.LimitType.IP_USER);
+        assertRateLimit("register", new Class[]{RegisterRequest.class}, "auth:register", 3, 300, RateLimit.LimitType.IP);
+        assertRateLimit("getCaptcha", new Class[]{}, "auth:captcha", 20, 60, RateLimit.LimitType.IP);
+        assertRateLimit("refreshToken", new Class[]{String.class}, "auth:refresh", 10, 60, RateLimit.LimitType.IP_USER);
+        assertRateLimit("checkIp", new Class[]{}, "auth:check-ip", 30, 60, RateLimit.LimitType.IP);
+    }
 
     @Test
     @DisplayName("登录成功测试")
@@ -522,5 +536,21 @@ class AuthControllerTest {
                 .andExpect(status().isBadRequest());
 
         verify(authService, never()).changePassword(anyString(), any());
+    }
+
+    private void assertRateLimit(String methodName,
+                                 Class<?>[] parameterTypes,
+                                 String expectedKey,
+                                 int expectedLimit,
+                                 int expectedPeriod,
+                                 RateLimit.LimitType expectedType) throws NoSuchMethodException {
+        Method method = AuthController.class.getDeclaredMethod(methodName, parameterTypes);
+        RateLimit rateLimit = method.getAnnotation(RateLimit.class);
+
+        assertNotNull(rateLimit, methodName + " should be rate limited");
+        assertEquals(expectedKey, rateLimit.key());
+        assertEquals(expectedLimit, rateLimit.limit());
+        assertEquals(expectedPeriod, rateLimit.period());
+        assertEquals(expectedType, rateLimit.limitType());
     }
 }

@@ -44,6 +44,9 @@ jwt:
   expiration: 3600000
   refresh-expiration: 604800000
 
+# Test KEK for AES-256-GCM private key encryption flows
+RSA_KEK: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+
 # 日志配置
 logging:
   level:

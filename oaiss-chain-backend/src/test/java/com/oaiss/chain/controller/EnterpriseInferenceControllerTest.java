@@ -54,7 +54,7 @@ class EnterpriseInferenceControllerTest {
 
         when(enterpriseInferenceService.inferEnterprise(1L)).thenReturn(response);
 
-        mockMvc.perform(get("/api/v1/predict/enterprise/1/inference")
+        mockMvc.perform(get("/predict/enterprise/1/inference")
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.complianceStatus").value("compliant"))
@@ -80,7 +80,7 @@ class EnterpriseInferenceControllerTest {
 
         when(enterpriseInferenceService.inferEnterprise(2L)).thenReturn(response);
 
-        mockMvc.perform(get("/api/v1/predict/enterprise/2/inference")
+        mockMvc.perform(get("/predict/enterprise/2/inference")
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.complianceStatus").value("at_risk"));

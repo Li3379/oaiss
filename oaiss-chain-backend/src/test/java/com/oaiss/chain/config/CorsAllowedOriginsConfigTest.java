@@ -17,8 +17,18 @@ class CorsAllowedOriginsConfigTest {
     }
 
     @Test
+    void baseConfigAllowsAlternateLocalFrontendPort() {
+        assertAllowedOrigin("application.yml", "http://127.0.0.1:5174");
+    }
+
+    @Test
     void devConfigAllowsLocal127Frontend() {
         assertAllowedOrigin("application-dev.yml", "http://127.0.0.1:5173");
+    }
+
+    @Test
+    void devConfigAllowsAlternateLocalFrontendPort() {
+        assertAllowedOrigin("application-dev.yml", "http://127.0.0.1:5174");
     }
 
     private void assertAllowedOrigin(String resourceName, String expectedOrigin) {
@@ -28,12 +38,13 @@ class CorsAllowedOriginsConfigTest {
         Properties properties = yaml.getObject();
 
         assertThat(properties).isNotNull();
-        assertThat(properties.getProperty("app.cors.allowed-origins"))
+        String originsValue = properties.getProperty("app.cors.allowed-origins");
+        assertThat(originsValue)
                 .as("%s should include %s", resourceName, expectedOrigin)
-                .isNotNull()
-                .satisfies(origins -> assertThat(Arrays.stream(origins.split(","))
-                        .map(String::trim)
-                        .toList())
-                        .contains(expectedOrigin));
+                .isNotNull();
+
+        // The value may contain Spring env var placeholders like ${VAR:default}
+        // Just check that the expected origin appears somewhere in the value
+        assertThat(originsValue).contains(expectedOrigin);
     }
 }

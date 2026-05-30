@@ -1,7 +1,11 @@
 package com.oaiss.chain.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.oaiss.chain.security.JwtUserDetails;
 import com.oaiss.chain.exception.BusinessException;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import com.oaiss.chain.security.JwtTokenProvider;
 import com.oaiss.chain.service.MinioService;
 import org.junit.jupiter.api.BeforeEach;
@@ -23,8 +27,12 @@ import java.util.Collections;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -103,6 +111,29 @@ class FileControllerTest {
                 .andExpect(jsonPath("$.data.contentType").value("application/pdf"));
 
         verify(minioService, times(1)).uploadFile(any(), anyString());
+    }
+
+    @Test
+    @DisplayName("上传单个文件成功-认证用户写入owner元数据")
+    void testUploadFileSuccessWithAuthenticatedOwner() throws Exception {
+        when(minioService.uploadFile(any(), anyString(), eq(42L))).thenReturn(uploadResult);
+
+        mockMvc.perform(multipart("/file/upload")
+                        .file(testFile)
+                        .param("folder", "reports")
+                        .with(request -> {
+                            JwtUserDetails user = JwtUserDetails.builder()
+                                    .userId(42L).username("enterprise").userType(1)
+                                    .roles(List.of("ENTERPRISE")).build();
+                            SecurityContextHolder.getContext().setAuthentication(
+                                    new UsernamePasswordAuthenticationToken(user, null,
+                                            List.of(new SimpleGrantedAuthority("ROLE_ENTERPRISE"))));
+                            return request;
+                        }))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200));
+
+        verify(minioService).uploadFile(any(), eq("reports"), eq(42L));
     }
 
     @Test
@@ -277,8 +308,15 @@ class FileControllerTest {
         // When & Then
         mockMvc.perform(delete("/file")
                         .param("objectName", "reports/1234567890_test.pdf")
-                        .header("X-User-Id", "1")
-                        .header("X-User-Type", "1"))
+                        .with(request -> {
+                            JwtUserDetails user = JwtUserDetails.builder()
+                                    .userId(1L).username("test").userType(1)
+                                    .roles(List.of("ENTERPRISE")).build();
+                            SecurityContextHolder.getContext().setAuthentication(
+                                    new UsernamePasswordAuthenticationToken(user, null,
+                                            List.of(new SimpleGrantedAuthority("ROLE_ENTERPRISE"))));
+                            return request;
+                        }))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.message").value("文件删除成功"));
@@ -291,14 +329,21 @@ class FileControllerTest {
     void testDeleteFileNotFound() throws Exception {
         // Given
         when(minioService.getFileOwner("nonexistent/file.pdf")).thenReturn(null);
-        doThrow(new BusinessException(404, "文件不存在"))
+        doThrow(new com.oaiss.chain.exception.BusinessException(404, "文件不存在"))
                 .when(minioService).deleteFile(anyString());
 
         // When & Then
         mockMvc.perform(delete("/file")
                         .param("objectName", "nonexistent/file.pdf")
-                        .header("X-User-Id", "1")
-                        .header("X-User-Type", "1"))
+                        .with(request -> {
+                            JwtUserDetails user = JwtUserDetails.builder()
+                                    .userId(1L).username("test").userType(1)
+                                    .roles(List.of("ENTERPRISE")).build();
+                            SecurityContextHolder.getContext().setAuthentication(
+                                    new UsernamePasswordAuthenticationToken(user, null,
+                                            List.of(new SimpleGrantedAuthority("ROLE_ENTERPRISE"))));
+                            return request;
+                        }))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(404));
 
@@ -557,6 +602,33 @@ class FileControllerTest {
     }
 
     @Test
+    @DisplayName("企业用户列出文件成功-按owner范围查询")
+    void testListFilesEnterpriseScopedSuccess() throws Exception {
+        MinioService.FileInfo file1 = new MinioService.FileInfo(
+                "reports/2024/file1.pdf", 1024L, "application/pdf", "etag1"
+        );
+        MinioService.FileListResult result = new MinioService.FileListResult(List.of(file1), 1, 1, 20);
+        when(minioService.listFiles(anyString(), any(), any(), eq(42L), eq(false))).thenReturn(result);
+
+        mockMvc.perform(get("/file/list")
+                        .param("prefix", "reports/2024/")
+                        .with(request -> {
+                            JwtUserDetails user = JwtUserDetails.builder()
+                                    .userId(42L).username("enterprise").userType(1)
+                                    .roles(List.of("ENTERPRISE")).build();
+                            SecurityContextHolder.getContext().setAuthentication(
+                                    new UsernamePasswordAuthenticationToken(user, null,
+                                            List.of(new SimpleGrantedAuthority("ROLE_ENTERPRISE"))));
+                            return request;
+                        }))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.files.length()").value(1));
+
+        verify(minioService).listFiles(eq("reports/2024/"), isNull(), isNull(), eq(42L), eq(false));
+    }
+
+    @Test
     @DisplayName("列出文件成功-无前缀参数")
     void testListFilesSuccessWithoutPrefix() throws Exception {
         // Given
@@ -692,8 +764,15 @@ class FileControllerTest {
         // When & Then: admin should be able to delete
         mockMvc.perform(delete("/file")
                         .param("objectName", "reports/test.pdf")
-                        .header("X-User-Id", "1")
-                        .header("X-User-Type", "4"))  // ADMIN type
+                        .with(request -> {
+                            JwtUserDetails user = JwtUserDetails.builder()
+                                    .userId(1L).username("admin").userType(4)
+                                    .roles(List.of("ADMIN")).build();
+                            SecurityContextHolder.getContext().setAuthentication(
+                                    new UsernamePasswordAuthenticationToken(user, null,
+                                            List.of(new SimpleGrantedAuthority("ROLE_ADMIN"))));
+                            return request;
+                        }))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200));
 
@@ -709,8 +788,15 @@ class FileControllerTest {
         // When & Then
         mockMvc.perform(delete("/file")
                         .param("objectName", "reports/my-file.pdf")
-                        .header("X-User-Id", "42")
-                        .header("X-User-Type", "1"))  // ENTERPRISE type
+                        .with(request -> {
+                            JwtUserDetails user = JwtUserDetails.builder()
+                                    .userId(42L).username("enterprise").userType(1)
+                                    .roles(List.of("ENTERPRISE")).build();
+                            SecurityContextHolder.getContext().setAuthentication(
+                                    new UsernamePasswordAuthenticationToken(user, null,
+                                            List.of(new SimpleGrantedAuthority("ROLE_ENTERPRISE"))));
+                            return request;
+                        }))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200));
 
@@ -726,8 +812,15 @@ class FileControllerTest {
         // When & Then: should be forbidden (403)
         mockMvc.perform(delete("/file")
                         .param("objectName", "reports/other-file.pdf")
-                        .header("X-User-Id", "42")
-                        .header("X-User-Type", "1"))  // ENTERPRISE type, not admin
+                        .with(request -> {
+                            JwtUserDetails user = JwtUserDetails.builder()
+                                    .userId(42L).username("enterprise").userType(1)
+                                    .roles(List.of("ENTERPRISE")).build();
+                            SecurityContextHolder.getContext().setAuthentication(
+                                    new UsernamePasswordAuthenticationToken(user, null,
+                                            List.of(new SimpleGrantedAuthority("ROLE_ENTERPRISE"))));
+                            return request;
+                        }))
                 .andExpect(status().isForbidden());
 
         verify(minioService, never()).deleteFile(anyString());

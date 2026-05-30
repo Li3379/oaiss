@@ -5,6 +5,7 @@ import com.oaiss.chain.dto.CarbonPredictionRequest;
 import com.oaiss.chain.dto.CarbonPredictionResponse;
 import com.oaiss.chain.dto.EmissionRatingRequest;
 import com.oaiss.chain.entity.EmissionRating;
+import com.oaiss.chain.repository.EnterpriseRepository;
 import com.oaiss.chain.security.JwtTokenProvider;
 import com.oaiss.chain.service.CarbonPredictionService;
 import com.oaiss.chain.service.EmissionRatingService;
@@ -52,6 +53,9 @@ class EmissionControllerTest {
 
     @MockBean
     private JwtTokenProvider jwtTokenProvider;
+
+    @MockBean
+    private EnterpriseRepository enterpriseRepository;
 
     private EmissionRating emissionRating;
 

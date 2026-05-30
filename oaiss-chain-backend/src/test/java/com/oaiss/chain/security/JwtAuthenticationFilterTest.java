@@ -108,6 +108,17 @@ class JwtAuthenticationFilterTest {
     }
 
     @Test
+    @DisplayName("白名单路径 /api/v1/actuator/health/readiness 应直接放行")
+    void doFilterInternal_whitelistedActuatorReadiness_shouldPassThrough() throws ServletException, IOException {
+        request.setRequestURI("/api/v1/actuator/health/readiness");
+
+        filter.doFilterInternal(request, response, filterChain);
+
+        verify(jwtTokenProvider, never()).validateToken(anyString());
+        assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
+    }
+
+    @Test
     @DisplayName("白名单路径 /api/auth/register 应直接放行")
     void doFilterInternal_whitelistedRegisterPath_shouldPassThrough() throws ServletException, IOException {
         // Arrange
