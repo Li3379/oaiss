@@ -6,11 +6,13 @@ on:
     paths:
       - 'oaiss-chain-backend/**'
       - 'oaiss-chain-frontend/**'
+      - 'oaiss-chain-ml-service/**'
       - '.github/workflows/e2e-tests.yml'
   pull_request:
     paths:
       - 'oaiss-chain-backend/**'
       - 'oaiss-chain-frontend/**'
+      - 'oaiss-chain-ml-service/**'
       - '.github/workflows/e2e-tests.yml'
   workflow_dispatch:
 
@@ -86,6 +88,11 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
       - name: Cache Maven dependencies
         uses: actions/cache@v4
         with:
@@ -104,6 +111,60 @@ jobs:
         run: |
           cd oaiss-chain-frontend
           npm ci
+
+      - name: Validate production env template
+        run: |
+          node scripts/validate-prod-env.mjs | tee prod-env-validation.txt
+
+      - name: Validate staging env template
+        run: |
+          node scripts/validate-prod-env.mjs .env.staging.example | tee staging-env-validation.txt
+
+      - name: Install ML test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install fastapi==0.115.6 pydantic==2.10.6 pydantic-settings==2.7.1 httpx==0.28.1
+
+      - name: Validate production compose config
+        run: |
+          chmod +x scripts/prod-compose.sh
+          export SPRING_PROFILES_ACTIVE=default
+          export DB_PASSWORD=local-shadow-value
+          export JWT_SECRET=local-shadow-jwt
+          export REDIS_HOST=localhost
+          export MINIO_ENDPOINT=http://localhost:9002
+          ./scripts/prod-compose.sh --env-file .env.prod.example config > prod-compose-config.txt
+          grep -q "SPRING_PROFILES_ACTIVE: prod" prod-compose-config.txt
+          grep -q "DB_USERNAME: oaiss_app" prod-compose-config.txt
+          grep -q "CORS_ALLOWED_ORIGINS: https://app.example.com" prod-compose-config.txt
+          grep -q "MINIO_ENDPOINT: https://object-storage.example.internal" prod-compose-config.txt
+
+      - name: Validate release compose config
+        run: |
+          chmod +x scripts/prod-compose.sh
+          ./scripts/prod-compose.sh --env-file .env.prod.example --compose-file docker-compose.release.yml config > release-compose-config.txt
+          grep -q "image: ghcr.io/example-org/oaiss-chain-backend:replace_with_release_tag" release-compose-config.txt
+          grep -q "image: ghcr.io/example-org/oaiss-chain-frontend:replace_with_release_tag" release-compose-config.txt
+          grep -q "image: ghcr.io/example-org/oaiss-chain-ml-service:replace_with_release_tag" release-compose-config.txt
+          grep -q "SPRING_PROFILES_ACTIVE: prod" release-compose-config.txt
+
+      - name: Validate staging release compose config
+        run: |
+          chmod +x scripts/prod-compose.sh
+          ./scripts/prod-compose.sh --env-file .env.staging.example --compose-file docker-compose.release.yml config > staging-release-compose-config.txt
+          grep -q "image: ghcr.io/example-org/oaiss-chain-backend:replace_with_staging_release_tag" staging-release-compose-config.txt
+          grep -q "image: ghcr.io/example-org/oaiss-chain-frontend:replace_with_staging_release_tag" staging-release-compose-config.txt
+          grep -q "image: ghcr.io/example-org/oaiss-chain-ml-service:replace_with_staging_release_tag" staging-release-compose-config.txt
+          grep -q "SPRING_PROFILES_ACTIVE: staging" staging-release-compose-config.txt
+
+      - name: Run backend security and contract tests
+        run: |
+          cd oaiss-chain-backend
+          mvn -q "-Dtest=SecurityStartupValidatorTest,CorsAllowedOriginsConfigTest,ProductionDataPolicyValidatorTest,MlServiceConfigTest,ProductionProfileContractTest" test
+
+      - name: Run ML security tests
+        run: |
+          python -m unittest oaiss-chain-ml-service.tests.test_security
 
       - name: Build backend
         run: |
@@ -148,6 +209,19 @@ jobs:
         with:
           name: playwright-report
           path: oaiss-chain-frontend/playwright-report/
+          retention-days: 7
+
+      - name: Upload production validation artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-validation
+          path: |
+            prod-env-validation.txt
+            staging-env-validation.txt
+            prod-compose-config.txt
+            release-compose-config.txt
+            staging-release-compose-config.txt
           retention-days: 7
 
       - name: Stop backend

@@ -13,7 +13,20 @@ info() { echo -e "${YELLOW}[..]${NC} $1"; }
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DB_PORT=3306 source "$SCRIPT_DIR/db-config.sh"
 
-API="http://localhost:8080/api/v1"
+detect_api_base() {
+  if [[ -n "${API:-}" ]]; then
+    echo "$API"
+    return
+  fi
+
+  if grep -qi microsoft /proc/version 2>/dev/null; then
+    echo "http://host.docker.internal:8080/api/v1"
+  else
+    echo "http://localhost:8080/api/v1"
+  fi
+}
+
+API="$(detect_api_base)"
 API_PASSWORD="${API_PASSWORD:-admin123}"
 
 TOTAL=0
@@ -31,7 +44,7 @@ extract_field() {
 
 # --- Verify backend is up ---
 info "Checking backend availability..."
-curl -sf "$API/auth/login" -o /dev/null -X POST -H "Content-Type: application/json" -d "{\"username\":\"admin\",\"password\":\"$API_PASSWORD\"}" || { fail "Backend not running. Start it first: cd oaiss-chain-backend && mvn spring-boot:run"; exit 1; }
+curl -sf "$API/auth/login" -o /dev/null -X POST -H "Content-Type: application/json" -d "{\"username\":\"admin\",\"password\":\"$API_PASSWORD\"}" || { fail "Backend not running. Start it first with './scripts/start-backend.sh' or 'scripts\\start-backend.bat'."; exit 1; }
 ok "Backend is reachable"
 
 # --- Login helper ---
@@ -71,8 +84,8 @@ ok "admin logged in"
 
 # --- Reset carbon coin balances to seed values ---
 info "Resetting carbon coin balances to seed values..."
-mysql $MYSQL_CONN -e \
-  "UPDATE carbon_coin_account SET balance=10000 WHERE user_id IN (2,3)" 2>/dev/null || true
+exec_mysql_query \
+  "UPDATE carbon_coin_account SET balance=10000, total_recharged=10000, total_spent=0 WHERE user_id IN (2,3)" 2>/dev/null || true
 ok "Carbon coin balances reset"
 
 # --- COIN-01: View carbon coin balance ---

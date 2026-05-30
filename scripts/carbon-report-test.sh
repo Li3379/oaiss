@@ -14,26 +14,31 @@ ok()   { echo -e "${GREEN}[OK]${NC} $1"; }
 fail() { echo -e "${RED}[FAIL]${NC} $1"; }
 info() { echo -e "${YELLOW}[..]${NC} $1"; }
 
-API="http://localhost:8080/api/v1"
+detect_api_base() {
+    if [[ -n "${API:-}" ]]; then
+        echo "$API"
+        return
+    fi
+
+    if grep -qi microsoft /proc/version 2>/dev/null; then
+        echo "http://host.docker.internal:8080/api/v1"
+    else
+        echo "http://localhost:8080/api/v1"
+    fi
+}
+
+API="$(detect_api_base)"
 CURL_OPTS="--connect-timeout 5 --max-time 15"
 TIMESTAMP=$(date +%s)
 
 # --- Cleanup test data before running ---
 cleanup_test_data() {
     info "Cleaning up existing test data..."
-    if docker ps --format '{{.Names}}' | grep -q "^${MYSQL_CONTAINER}$"; then
-        docker exec -e MYSQL_PWD="$DB_PASSWORD" "$MYSQL_CONTAINER" mysql -u"$DB_USERNAME" "$DB_NAME" -e "
-            DELETE FROM emission_rating WHERE remark LIKE 'CARB-TEST-%';
-            DELETE FROM credit_event WHERE event_type LIKE 'CARB-TEST-%';
-            DELETE FROM carbon_report WHERE title LIKE 'CARB-TEST-%';
-        " 2>/dev/null || true
-    else
-        mysql $MYSQL_CONN "$DB_NAME" -e "
-            DELETE FROM emission_rating WHERE remark LIKE 'CARB-TEST-%';
-            DELETE FROM credit_event WHERE event_type LIKE 'CARB-TEST-%';
-            DELETE FROM carbon_report WHERE title LIKE 'CARB-TEST-%';
-        " 2>/dev/null || true
-    fi
+    exec_mysql_query "
+        DELETE FROM emission_rating WHERE remark LIKE 'CARB-TEST-%';
+        DELETE FROM credit_event WHERE event_type LIKE 'CARB-TEST-%';
+        DELETE FROM carbon_report WHERE title LIKE 'CARB-TEST-%';
+    " 2>/dev/null || true
     ok "Test data cleanup complete"
 }
 
@@ -54,7 +59,7 @@ extract_field() {
 
 # --- Verify backend is up ---
 info "Checking backend availability..."
-curl -sf $CURL_OPTS "$API/auth/login" -H "Content-Type: application/json" -d '{"username":"admin","password":"admin123"}' -o /dev/null || { fail "Backend not running. Start it first: cd oaiss-chain-backend && mvn spring-boot:run"; exit 1; }
+curl -sf $CURL_OPTS "$API/auth/login" -H "Content-Type: application/json" -d '{"username":"admin","password":"admin123"}' -o /dev/null || { fail "Backend not running. Start it first with './scripts/start-backend.sh' or 'scripts\\start-backend.bat'."; exit 1; }
 ok "Backend is reachable"
 
 # --- Login helpers ---
@@ -88,6 +93,10 @@ info "Logging in as enterprise002..."
 TOKEN_E2=$(login "enterprise002") || { fail "Cannot proceed without enterprise002 token"; exit 1; }
 ok "enterprise002 logged in"
 
+info "Logging in as admin..."
+TOKEN_ADMIN=$(login "admin") || { fail "Cannot proceed without admin token"; exit 1; }
+ok "admin logged in"
+
 # --- Step 1: [CARB-01] File upload (best-effort) ---
 info "[CARB-01] Uploading test file..."
 UPLOAD_FILE=$(mktemp)
@@ -117,14 +126,14 @@ EMISSION_ESCAPED=$(echo "$EMISSION_DATA" | sed 's/"/\\"/g')
 
 ATTACHMENTS="null"
 if [[ -n "$OBJECT_NAME" ]]; then
-  ATTACHMENTS="[\"$OBJECT_NAME\"]"
+  ATTACHMENTS="$OBJECT_NAME"
 fi
 
 # Create report1 (enterprise001, will be approved in Plan 02-02)
 REPORT1_RESP=$(curl -s $CURL_OPTS -X POST "$API/carbon/reports" \
   -H "Authorization: Bearer $TOKEN_E1" \
   -H "Content-Type: application/json" \
-  -d "{\"title\":\"CARB-TEST-APPROVE-$TIMESTAMP\",\"accountingPeriod\":\"2024-Q1\",\"reportType\":1,\"emissionData\":\"${EMISSION_ESCAPED}\",\"calculationMethod\":\"manual\",\"attachments\":$ATTACHMENTS}")
+  -d "{\"title\":\"CARB-TEST-APPROVE-$TIMESTAMP\",\"accountingPeriod\":\"2024-Q1\",\"reportType\":1,\"emissionData\":\"${EMISSION_ESCAPED}\",\"calculationMethod\":\"manual\",\"attachments\":\"${ATTACHMENTS}\"}")
 
 REPORT1_CODE=$(extract_field "$REPORT1_RESP" "code")
 TOTAL=$((TOTAL + 1))
@@ -176,7 +185,7 @@ fi
 
 # --- Step 3: [CARB-02] List my-reports for enterprise001 ---
 info "[CARB-02] Listing enterprise001 reports..."
-LIST_RESP=$(curl -s $CURL_OPTS "$API/carbon/my-reports?pageNum=1&pageSize=20" \
+LIST_RESP=$(curl -s $CURL_OPTS "$API/carbon/my-reports?page=1&size=20" \
   -H "Authorization: Bearer $TOKEN_E1")
 
 LIST_CODE=$(extract_field "$LIST_RESP" "code")
@@ -282,7 +291,7 @@ ok "reviewer001 logged in"
 
 # --- Step 7: [CARB-05] Reviewer views SUBMITTED reports ---
 info "[CARB-05] Reviewer listing SUBMITTED reports (status=1)..."
-REVIEW_LIST_RESP=$(curl -s $CURL_OPTS "$API/carbon/reports?status=1&page=1&size=20" \
+REVIEW_LIST_RESP=$(curl -s $CURL_OPTS "$API/reviewer/reports/pending?page=1&size=20" \
   -H "Authorization: Bearer $TOKEN_R")
 
 REVIEW_LIST_CODE=$(extract_field "$REVIEW_LIST_RESP" "code")
@@ -311,10 +320,10 @@ if [[ -z "${REPORT1_ID:-}" ]]; then
   fail "CARB-06: Cannot approve report1: no ID"
   FAILED=$((FAILED + 1))
 else
-  APPROVE_RESP=$(curl -s $CURL_OPTS -X POST "$API/carbon/review" \
-    -H "Authorization: Bearer $TOKEN_R" \
-    -H "Content-Type: application/json" \
-    -d "{\"reportId\":$REPORT1_ID,\"reviewResult\":3,\"reviewComment\":\"Approved for testing\"}")
+    APPROVE_RESP=$(curl -s $CURL_OPTS -X POST "$API/carbon/review" \
+      -H "Authorization: Bearer $TOKEN_R" \
+      -H "Content-Type: application/json" \
+      -d "{\"reportId\":$REPORT1_ID,\"reviewResult\":3,\"reviewComment\":\"Approved for testing\"}")
 
   APPROVE_CODE=$(extract_field "$APPROVE_RESP" "code")
   if [[ "$APPROVE_CODE" != "200" ]]; then
@@ -323,14 +332,12 @@ else
     FAILED=$((FAILED + 1))
   else
     APPROVE_STATUS=$(extract_field "$APPROVE_RESP" "status")
-    APPROVE_TXHASH=$(echo "$APPROVE_RESP" | grep -o '"blockchainTxHash":"[^"]*"' | head -1 | cut -d'"' -f4)
-    APPROVE_ONCHAIN=$(extract_field "$APPROVE_RESP" "onChainAt")
 
-    if [[ "$APPROVE_STATUS" == "5" && "$APPROVE_TXHASH" == tx_mock_* && -n "$APPROVE_ONCHAIN" ]]; then
-      ok "CARB-06: Report1 approved -> ON_CHAIN: status=$APPROVE_STATUS txHash=$APPROVE_TXHASH onChainAt=$APPROVE_ONCHAIN"
+    if [[ "$APPROVE_STATUS" == "3" ]]; then
+      ok "CARB-06: Report1 approved: status=$APPROVE_STATUS"
       PASSED=$((PASSED + 1))
     else
-      fail "CARB-06: Approval result mismatch: status=$APPROVE_STATUS (expected 5) txHash=$APPROVE_TXHASH onChainAt=$APPROVE_ONCHAIN"
+      fail "CARB-06: Approval result mismatch: status=$APPROVE_STATUS (expected 3)"
       FAILED=$((FAILED + 1))
     fi
   fi
@@ -367,15 +374,26 @@ else
   fi
 fi
 
-# --- Step 10: [CARB-08/09/10] Verify side effects via report detail ---
-info "[CARB-08/09/10] Verifying side effects on report1..."
+# --- Step 10: [CARB-08/09/10] Admin certifies approved report and verifies side effects ---
+info "[CARB-08/09/10] Admin certifying approved report1 and verifying side effects..."
 TOTAL=$((TOTAL + 1))
 if [[ -z "${REPORT1_ID:-}" ]]; then
   fail "CARB-08/09/10: Cannot verify side effects: no report1 ID"
   FAILED=$((FAILED + 1))
 else
+  CERTIFY_RESP=$(curl -s $CURL_OPTS -X POST "$API/carbon/certify" \
+    -H "Authorization: Bearer $TOKEN_ADMIN" \
+    -H "Content-Type: application/json" \
+    -d "{\"reportId\":$REPORT1_ID,\"reviewResult\":5,\"reviewComment\":\"Certified for chain\"}")
+
+  CERTIFY_CODE=$(extract_field "$CERTIFY_RESP" "code")
+  if [[ "$CERTIFY_CODE" != "200" ]]; then
+    fail "CARB-08/09/10: Certify report1 failed (code=$CERTIFY_CODE)"
+    echo "$CERTIFY_RESP" >&2
+    FAILED=$((FAILED + 1))
+  else
   VERIFY_RESP=$(curl -s $CURL_OPTS "$API/carbon/reports/$REPORT1_ID" \
-    -H "Authorization: Bearer $TOKEN_R")
+    -H "Authorization: Bearer $TOKEN_ADMIN")
 
   VERIFY_CODE=$(extract_field "$VERIFY_RESP" "code")
   if [[ "$VERIFY_CODE" != "200" ]]; then
@@ -386,13 +404,21 @@ else
     VERIFY_TXHASH=$(echo "$VERIFY_RESP" | grep -o '"blockchainTxHash":"[^"]*"' | head -1 | cut -d'"' -f4)
     VERIFY_ONCHAIN=$(extract_field "$VERIFY_RESP" "onChainAt")
 
-    if [[ "$VERIFY_STATUS" == "5" && "$VERIFY_TXHASH" == tx_mock_* && -n "$VERIFY_ONCHAIN" ]]; then
+    TXHASH_VALID=0
+    if [[ "$VERIFY_TXHASH" == tx_mock_* ]]; then
+      TXHASH_VALID=1
+    elif [[ "$VERIFY_TXHASH" =~ ^[0-9a-fA-F]{64}$ ]]; then
+      TXHASH_VALID=1
+    fi
+
+    if [[ "$VERIFY_STATUS" == "5" && "$TXHASH_VALID" -eq 1 && -n "$VERIFY_ONCHAIN" ]]; then
       ok "CARB-08/09/10: Side effects verified: status=$VERIFY_STATUS txHash=$VERIFY_TXHASH onChainAt=present"
       PASSED=$((PASSED + 1))
     else
       fail "CARB-08/09/10: Side effect verification failed: status=$VERIFY_STATUS txHash=$VERIFY_TXHASH onChainAt=$VERIFY_ONCHAIN"
       FAILED=$((FAILED + 1))
     fi
+  fi
   fi
 fi
 
@@ -469,7 +495,7 @@ if [[ -z "${REPORT3_ID:-}" ]]; then
   fail "CARB-13b: Cannot test data isolation: no report3 ID"
   FAILED=$((FAILED + 1))
 else
-  ISO_E1_RESP=$(curl -s $CURL_OPTS "$API/carbon/my-reports?pageNum=1&pageSize=20" \
+  ISO_E1_RESP=$(curl -s $CURL_OPTS "$API/carbon/my-reports?page=1&size=20" \
     -H "Authorization: Bearer $TOKEN_E1")
 
   ISO_E1_CODE=$(extract_field "$ISO_E1_RESP" "code")
@@ -491,7 +517,7 @@ if [[ -z "${REPORT3_ID:-}" ]]; then
   fail "CARB-13c: Cannot test data isolation E2: no report3 ID"
   FAILED=$((FAILED + 1))
 else
-  ISO_E2_RESP=$(curl -s $CURL_OPTS "$API/carbon/my-reports?pageNum=1&pageSize=20" \
+  ISO_E2_RESP=$(curl -s $CURL_OPTS "$API/carbon/my-reports?page=1&size=20" \
     -H "Authorization: Bearer $TOKEN_E2")
 
   ISO_E2_CODE=$(extract_field "$ISO_E2_RESP" "code")

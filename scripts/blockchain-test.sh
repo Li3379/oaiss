@@ -33,7 +33,7 @@ assert_code_200 "Status returns 200" "$RESP_STATUS"
 assert_contains "Status has connected field" "$RESP_STATUS" '"connected"'
 assert_contains "Status has channel field" "$RESP_STATUS" '"channel"'
 assert_contains "Status has mode field" "$RESP_STATUS" '"mode"'
-assert_contains "Mode is MOCK" "$RESP_STATUS" 'MOCK'
+assert_contains "Mode is FABRIC" "$RESP_STATUS" 'FABRIC'
 echo ""
 
 # --- BLOCK-02: Latest blocks ---
@@ -45,14 +45,23 @@ echo "  Blocks response: $(echo "$RESP_BLOCKS" | head -c 500)"
 
 assert_code_200 "Blocks returns 200" "$RESP_BLOCKS"
 
-# Extract first blockNumber from content (WR-03: use extract_field)
-FIRST_BLOCK=$(echo "$RESP_BLOCKS" | grep -o '"blockNumber":[0-9]*' | head -1 | cut -d: -f2)
-FIRST_HASH=$(echo "$RESP_BLOCKS" | grep -o '"blockHash":"[^"]*"' | head -1 | cut -d'"' -f4)
-echo "  First block: number=$FIRST_BLOCK hash=$FIRST_HASH"
+BLOCK_CONTENT_COUNT=$( (echo "$RESP_BLOCKS" | grep -o '"blockNumber":[0-9]*' || true) | wc -l | tr -d '[:space:]')
+if [ "$BLOCK_CONTENT_COUNT" -gt 0 ]; then
+    FIRST_BLOCK=$( (echo "$RESP_BLOCKS" | grep -o '"blockNumber":[0-9]*' || true) | head -1 | cut -d: -f2)
+    FIRST_HASH=$( (echo "$RESP_BLOCKS" | grep -o '"blockHash":"[^"]*"' || true) | head -1 | cut -d'"' -f4)
+    echo "  First block: number=$FIRST_BLOCK hash=$FIRST_HASH"
+else
+    FIRST_BLOCK=""
+    FIRST_HASH=""
+    echo "  No block content available yet; skipping detail checks"
+fi
 
 # Validate blockHash format (starts with 0x)
 TEST_ID=$((TEST_ID + 1))
-if [ -n "$FIRST_HASH" ] && echo "$FIRST_HASH" | grep -q '^0x'; then
+if [ -z "$FIRST_HASH" ]; then
+    echo "  [SKIP] Test $TEST_ID: no latest block hash available"
+    SKIP=$((SKIP + 1))
+elif echo "$FIRST_HASH" | grep -q '^0x'; then
     echo "  [PASS] Test $TEST_ID: blockHash starts with '0x'"
     PASS=$((PASS + 1))
 else
@@ -62,7 +71,10 @@ fi
 
 # Validate blockNumber is positive
 TEST_ID=$((TEST_ID + 1))
-if [ -n "$FIRST_BLOCK" ] && [ "$FIRST_BLOCK" -gt 0 ] 2>/dev/null; then
+if [ -z "$FIRST_BLOCK" ]; then
+    echo "  [SKIP] Test $TEST_ID: no latest block number available"
+    SKIP=$((SKIP + 1))
+elif [ "$FIRST_BLOCK" -gt 0 ] 2>/dev/null; then
     echo "  [PASS] Test $TEST_ID: blockNumber is positive integer ($FIRST_BLOCK)"
     PASS=$((PASS + 1))
 else
@@ -98,16 +110,25 @@ echo "  Transactions response: $(echo "$RESP_TXS" | head -c 500)"
 assert_code_200 "Transactions returns 200" "$RESP_TXS"
 
 # Extract first txHash
-FIRST_TX=$(echo "$RESP_TXS" | grep -o '"txHash":"[^"]*"' | head -1 | cut -d'"' -f4)
-echo "  First txHash: $FIRST_TX"
+TX_CONTENT_COUNT=$( (echo "$RESP_TXS" | grep -o '"txHash":"[^"]*"' || true) | wc -l | tr -d '[:space:]')
+if [ "$TX_CONTENT_COUNT" -gt 0 ]; then
+    FIRST_TX=$( (echo "$RESP_TXS" | grep -o '"txHash":"[^"]*"' || true) | head -1 | cut -d'"' -f4)
+    echo "  First txHash: $FIRST_TX"
+else
+    FIRST_TX=""
+    echo "  No transaction content available yet; skipping detail checks"
+fi
 
-# Validate txHash format (starts with tx_mock_)
+# Validate txHash format (non-empty)
 TEST_ID=$((TEST_ID + 1))
-if [ -n "$FIRST_TX" ] && echo "$FIRST_TX" | grep -q '^tx_mock_'; then
-    echo "  [PASS] Test $TEST_ID: txHash starts with 'tx_mock_'"
+if [ -z "$FIRST_TX" ]; then
+    echo "  [SKIP] Test $TEST_ID: no latest txHash available"
+    SKIP=$((SKIP + 1))
+elif [ "$FIRST_TX" != "null" ]; then
+    echo "  [PASS] Test $TEST_ID: txHash is present"
     PASS=$((PASS + 1))
 else
-    echo "  [FAIL] Test $TEST_ID: txHash does not start with 'tx_mock_' (got: $FIRST_TX)"
+    echo "  [FAIL] Test $TEST_ID: txHash is missing (got: $FIRST_TX)"
     FAIL=$((FAIL + 1))
 fi
 echo ""

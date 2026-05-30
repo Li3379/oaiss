@@ -120,13 +120,13 @@ echo ""
 # --- MinIO console check (IN-02: renumbered from 8.5 to 9) ---
 echo "[9/10] MinIO console accessibility..."
 
-MINIO_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:9001 2>/dev/null || echo "000")
+MINIO_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:9003 2>/dev/null || echo "000")
 TEST_ID=$((TEST_ID + 1))
 if [ "$MINIO_CODE" = "200" ] || [ "$MINIO_CODE" = "302" ]; then
-    echo "  [PASS] Test $TEST_ID: MinIO console at localhost:9001 (HTTP $MINIO_CODE)"
+    echo "  [PASS] Test $TEST_ID: MinIO console at localhost:9003 (HTTP $MINIO_CODE)"
     PASS=$((PASS + 1))
 else
-    echo "  [FAIL] Test $TEST_ID: MinIO console at localhost:9001 (HTTP $MINIO_CODE)"
+    echo "  [FAIL] Test $TEST_ID: MinIO console at localhost:9003 (HTTP $MINIO_CODE)"
     FAIL=$((FAIL + 1))
 fi
 echo ""

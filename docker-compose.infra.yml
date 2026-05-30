@@ -8,7 +8,7 @@ services:
       MYSQL_CHARSET: utf8mb4
       MYSQL_COLLATION: utf8mb4_unicode_ci
     ports:
-      - "127.0.0.1:3307:3306"
+      - "127.0.0.1:3306:3306"
     volumes:
       - mysql-data:/var/lib/mysql
     healthcheck:
@@ -16,6 +16,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - oaiss-network
 
   redis:
     image: redis:7-alpine
@@ -30,6 +32,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - oaiss-network
 
   minio:
     image: minio/minio:RELEASE.2025-04-22T22-12-26Z
@@ -39,10 +43,38 @@ services:
       MINIO_ROOT_USER: ${MINIO_ACCESS_KEY}
       MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY}
     ports:
-      - "127.0.0.1:9000:9000"
-      - "127.0.0.1:9001:9001"
+      - "127.0.0.1:9002:9000"
+      - "127.0.0.1:9003:9001"
     volumes:
       - minio-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - oaiss-network
+
+  ml-service:
+    build:
+      context: ./oaiss-chain-ml-service
+      dockerfile: Dockerfile
+    container_name: oaiss-ml-service
+    ports:
+      - "127.0.0.1:8001:8001"
+    environment:
+      - MODEL_DIR=/app/models
+      - LOG_LEVEL=INFO
+    volumes:
+      - ./oaiss-chain-ml-service/app/models:/app/models:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    networks:
+      - oaiss-network
 
 volumes:
   mysql-data:
@@ -50,5 +82,5 @@ volumes:
   minio-data:
 
 networks:
-  default:
+  oaiss-network:
     name: oaiss-network

@@ -64,9 +64,9 @@ fi
 echo ""
 echo "步骤3: 重启Docker MySQL..."
 # 停止并删除现有容器
-docker-compose -f docker-compose.infra.yml down
+docker compose -f docker-compose.infra.yml down
 # 重新启动（使用3306端口）
-docker-compose -f docker-compose.infra.yml up -d mysql
+docker compose -f docker-compose.infra.yml up -d mysql
 
 # 等待MySQL就绪
 echo "等待MySQL启动..."

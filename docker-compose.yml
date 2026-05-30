@@ -43,6 +43,11 @@ services:
       - "127.0.0.1:9003:9001"
     volumes:
       - minio-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   backend:
     build:
@@ -51,7 +56,7 @@ services:
     container_name: oaiss-backend
     restart: unless-stopped
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
     environment:
       SPRING_PROFILES_ACTIVE: docker
       DB_HOST: mysql
@@ -64,14 +69,17 @@ services:
       MINIO_ENDPOINT: http://minio:9000
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
-      CORS_ALLOWED_ORIGINS: http://localhost:5173,http://127.0.0.1:5173,http://localhost:80
+      ML_SERVICE_URL: http://ml-service:8001
+      ML_SERVICE_SECRET: ${ML_SERVICE_SECRET:-}
+      RSA_KEK: ${RSA_KEK:-}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173,http://localhost:80}
     depends_on:
       mysql:
         condition: service_healthy
       redis:
         condition: service_healthy
       minio:
-        condition: service_started
+        condition: service_healthy
 
   frontend:
     build:
@@ -80,9 +88,16 @@ services:
     container_name: oaiss-frontend
     restart: unless-stopped
     ports:
-      - "5173:80"
+      - "127.0.0.1:5173:80"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
 
   ml-service:
     build:
@@ -90,10 +105,11 @@ services:
       dockerfile: Dockerfile
     container_name: oaiss-ml-service
     ports:
-      - "8001:8001"
+      - "127.0.0.1:8001:8001"
     environment:
       - MODEL_DIR=/app/models
       - LOG_LEVEL=INFO
+      - ML_SERVICE_SECRET=${ML_SERVICE_SECRET:-}
     volumes:
       - ./oaiss-chain-ml-service/app/models:/app/models:ro
     healthcheck:
@@ -101,6 +117,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 15s
 
 volumes:
   mysql-data:

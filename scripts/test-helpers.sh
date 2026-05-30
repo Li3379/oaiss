@@ -10,7 +10,21 @@
 set -euo pipefail
 
 # --- Configuration (overridable via environment) ---
-BASE_URL="${BASE_URL:-http://localhost:8080/api/v1}"
+detect_base_url() {
+    if [ -n "${BASE_URL:-}" ]; then
+        echo "$BASE_URL"
+        return
+    fi
+
+    local default_url="http://localhost:8080/api/v1"
+    if grep -qi microsoft /proc/version 2>/dev/null; then
+        echo "http://host.docker.internal:8080/api/v1"
+    else
+        echo "$default_url"
+    fi
+}
+
+BASE_URL="$(detect_base_url)"
 TEST_PASSWORD="${TEST_PASSWORD:-admin123}"
 DB_USER="${DB_USER:-root}"
 DB_PASS="${DB_PASS:-123456}"
@@ -38,7 +52,14 @@ extract_field() {
     if command -v jq >/dev/null 2>&1; then
         echo "$json" | jq -r ".$field // empty" 2>/dev/null
     else
-        echo "$json" | grep -o "\"$field\":\"[^\"]*\"" | head -1 | cut -d'"' -f4
+        if [[ "$field" == *.* ]]; then
+            local parent_field child_field
+            parent_field="${field%%.*}"
+            child_field="${field#*.}"
+            echo "$json" | grep -o "\"$parent_field\":{[^}]*\"$child_field\":\"[^\"]*\"" | head -1 | sed -E "s/.*\"$child_field\":\"([^\"]*)\".*/\1/"
+        else
+            echo "$json" | grep -o "\"$field\":\"[^\"]*\"" | head -1 | cut -d'"' -f4
+        fi
     fi
 }
 
@@ -53,7 +74,7 @@ login_user() {
 extract_token() {
     local resp="$1" username="$2"
     local token
-    token=$(extract_field "$resp" "accessToken")
+    token=$(extract_field "$resp" "data.accessToken")
     if [ -z "$token" ]; then
         echo "  [FATAL] Login failed for $username. Response: $(echo "$resp" | head -c 300)"
         exit 1

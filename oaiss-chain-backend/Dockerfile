@@ -20,6 +20,9 @@ RUN mvn clean package -DskipTests
 FROM eclipse-temurin:17-jre
 WORKDIR /app
 
+# 安装 curl（HEALTHCHECK 需要）
+RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
+
 # 创建非root用户
 RUN groupadd -r oaiss && useradd -r -g oaiss oaiss
 
@@ -34,6 +37,10 @@ USER oaiss
 
 # 暴露端口
 EXPOSE 8080
+
+# 健康检查
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=5 \
+  CMD curl -sf http://localhost:8080/api/v1/actuator/health || exit 1
 
 # JVM参数
 ENV JAVA_OPTS="-Xms512m -Xmx1024m -XX:+UseG1GC"

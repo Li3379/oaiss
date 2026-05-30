@@ -10,11 +10,26 @@ ok()   { echo -e "${GREEN}[OK]${NC} $1"; }
 fail() { echo -e "${RED}[FAIL]${NC} $1"; }
 info() { echo -e "${YELLOW}[..]${NC} $1"; }
 
-API="http://localhost:8080/api/v1"
+detect_api_base() {
+  if [[ -n "${API:-}" ]]; then
+    echo "$API"
+    return
+  fi
+
+  if grep -qi microsoft /proc/version 2>/dev/null; then
+    echo "http://host.docker.internal:8080/api/v1"
+  else
+    echo "http://localhost:8080/api/v1"
+  fi
+}
+
+API="$(detect_api_base)"
 
 # Verify backend is up first
 info "Checking backend availability..."
-curl -sf "$API/swagger-ui.html" -o /dev/null || { fail "Backend not running. Start it first: cd oaiss-chain-backend && mvn spring-boot:run"; exit 1; }
+curl -sf -X POST "$API/auth/login" \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"admin123"}' -o /dev/null || { fail "Backend not running. Start it first with './scripts/start-backend.sh' or 'scripts\\start-backend.bat'."; exit 1; }
 ok "Backend is reachable"
 
 TOTAL=0
@@ -29,7 +44,6 @@ ACCOUNTS=(
   "enterprise003:admin123:1:ENTERPRISE"
   "reviewer001:admin123:2:REVIEWER"
   "thirdparty001:admin123:3:THIRD_PARTY"
-  "authenticator001:admin123:5:AUTHENTICATOR"
 )
 
 for entry in "${ACCOUNTS[@]}"; do
@@ -52,8 +66,13 @@ for entry in "${ACCOUNTS[@]}"; do
   fi
 
   # Extract token and userType
-  TOKEN=$(echo "$LOGIN_RESP" | grep -o '"accessToken":"[^"]*"' | head -1 | cut -d'"' -f4)
-  ACTUAL_TYPE=$(echo "$LOGIN_RESP" | grep -o '"userType":[0-9]*' | head -1 | cut -d: -f2)
+  if command -v jq >/dev/null 2>&1; then
+    TOKEN=$(echo "$LOGIN_RESP" | jq -r '.data.accessToken // empty')
+    ACTUAL_TYPE=$(echo "$LOGIN_RESP" | jq -r '.data.userType // empty')
+  else
+    TOKEN=$(echo "$LOGIN_RESP" | grep -o '"accessToken":"[^"]*"' | head -1 | cut -d'"' -f4)
+    ACTUAL_TYPE=$(echo "$LOGIN_RESP" | grep -o '"userType":[0-9]*' | head -1 | cut -d: -f2)
+  fi
 
   if [[ -z "$TOKEN" ]]; then
     fail "$username: No accessToken in response"

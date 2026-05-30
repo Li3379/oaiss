@@ -1,10 +1,9 @@
 # Docker Compose overlay for Hyperledger Fabric network
-# Usage: docker-compose -f docker-compose.yml -f docker-compose.fabric.yml up
+# Usage: docker compose -f docker-compose.yml -f docker-compose.fabric.yml up
 #
 # This overlay adds Fabric peer, orderer, CouchDB, and CA containers.
 # Crypto materials must be generated first: ./scripts/generate-fabric-crypto.sh
-
-version: '3.8'
+# Ports are bound to 127.0.0.1 only (local access). Remove the prefix for network access.
 
 services:
 
@@ -14,6 +13,14 @@ services:
     image: hyperledger/fabric-orderer:2.5
     environment:
       - FABRIC_LOGGING_SPEC=INFO
+      - HTTP_PROXY=
+      - HTTPS_PROXY=
+      - http_proxy=
+      - https_proxy=
+      - ALL_PROXY=
+      - all_proxy=
+      - NO_PROXY=localhost,127.0.0.1,host.docker.internal,orderer.example.com,peer0.org1.example.com
+      - no_proxy=localhost,127.0.0.1,host.docker.internal,orderer.example.com,peer0.org1.example.com
       - ORDERER_GENERAL_LISTENADDRESS=0.0.0.0
       - ORDERER_GENERAL_LISTENPORT=7050
       - ORDERER_GENERAL_LOCALMSPID=OrdererMSP
@@ -37,8 +44,14 @@ services:
       - ./fabric-config/crypto/organizations/ordererOrganizations/example.com/orderers/orderer.example.com/msp:/var/hyperledger/orderer/msp
       - ./fabric-config/crypto/organizations/ordererOrganizations/example.com/orderers/orderer.example.com/tls:/var/hyperledger/orderer/tls
     ports:
-      - "7050:7050"
-      - "7053:7053"
+      - "127.0.0.1:7050:7050"
+      - "127.0.0.1:7053:7053"
+    healthcheck:
+      test: ["CMD-SHELL", "ls /var/hyperledger/production/orderer/ > /dev/null 2>&1 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     networks:
       - oaiss-network
 
@@ -48,11 +61,21 @@ services:
     image: hyperledger/fabric-peer:2.5
     environment:
       - FABRIC_LOGGING_SPEC=INFO
+      - HTTP_PROXY=
+      - HTTPS_PROXY=
+      - http_proxy=
+      - https_proxy=
+      - ALL_PROXY=
+      - all_proxy=
+      - NO_PROXY=localhost,127.0.0.1,host.docker.internal,orderer.example.com,peer0.org1.example.com
+      - no_proxy=localhost,127.0.0.1,host.docker.internal,orderer.example.com,peer0.org1.example.com
       - CORE_PEER_ID=peer0.org1.example.com
       - CORE_PEER_ADDRESS=peer0.org1.example.com:7051
       - CORE_PEER_LISTENADDRESS=0.0.0.0:7051
       - CORE_PEER_CHAINCODEADDRESS=peer0.org1.example.com:7052
       - CORE_PEER_CHAINCODELISTENADDRESS=0.0.0.0:7052
+      - CORE_VM_DOCKER_HOSTCONFIG_NETWORKMODE=oaiss-network
+      - CORE_VM_DOCKER_ATTACHSTDOUT=true
       - CORE_PEER_GOSSIP_BOOTSTRAP=peer0.org1.example.com:7051
       - CORE_PEER_GOSSIP_EXTERNALENDPOINT=peer0.org1.example.com:7051
       - CORE_PEER_LOCALMSPID=Org1MSP
@@ -61,32 +84,46 @@ services:
       - CORE_PEER_TLS_CERT_FILE=/var/hyperledger/peer/tls/server.crt
       - CORE_PEER_TLS_KEY_FILE=/var/hyperledger/peer/tls/server.key
       - CORE_PEER_TLS_ROOTCERT_FILE=/var/hyperledger/peer/tls/ca.crt
-      - CORE_LEDGER_STATE_STATEDATABASE=CouchDB
-      - CORE_LEDGER_STATE_COUCHDBCONFIG_COUCHDBADDRESS=couchdb0:5984
-      - CORE_LEDGER_STATE_COUCHDBCONFIG_USERNAME=admin
-      - CORE_LEDGER_STATE_COUCHDBCONFIG_PASSWORD=adminpw
+      - CORE_LEDGER_STATE_STATEDATABASE=LevelDB
     working_dir: /root
     command: peer node start
     volumes:
       - fabric-peer0-data:/var/hyperledger/production
       - ./fabric-config/crypto/organizations/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/msp:/var/hyperledger/peer/msp
       - ./fabric-config/crypto/organizations/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls:/var/hyperledger/peer/tls
+      - /var/run/docker.sock:/var/run/docker.sock
     ports:
-      - "7051:7051"
+      - "127.0.0.1:7051:7051"
+    healthcheck:
+      test: ["CMD-SHELL", "peer node status 2>/dev/null || ls /var/hyperledger/production/ledgersData/ > /dev/null 2>&1 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     depends_on:
-      - couchdb0
+      - orderer.example.com
     networks:
       - oaiss-network
 
   # --- CouchDB for Peer0 ---
   couchdb0:
     container_name: couchdb0
-    image: couchdb:3.3
+    image: couchdb:3.3.0
     environment:
-      - COUCHDB_USER=admin
-      - COUCHDB_PASSWORD=adminpw
+      - COUCHDB_USER=${FABRIC_COUCHDB_USER:-admin}
+      - COUCHDB_PASSWORD=${FABRIC_COUCHDB_PASSWORD:-adminpw}
+      - COUCHDB_INI=/opt/couchdb/etc/local.d/docker.ini
     ports:
-      - "5984:5984"
+      - "127.0.0.1:5984:5984"
+    volumes:
+      - couchdb0-data:/opt/couchdb/data
+      - ./fabric-config/couchdb/docker.ini:/opt/couchdb/etc/local.d/docker.ini
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://${FABRIC_COUCHDB_USER:-admin}:${FABRIC_COUCHDB_PASSWORD:-adminpw}@localhost:5984/_up || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     networks:
       - oaiss-network
 
@@ -96,14 +133,28 @@ services:
     image: hyperledger/fabric-ca:1.5.19
     environment:
       - FABRIC_CA_HOME=/var/hyperledger/fabric-ca
+      - HTTP_PROXY=
+      - HTTPS_PROXY=
+      - http_proxy=
+      - https_proxy=
+      - ALL_PROXY=
+      - all_proxy=
+      - NO_PROXY=localhost,127.0.0.1,host.docker.internal,orderer.example.com,peer0.org1.example.com
+      - no_proxy=localhost,127.0.0.1,host.docker.internal,orderer.example.com,peer0.org1.example.com
       - FABRIC_CA_SERVER_CA_NAME=ca-org1
       - FABRIC_CA_SERVER_TLS_ENABLED=true
       - FABRIC_CA_SERVER_PORT=7054
     ports:
-      - "7054:7054"
-    command: sh -c 'fabric-ca-server start -b admin:adminpw -d'
+      - "127.0.0.1:7054:7054"
+    command: sh -c 'fabric-ca-server start -b ${FABRIC_CA_ADMIN_NAME:-admin}:${FABRIC_CA_ADMIN_PASSWORD:-adminpw} -d'
     volumes:
       - fabric-ca-org1-data:/var/hyperledger/fabric-ca
+    healthcheck:
+      test: ["CMD-SHELL", "fabric-ca-client getcainfo -u https://localhost:7054 --tls.certfiles /var/hyperledger/fabric-ca/tls-cert.pem >/dev/null 2>&1 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     networks:
       - oaiss-network
 
@@ -114,6 +165,14 @@ services:
     environment:
       - GOPATH=/opt/gopath
       - FABRIC_LOGGING_SPEC=INFO
+      - HTTP_PROXY=
+      - HTTPS_PROXY=
+      - http_proxy=
+      - https_proxy=
+      - ALL_PROXY=
+      - all_proxy=
+      - NO_PROXY=localhost,127.0.0.1,host.docker.internal,orderer.example.com,peer0.org1.example.com
+      - no_proxy=localhost,127.0.0.1,host.docker.internal,orderer.example.com,peer0.org1.example.com
       - CORE_PEER_ID=cli
       - CORE_PEER_ADDRESS=peer0.org1.example.com:7051
       - CORE_PEER_LOCALMSPID=Org1MSP
@@ -125,10 +184,14 @@ services:
     stdin_open: true
     tty: true
     volumes:
+      - ./fabric-config:/var/hyperledger/config
+      - ./fabric-config/crypto/organizations:/var/hyperledger/organizations
       - ./fabric-config/crypto/organizations/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/msp:/var/hyperledger/peer/msp
       - ./fabric-config/crypto/organizations/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls:/var/hyperledger/peer/tls
+      - ./fabric-config/crypto/organizations/ordererOrganizations/example.com/orderers/orderer.example.com/tls:/var/hyperledger/orderer/tls
       - ./oaiss-chain-chaincode:/opt/gopath/src/github.com/oaiss/chain/chaincode
       - ./scripts:/opt/gopath/src/github.com/oaiss/chain/scripts
+      - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
       - peer0.org1.example.com
       - orderer.example.com
@@ -139,6 +202,7 @@ volumes:
   fabric-orderer-data:
   fabric-peer0-data:
   fabric-ca-org1-data:
+  couchdb0-data:
 
 networks:
   oaiss-network:

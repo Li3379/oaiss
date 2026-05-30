@@ -13,7 +13,20 @@ info() { echo -e "${YELLOW}[..]${NC} $1"; }
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DB_PORT=3306 source "$SCRIPT_DIR/db-config.sh"
 
-API="http://localhost:8080/api/v1"
+detect_api_base() {
+  if [[ -n "${API:-}" ]]; then
+    echo "$API"
+    return
+  fi
+
+  if grep -qi microsoft /proc/version 2>/dev/null; then
+    echo "http://host.docker.internal:8080/api/v1"
+  else
+    echo "http://localhost:8080/api/v1"
+  fi
+}
+
+API="$(detect_api_base)"
 API_PASSWORD="${API_PASSWORD:-admin123}"
 
 TOTAL=0
@@ -31,7 +44,7 @@ extract_field() {
 
 # --- Verify backend is up ---
 info "Checking backend availability..."
-curl -sf "$API/auth/login" -o /dev/null -X POST -H "Content-Type: application/json" -d "{\"username\":\"admin\",\"password\":\"$API_PASSWORD\"}" || { fail "Backend not running. Start it first: cd oaiss-chain-backend && mvn spring-boot:run"; exit 1; }
+curl -sf "$API/auth/login" -o /dev/null -X POST -H "Content-Type: application/json" -d "{\"username\":\"admin\",\"password\":\"$API_PASSWORD\"}" || { fail "Backend not running. Start it first with './scripts/start-backend.sh' or 'scripts\\start-backend.bat'."; exit 1; }
 ok "Backend is reachable"
 
 # --- Login helper ---
@@ -58,12 +71,12 @@ login() {
 
 # --- Reset test data: delete all existing auction orders and matching results ---
 info "Resetting auction test data..."
-mysql $MYSQL_CONN -e \
+exec_mysql_query \
   "DELETE FROM matching_result; DELETE FROM auction_order;" 2>/dev/null || true
 # Reset enterprise quotas to original seed values
-mysql $MYSQL_CONN -e \
+exec_mysql_query \
   "UPDATE enterprise SET carbon_tradable=38000, carbon_quota=50000, carbon_used=12000 WHERE user_id=2;" 2>/dev/null
-mysql $MYSQL_CONN -e \
+exec_mysql_query \
   "UPDATE enterprise SET carbon_tradable=55000, carbon_quota=55000, carbon_used=0 WHERE user_id=3;" 2>/dev/null
 ok "Auction data reset, quotas restored to seed values"
 
@@ -83,12 +96,12 @@ ok "admin logged in"
 # --- Pre-condition: Record enterprise quotas before trading (for TRADE-05) ---
 info "Recording enterprise quotas before trading..."
 
-E1_TRADABLE_BEFORE=$(mysql $MYSQL_CONN -N -e \
+E1_TRADABLE_BEFORE=$(run_mysql_query \
   "SELECT carbon_tradable FROM enterprise WHERE user_id=2" | tr -d '[:space:]' | cut -d. -f1)
-E1_QUOTA_BEFORE=$(mysql $MYSQL_CONN -N -e \
+E1_QUOTA_BEFORE=$(run_mysql_query \
   "SELECT carbon_quota FROM enterprise WHERE user_id=2" | tr -d '[:space:]' | cut -d. -f1)
 
-E2_TRADABLE_BEFORE=$(mysql $MYSQL_CONN -N -e \
+E2_TRADABLE_BEFORE=$(run_mysql_query \
   "SELECT carbon_tradable FROM enterprise WHERE user_id=3" | tr -d '[:space:]' | cut -d. -f1)
 
 info "Before trading:"
@@ -177,12 +190,12 @@ fi
 # --- TRADE-05: Verify settlement -- direct DB quota verification ---
 info "[TRADE-05] Verifying settlement via direct DB query..."
 
-E1_TRADABLE_AFTER=$(mysql $MYSQL_CONN -N -e \
+E1_TRADABLE_AFTER=$(run_mysql_query \
   "SELECT carbon_tradable FROM enterprise WHERE user_id=2" | tr -d '[:space:]' | cut -d. -f1)
-E1_QUOTA_AFTER=$(mysql $MYSQL_CONN -N -e \
+E1_QUOTA_AFTER=$(run_mysql_query \
   "SELECT carbon_quota FROM enterprise WHERE user_id=2" | tr -d '[:space:]' | cut -d. -f1)
 
-E2_TRADABLE_AFTER=$(mysql $MYSQL_CONN -N -e \
+E2_TRADABLE_AFTER=$(run_mysql_query \
   "SELECT carbon_tradable FROM enterprise WHERE user_id=3" | tr -d '[:space:]' | cut -d. -f1)
 
 info "After matching:"

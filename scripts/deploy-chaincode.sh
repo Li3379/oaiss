@@ -1,6 +1,6 @@
 #!/bin/bash
 # Deploy carbon-chaincode to Fabric network
-# Prerequisites: Fabric network running (docker-compose.fabric.yml up)
+# Prerequisites: Fabric network running (docker compose -f docker-compose.fabric.yml up)
 # Crypto materials generated (./scripts/generate-fabric-crypto.sh)
 #
 # Usage: ./scripts/deploy-chaincode.sh [VERSION] [SEQUENCE]
@@ -18,13 +18,38 @@ ORDERER_TLS_CA="/var/hyperledger/orderer/tls/ca.crt"
 PEER_ADDRESS="peer0.org1.example.com:7051"
 PEER_TLS_CA="/var/hyperledger/peer/tls/ca.crt"
 CLI_CONTAINER="fabric-cli"
+ORG_ADMIN_MSP="/var/hyperledger/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp"
 
 echo "=== Deploying ${CC_NAME} v${CC_VERSION} (sequence: ${CC_SEQUENCE}) ==="
 
+if grep -qi microsoft /proc/version 2>/dev/null && command -v docker.exe >/dev/null 2>&1; then
+  DOCKER_BIN="docker.exe"
+elif command -v docker >/dev/null 2>&1; then
+  DOCKER_BIN="docker"
+elif command -v docker.exe >/dev/null 2>&1; then
+  DOCKER_BIN="docker.exe"
+else
+  echo "ERROR: docker or docker.exe not found in PATH"
+  exit 1
+fi
+
+fabric_exec() {
+  "$DOCKER_BIN" exec \
+    -e HTTP_PROXY= \
+    -e HTTPS_PROXY= \
+    -e http_proxy= \
+    -e https_proxy= \
+    -e ALL_PROXY= \
+    -e all_proxy= \
+    -e NO_PROXY=localhost,127.0.0.1,peer0.org1.example.com,orderer.example.com \
+    -e no_proxy=localhost,127.0.0.1,peer0.org1.example.com,orderer.example.com \
+    "$@"
+}
+
 # Step 1: Package chaincode
 echo "1. Packaging chaincode..."
-docker exec -e CORE_PEER_LOCALMSPID=Org1MSP \
-  -e CORE_PEER_MSPCONFIGPATH=/var/hyperledger/peer/msp \
+fabric_exec -e CORE_PEER_LOCALMSPID=Org1MSP \
+  -e CORE_PEER_MSPCONFIGPATH=${ORG_ADMIN_MSP} \
   -e CORE_PEER_ADDRESS=${PEER_ADDRESS} \
   -e CORE_PEER_TLS_ROOTCERT_FILE=${PEER_TLS_CA} \
   ${CLI_CONTAINER} \
@@ -35,8 +60,8 @@ docker exec -e CORE_PEER_LOCALMSPID=Org1MSP \
 
 # Step 2: Install chaincode on peer
 echo "2. Installing chaincode on peer0..."
-docker exec -e CORE_PEER_LOCALMSPID=Org1MSP \
-  -e CORE_PEER_MSPCONFIGPATH=/var/hyperledger/peer/msp \
+fabric_exec -e CORE_PEER_LOCALMSPID=Org1MSP \
+  -e CORE_PEER_MSPCONFIGPATH=${ORG_ADMIN_MSP} \
   -e CORE_PEER_ADDRESS=${PEER_ADDRESS} \
   -e CORE_PEER_TLS_ROOTCERT_FILE=${PEER_TLS_CA} \
   ${CLI_CONTAINER} \
@@ -44,25 +69,26 @@ docker exec -e CORE_PEER_LOCALMSPID=Org1MSP \
 
 # Step 3: Get package ID
 echo "3. Querying installed chaincode..."
-docker exec -e CORE_PEER_LOCALMSPID=Org1MSP \
-  -e CORE_PEER_MSPCONFIGPATH=/var/hyperledger/peer/msp \
+QUERY_INSTALLED_OUTPUT=$(fabric_exec -e CORE_PEER_LOCALMSPID=Org1MSP \
+  -e CORE_PEER_MSPCONFIGPATH=${ORG_ADMIN_MSP} \
   -e CORE_PEER_ADDRESS=${PEER_ADDRESS} \
   -e CORE_PEER_TLS_ROOTCERT_FILE=${PEER_TLS_CA} \
   ${CLI_CONTAINER} \
-  peer lifecycle chaincode queryinstalled >&log.txt
+  peer lifecycle chaincode queryinstalled)
 
-PACKAGE_ID=$(grep -o "${CC_NAME}_${CC_VERSION}:[a-f0-9]*" log.txt | head -1 | awk -F':' '{print $2}')
+PACKAGE_ID=$(printf '%s\n' "$QUERY_INSTALLED_OUTPUT" | grep -o "${CC_NAME}_${CC_VERSION}:[a-f0-9]*" | head -1)
 echo "Package ID: ${PACKAGE_ID}"
 
 if [ -z "${PACKAGE_ID}" ]; then
   echo "ERROR: Could not find package ID. Check queryinstalled output."
+  printf '%s\n' "$QUERY_INSTALLED_OUTPUT"
   exit 1
 fi
 
 # Step 4: Approve chaincode for org
 echo "4. Approving chaincode for Org1..."
-docker exec -e CORE_PEER_LOCALMSPID=Org1MSP \
-  -e CORE_PEER_MSPCONFIGPATH=/var/hyperledger/peer/msp \
+fabric_exec -e CORE_PEER_LOCALMSPID=Org1MSP \
+  -e CORE_PEER_MSPCONFIGPATH=${ORG_ADMIN_MSP} \
   -e CORE_PEER_ADDRESS=${PEER_ADDRESS} \
   -e CORE_PEER_TLS_ROOTCERT_FILE=${PEER_TLS_CA} \
   ${CLI_CONTAINER} \
@@ -78,8 +104,8 @@ docker exec -e CORE_PEER_LOCALMSPID=Org1MSP \
 
 # Step 5: Commit chaincode to channel
 echo "5. Committing chaincode to channel..."
-docker exec -e CORE_PEER_LOCALMSPID=Org1MSP \
-  -e CORE_PEER_MSPCONFIGPATH=/var/hyperledger/peer/msp \
+fabric_exec -e CORE_PEER_LOCALMSPID=Org1MSP \
+  -e CORE_PEER_MSPCONFIGPATH=${ORG_ADMIN_MSP} \
   -e CORE_PEER_ADDRESS=${PEER_ADDRESS} \
   -e CORE_PEER_TLS_ROOTCERT_FILE=${PEER_TLS_CA} \
   ${CLI_CONTAINER} \
@@ -96,8 +122,8 @@ docker exec -e CORE_PEER_LOCALMSPID=Org1MSP \
 
 # Step 6: Verify deployment
 echo "6. Verifying deployment..."
-docker exec -e CORE_PEER_LOCALMSPID=Org1MSP \
-  -e CORE_PEER_MSPCONFIGPATH=/var/hyperledger/peer/msp \
+fabric_exec -e CORE_PEER_LOCALMSPID=Org1MSP \
+  -e CORE_PEER_MSPCONFIGPATH=${ORG_ADMIN_MSP} \
   -e CORE_PEER_ADDRESS=${PEER_ADDRESS} \
   -e CORE_PEER_TLS_ROOTCERT_FILE=${PEER_TLS_CA} \
   ${CLI_CONTAINER} \

@@ -32,12 +32,13 @@ wait_for_backend() {
 
 stop_backend() {
     echo "  Stopping backend..."
-    # Find PID listening on port 8080 and kill it
-    local pid=$(netstat -ano 2>/dev/null | grep ":8080.*LISTEN" | head -1 | awk '{print $NF}')
-    if [ -n "$pid" ] && [ "$pid" != "0" ]; then
-        taskkill //F //PID "$pid" 2>/dev/null || true
+    if [ -x "$SCRIPT_DIR/stop-backend.sh" ]; then
+        "$SCRIPT_DIR/stop-backend.sh" >/dev/null 2>&1 || true
     fi
-    # Also try pkill as fallback
+    if command -v cmd.exe >/dev/null 2>&1; then
+        cmd.exe /c "$WORK_DIR\\scripts\\stop-backend.bat" >/dev/null 2>&1 || true
+    fi
+    # Extra fallback for mixed shells
     pkill -f 'spring-boot:run' 2>/dev/null || true
     sleep 3
     # Verify port 8080 is released
@@ -59,13 +60,15 @@ stop_backend() {
 
 start_backend() {
     echo "  Starting backend..."
-    (cd "$WORK_DIR/oaiss-chain-backend" && mvn spring-boot:run -q -Dspring-boot.run.jvmArguments="-Dfile.encoding=UTF-8") > /dev/null 2>&1 &
+    "$SCRIPT_DIR/start-backend.sh" > /tmp/oaiss-aop-backend.log 2>&1 &
     # Wait for backend to become available (polls login endpoint)
     local attempts=0
     while ! curl -sf http://localhost:8080/api/v1/auth/login -o /dev/null -X POST -H "Content-Type: application/json" -d '{"username":"admin","password":"admin123"}' 2>/dev/null; do
         attempts=$((attempts + 1))
         if [ $attempts -gt 60 ]; then
             echo "  ERROR: Backend did not start within 120s"
+            echo "  Last backend log lines:"
+            tail -20 /tmp/oaiss-aop-backend.log 2>/dev/null || true
             return 1
         fi
         sleep 2

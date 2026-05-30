@@ -28,7 +28,11 @@ warn() { echo -e "${YELLOW}[WARN]${NC} $*"; }
 
 # 停止本地进程
 log "停止本地进程..."
-for pid_file in /tmp/oaiss-backend.pid /tmp/oaiss-ml.pid /tmp/oaiss-frontend.pid; do
+if [[ -x "$PROJECT_ROOT/scripts/stop-backend.sh" ]]; then
+    "$PROJECT_ROOT/scripts/stop-backend.sh" >/dev/null 2>&1 || true
+fi
+
+for pid_file in /tmp/oaiss-ml.pid /tmp/oaiss-frontend.pid; do
     if [[ -f "$pid_file" ]]; then
         pid=$(cat "$pid_file")
         if kill -0 "$pid" 2>/dev/null; then
@@ -50,7 +54,7 @@ if [[ "$WITH_FABRIC" == true ]]; then
 fi
 
 if [[ "$INFRA_ONLY" != true ]]; then
-    # 停止全栈 compose（如果之前用 docker-compose.yml 启动）
+    # 停止全栈 compose（如果之前用 docker compose -f docker-compose.yml 启动）
     log "停止全栈容器（如有）..."
     docker compose -f "$PROJECT_ROOT/docker-compose.yml" down 2>/dev/null || true
 fi
