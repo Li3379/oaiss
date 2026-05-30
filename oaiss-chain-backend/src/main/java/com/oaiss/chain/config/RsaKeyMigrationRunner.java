@@ -31,7 +31,7 @@ public class RsaKeyMigrationRunner {
 
     @EventListener(ApplicationReadyEvent.class)
     public void migratePlaintextKeys() {
-        List<RsaKeyPair> unencryptedKeys = rsaKeyPairRepository.findByEncryptedAndDeletedFalse(0);
+        List<RsaKeyPair> unencryptedKeys = rsaKeyPairRepository.findByEncryptedAndDeletedFalse(false);
 
         if (unencryptedKeys.isEmpty()) {
             log.info("No unencrypted RSA private keys found -- migration skipped");
@@ -65,7 +65,7 @@ public class RsaKeyMigrationRunner {
 
         String encryptedKey = aesGcmEncryptor.encrypt(plaintextKey);
         keyPair.setPrivateKey(encryptedKey);
-        keyPair.setEncrypted(1);
+        keyPair.setEncrypted(true);
         rsaKeyPairRepository.save(keyPair);
     }
 }

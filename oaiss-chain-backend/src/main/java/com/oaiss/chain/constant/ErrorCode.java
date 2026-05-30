@@ -51,12 +51,12 @@ public final class ErrorCode {
 
     /** 操作正在处理中 */
     public static final int OPERATION_IN_PROGRESS = 1009;
-    
-    /** 文件类型不支持 */
-    public static final int FILE_TYPE_NOT_SUPPORTED = 1009;
-    
+
     /** 请求过于频繁 */
     public static final int REQUEST_TOO_FREQUENT = 1010;
+
+    /** 文件类型不支持 */
+    public static final int FILE_TYPE_NOT_SUPPORTED = 1011;
 
     // ==================== 认证授权错误 (2xxx) ====================
     

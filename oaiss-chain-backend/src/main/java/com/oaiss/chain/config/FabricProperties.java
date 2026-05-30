@@ -13,6 +13,7 @@ public class FabricProperties {
     private String channelName = "mychannel";
     private String chaincodeName = "carbon-chaincode";
     private String peerEndpoint = "peer0.org1.example.com:7051";
+    private String peerHostOverride = "peer0.org1.example.com";
     private boolean tlsEnabled = true;
     private String peerTlsCertPath = "classpath:fabric/crypto/peer-tls-ca.crt";
     private String certPath = "classpath:fabric/crypto/user-cert.pem";

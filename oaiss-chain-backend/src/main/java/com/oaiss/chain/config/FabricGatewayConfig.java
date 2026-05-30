@@ -97,6 +97,7 @@ public class FabricGatewayConfig {
                     .build();
 
             return io.grpc.netty.shaded.io.grpc.netty.NettyChannelBuilder.forTarget(props.getPeerEndpoint())
+                    .overrideAuthority(props.getPeerHostOverride())
                     .sslContext(sslContext)
                     .build();
         } else {
