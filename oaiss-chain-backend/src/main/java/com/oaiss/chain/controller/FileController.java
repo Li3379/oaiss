@@ -75,9 +75,12 @@ public class FileController {
             @Parameter(description = "要上传的文件", required = true)
             @RequestPart("file") MultipartFile file,
             @Parameter(description = "存储文件夹，如 reports/, certificates/", example = "reports/")
-            @RequestParam(value = "folder", required = false) String folder) {
-        
-        MinioService.UploadResult result = minioService.uploadFile(file, folder);
+            @RequestParam(value = "folder", required = false) String folder,
+            @Parameter(hidden = true) @AuthenticationPrincipal JwtUserDetails currentUser) {
+
+        MinioService.UploadResult result = currentUser != null
+                ? minioService.uploadFile(file, folder, resolveUserId(currentUser))
+                : minioService.uploadFile(file, folder);
         return ApiResponse.success(result, "文件上传成功");
     }
 
@@ -102,10 +105,13 @@ public class FileController {
             @Parameter(description = "文件列表", required = true)
             @RequestPart("files") List<MultipartFile> files,
             @Parameter(description = "存储文件夹", example = "batch/")
-            @RequestParam(value = "folder", required = false) String folder) {
-        
+            @RequestParam(value = "folder", required = false) String folder,
+            @Parameter(hidden = true) @AuthenticationPrincipal JwtUserDetails currentUser) {
+
         List<MinioService.UploadResult> results = files.stream()
-                .map(file -> minioService.uploadFile(file, folder))
+                .map(file -> currentUser != null
+                        ? minioService.uploadFile(file, folder, resolveUserId(currentUser))
+                        : minioService.uploadFile(file, folder))
                 .toList();
         
         return ApiResponse.success(results, "批量上传成功，共 " + results.size() + " 个文件");
@@ -296,7 +302,7 @@ public class FileController {
         return ApiResponse.success(url);
     }
 
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ENTERPRISE', 'ADMIN')")
     @GetMapping("/list")
     @Operation(
         summary = "列出文件", 
@@ -315,9 +321,13 @@ public class FileController {
             @Parameter(description = "页码（从1开始）", example = "1")
             @RequestParam(value = "page", required = false) Integer page,
             @Parameter(description = "每页大小", example = "20")
-            @RequestParam(value = "size", required = false) Integer size) {
+            @RequestParam(value = "size", required = false) Integer size,
+            @Parameter(hidden = true) @AuthenticationPrincipal JwtUserDetails currentUser) {
 
-        return ApiResponse.success(minioService.listFiles(prefix, page, size));
+        MinioService.FileListResult result = currentUser != null
+                ? minioService.listFiles(prefix, page, size, resolveUserId(currentUser), isAdmin(currentUser))
+                : minioService.listFiles(prefix, page, size);
+        return ApiResponse.success(result);
     }
 
     @PreAuthorize("hasRole('ADMIN')")
@@ -376,10 +386,14 @@ public class FileController {
     }
 
     private Long resolveUserId(JwtUserDetails currentUser) {
-        return currentUser.getUserId();
+        return currentUser != null ? currentUser.getUserId() : null;
     }
 
     private Integer resolveUserType(JwtUserDetails currentUser) {
-        return currentUser.getUserType();
+        return currentUser != null ? currentUser.getUserType() : null;
+    }
+
+    private boolean isAdmin(JwtUserDetails currentUser) {
+        return currentUser == null || (resolveUserType(currentUser) != null && resolveUserType(currentUser) == 4);
     }
 }

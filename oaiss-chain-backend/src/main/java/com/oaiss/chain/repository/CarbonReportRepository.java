@@ -13,19 +13,19 @@ import java.util.Optional;
 
 /**
  * 碳报告数据访问层
- * 
+ *
  * @author OAISS Team
  */
 @Repository
 public interface CarbonReportRepository extends JpaRepository<CarbonReport, Long> {
 
     /**
-     * 根据报告编号查找
+     * 根据报告编号查询
      */
     Optional<CarbonReport> findByReportNo(String reportNo);
 
     /**
-     * 根据企业ID分页查询
+     * 根据企业 ID 查询
      */
     List<CarbonReport> findByEnterpriseIdAndDeletedFalse(Long enterpriseId);
 
@@ -37,18 +37,22 @@ public interface CarbonReportRepository extends JpaRepository<CarbonReport, Long
     Page<CarbonReport> findByStatusAndDeletedFalse(Integer status, Pageable pageable);
 
     /**
-     * 根据审核员ID分页查询
+     * 根据审核员 ID 分页查询
      */
     Page<CarbonReport> findByReviewerIdAndDeletedFalse(Long reviewerId, Pageable pageable);
 
     /**
-     * 根据企业ID和状态查询
+     * 根据审核员 ID 与多个状态分页查询
      */
-    Page<CarbonReport> findByEnterpriseIdAndStatusAndDeletedFalse(
-            Long enterpriseId, Integer status, Pageable pageable);
+    Page<CarbonReport> findByReviewerIdAndStatusInAndDeletedFalse(Long reviewerId, List<Integer> statuses, Pageable pageable);
 
     /**
-     * 查询所有未删除的报告
+     * 根据企业 ID 和状态分页查询
+     */
+    Page<CarbonReport> findByEnterpriseIdAndStatusAndDeletedFalse(Long enterpriseId, Integer status, Pageable pageable);
+
+    /**
+     * 查询全部未删除报告
      */
     Page<CarbonReport> findByDeletedFalse(Pageable pageable);
 
@@ -63,6 +67,18 @@ public interface CarbonReportRepository extends JpaRepository<CarbonReport, Long
             @Param("enterpriseId") Long enterpriseId,
             @Param("status") Integer status,
             @Param("keyword") String keyword,
+            Pageable pageable);
+
+    @Query("SELECT r FROM CarbonReport r WHERE r.deleted = false " +
+            "AND r.enterpriseId = :enterpriseId " +
+            "AND (:status IS NULL OR r.status = :status) " +
+            "AND (:title IS NULL OR r.title LIKE %:title%) " +
+            "AND (:accountingPeriod IS NULL OR r.accountingPeriod LIKE %:accountingPeriod%)")
+    Page<CarbonReport> searchMyReports(
+            @Param("enterpriseId") Long enterpriseId,
+            @Param("status") Integer status,
+            @Param("title") String title,
+            @Param("accountingPeriod") String accountingPeriod,
             Pageable pageable);
 
     /**

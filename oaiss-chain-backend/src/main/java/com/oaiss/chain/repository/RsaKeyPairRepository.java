@@ -73,5 +73,5 @@ public interface RsaKeyPairRepository extends JpaRepository<RsaKeyPair, Long> {
      *
      * @return 未加密的密钥对列表
      */
-    List<RsaKeyPair> findByEncryptedAndDeletedFalse(Integer encrypted);
+    List<RsaKeyPair> findByEncryptedAndDeletedFalse(Boolean encrypted);
 }

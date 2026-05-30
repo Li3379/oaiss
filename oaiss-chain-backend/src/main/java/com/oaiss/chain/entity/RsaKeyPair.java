@@ -1,5 +1,6 @@
 package com.oaiss.chain.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -42,6 +43,7 @@ public class RsaKeyPair extends BaseEntity {
      * 用于签名和解密
      * 注意：此字段敏感，不应在API响应中暴露
      */
+    @JsonIgnore
     @Column(name = "private_key", nullable = false, columnDefinition = "TEXT")
     private String privateKey;
 
@@ -82,7 +84,7 @@ public class RsaKeyPair extends BaseEntity {
      */
     @Column(name = "encrypted", nullable = false)
     @Builder.Default
-    private Integer encrypted = 0;
+    private Boolean encrypted = false;
 
     /**
      * 备注信息

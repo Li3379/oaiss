@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 /**
  * 审核员资质 Repository
@@ -25,4 +26,7 @@ public interface ReviewerQualificationRepository extends JpaRepository<ReviewerQ
     Page<ReviewerQualification> findByDeletedFalse(Pageable pageable);
 
     Page<ReviewerQualification> findByStatusAndDeletedFalse(Integer status, Pageable pageable);
+
+    Optional<ReviewerQualification> findFirstByReviewerIdAndStatusAndDeletedFalseOrderByIssuedDateDescCreatedAtDesc(
+            Long reviewerId, Integer status);
 }

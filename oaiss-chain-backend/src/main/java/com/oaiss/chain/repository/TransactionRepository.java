@@ -75,10 +75,16 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
     @Query("SELECT t FROM Transaction t WHERE t.deleted = false " +
             "AND (t.sellerId = :userId OR t.buyerId = :userId) " +
             "AND (:status IS NULL OR t.status = :status) " +
-            "AND (:tradeType IS NULL OR t.tradeType = :tradeType)")
+            "AND (:tradeType IS NULL OR t.tradeType = :tradeType) " +
+            "AND (:tradeNo IS NULL OR t.tradeNo LIKE CONCAT('%', :tradeNo, '%')) " +
+            "AND (:startTime IS NULL OR t.createdAt >= :startTime) " +
+            "AND (:endTime IS NULL OR t.createdAt <= :endTime)")
     Page<Transaction> findByUserIdRelated(
             @Param("userId") Long userId,
             @Param("tradeType") Integer tradeType,
             @Param("status") Integer status,
+            @Param("tradeNo") String tradeNo,
+            @Param("startTime") java.time.LocalDateTime startTime,
+            @Param("endTime") java.time.LocalDateTime endTime,
             Pageable pageable);
 }

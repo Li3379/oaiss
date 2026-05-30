@@ -235,10 +235,31 @@ public class TradeController {
             @RequestParam(required = false) Integer tradeType,
             @Parameter(description = "交易状态筛选", example = "1")
             @RequestParam(required = false) Integer status,
+            @Parameter(description = "交易编号模糊搜索")
+            @RequestParam(required = false) String tradeNo,
+            @Parameter(description = "开始时间（yyyy-MM-dd HH:mm:ss）")
+            @RequestParam(required = false) String startTime,
+            @Parameter(description = "结束时间（yyyy-MM-dd HH:mm:ss）")
+            @RequestParam(required = false) String endTime,
             @Parameter(description = "页码", example = "1")
             @RequestParam(defaultValue = "1") Integer page,
             @Parameter(description = "每页数量", example = "10")
             @RequestParam(defaultValue = "10") Integer size) {
-        return ApiResponse.success(tradeService.listMyTrades(currentUser, tradeType, status, page, size));
+        java.time.LocalDateTime start = parseDateTime(startTime);
+        java.time.LocalDateTime end = parseDateTime(endTime);
+        return ApiResponse.success(tradeService.listMyTrades(currentUser, tradeType, status, tradeNo, start, end, page, size));
+    }
+
+    private java.time.LocalDateTime parseDateTime(String value) {
+        if (value == null || value.isBlank()) return null;
+        try {
+            return java.time.LocalDateTime.parse(value, java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+        } catch (java.time.format.DateTimeParseException e) {
+            try {
+                return java.time.LocalDate.parse(value).atStartOfDay();
+            } catch (java.time.format.DateTimeParseException ex) {
+                return null;
+            }
+        }
     }
 }

@@ -13,7 +13,6 @@ JPA entity classes mapping to MySQL database tables. All concrete entities exten
 | `User.java` | `user` | Auth | System users. Fields: `username`, `password` (BCrypt, WRITE_ONLY), `phone`, `email`, `realName`, `userType` (1=ENTERPRISE, 2=REVIEWER, 3=THIRD_PARTY, 4=ADMIN), `status`, `allowedIps`, `lastLoginAt`, `lastLoginIp`. |
 | `Enterprise.java` | `enterprise` | Enterprise | Enterprise profile linked to User via `userId`. Fields: `enterpriseName`, `creditCode` (USCC), `address`, `contactPerson`, `contactPhone`, `industry`, `scale`, `carbonQuota`, `carbonUsed`. |
 | `Reviewer.java` | `reviewer` | Review | Reviewer profile linked to User via `userId`. Fields: `qualificationNo`, `level` (1-3), `organization`, `reviewableIndustries` (JSON), `completedReviews`, `status`. |
-| `Authenticator.java` | `authenticator` | Review | Certification authority. Fields: `userId`, `orgName`, `orgCode`, `address`, `contactPerson`, `contactPhone`, `certScope` (JSON), `status`. |
 | `ThirdPartyOrg.java` | `third_party_org` | Supervision | Third-party regulatory org linked to User via `userId`. Fields: `orgName`, `orgCode`, `orgType` (1-4), `supervisionScope` (JSON), `accessLevel` (1-3), `status`. |
 | `CarbonReport.java` | `carbon_report` | Carbon | Carbon emission reports. Fields: `reportNo`, `enterpriseId`, `submitterId`, `accountingPeriod`, `title`, `reportType`, `emissionData` (JSON), `totalEmission`, `scope1/2/3Emission`, `calculationMethod`, `status`, `reviewerId`, `reviewComment`, `signatureData`, `blockchainTxHash`, `attachments`. |
 | `Transaction.java` | `transaction` | Trade | Carbon trade records (auction + P2P + quota allocation). Fields: `tradeNo`, `tradeType` (1=auction, 2=P2P, 3=quota), `sellerId`, `buyerId`, `quantity`, `unitPrice`, `totalAmount`, `reportId`, `status` (0-4), `remark`, `blockchainTxHash`, `completedAt`. |
@@ -39,7 +38,6 @@ JPA entity classes mapping to MySQL database tables. All concrete entities exten
 User (1) ──→ (1) Enterprise       via userId
 User (1) ──→ (1) Reviewer         via userId
 User (1) ──→ (1) ThirdPartyOrg    via userId
-User (1) ──→ (1) Authenticator    via userId
 User (1) ──→ (1) CarbonCoinAccount via userId
 User (1) ──→ (*) RsaKeyPair       via userId
 

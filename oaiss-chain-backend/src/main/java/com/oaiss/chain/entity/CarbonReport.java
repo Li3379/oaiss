@@ -145,4 +145,10 @@ public class CarbonReport extends BaseEntity {
      */
     @Transient
     private String enterpriseName;
+
+    /**
+     * 状态文本（非持久化，用于列表展示）
+     */
+    @Transient
+    private String statusText;
 }

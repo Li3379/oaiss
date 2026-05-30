@@ -9,6 +9,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
+import java.util.Collection;
 
 /**
  * 碳中和项目 Repository
@@ -37,4 +38,8 @@ public interface CarbonNeutralProjectRepository extends JpaRepository<CarbonNeut
     Page<CarbonNeutralProject> findByOwnerIdAndStatusAndDeletedFalse(Long ownerId, Integer status, Pageable pageable);
 
     Page<CarbonNeutralProject> findByVerifierIdAndVerificationStatusAndDeletedFalse(Long verifierId, Integer verificationStatus, Pageable pageable);
+
+    Page<CarbonNeutralProject> findByVerifierIdInAndVerificationStatusAndDeletedFalse(Collection<Long> verifierIds,
+                                                                                      Integer verificationStatus,
+                                                                                      Pageable pageable);
 }

@@ -62,4 +62,10 @@ public class Reviewer extends BaseEntity {
     @Column(name = "status", nullable = false)
     @Builder.Default
     private Integer status = 1;
+
+    /**
+     * 审核员姓名（非持久化，用于前端展示）
+     */
+    @Transient
+    private String name;
 }

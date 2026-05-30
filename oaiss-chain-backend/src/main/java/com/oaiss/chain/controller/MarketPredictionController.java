@@ -1,8 +1,10 @@
 package com.oaiss.chain.controller;
 
 import com.oaiss.chain.annotation.RateLimit;
+import com.oaiss.chain.constant.ErrorCode;
 import com.oaiss.chain.dto.ApiResponse;
 import com.oaiss.chain.dto.MarketForecastResponse;
+import com.oaiss.chain.exception.BusinessException;
 import com.oaiss.chain.service.ml.MarketPredictionService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -13,6 +15,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.Collections;
 
 /**
  * REST controller for carbon market prediction endpoints.
@@ -44,7 +48,8 @@ public class MarketPredictionController {
     public ResponseEntity<ApiResponse<MarketForecastResponse>> predictTrend(
             @RequestParam(defaultValue = "30")
             @Min(1) @Max(MAX_HORIZON_DAYS) Integer horizonDays) {
-        MarketForecastResponse result = marketPredictionService.predictMarketTrend(horizonDays);
+        MarketForecastResponse result = executeForecast(
+                () -> marketPredictionService.predictMarketTrend(horizonDays));
         return ResponseEntity.ok(ApiResponse.success(result));
     }
 
@@ -58,7 +63,8 @@ public class MarketPredictionController {
     public ResponseEntity<ApiResponse<MarketForecastResponse>> predictPrice(
             @RequestParam(defaultValue = "30")
             @Min(1) @Max(MAX_HORIZON_DAYS) Integer horizonDays) {
-        MarketForecastResponse result = marketPredictionService.predictCarbonPrice(horizonDays);
+        MarketForecastResponse result = executeForecast(
+                () -> marketPredictionService.predictCarbonPrice(horizonDays));
         return ResponseEntity.ok(ApiResponse.success(result));
     }
 
@@ -72,7 +78,35 @@ public class MarketPredictionController {
     public ResponseEntity<ApiResponse<MarketForecastResponse>> predictSupplyDemand(
             @RequestParam(defaultValue = "30")
             @Min(1) @Max(MAX_HORIZON_DAYS) Integer horizonDays) {
-        MarketForecastResponse result = marketPredictionService.predictSupplyDemand(horizonDays);
+        MarketForecastResponse result = executeForecast(
+                () -> marketPredictionService.predictSupplyDemand(horizonDays));
         return ResponseEntity.ok(ApiResponse.success(result));
+    }
+
+    private MarketForecastResponse executeForecast(ForecastSupplier supplier) {
+        try {
+            return supplier.get();
+        } catch (BusinessException ex) {
+            if (Integer.valueOf(ErrorCode.INSUFFICIENT_DATA).equals(ex.getCode())) {
+                return emptyForecast();
+            }
+            throw ex;
+        }
+    }
+
+    private MarketForecastResponse emptyForecast() {
+        return MarketForecastResponse.builder()
+                .forecastDates(Collections.emptyList())
+                .forecastPrices(Collections.emptyList())
+                .lowerBound(Collections.emptyList())
+                .upperBound(Collections.emptyList())
+                .trend("insufficient-data")
+                .modelVersion("N/A")
+                .build();
+    }
+
+    @FunctionalInterface
+    private interface ForecastSupplier {
+        MarketForecastResponse get();
     }
 }

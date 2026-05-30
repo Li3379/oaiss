@@ -2,6 +2,8 @@
 # Fabric 区块链 Profile - 激活区块链集成
 # 用法: mvn spring-boot:run -Dspring-boot.run.profiles=local,fabric
 # 或:   SPRING_PROFILES_ACTIVE=local,fabric java -jar app.jar
+# 注意: Spring Boot 3.x 不允许在 profile 文件中使用 spring.profiles.include
+#       如需同时加载其他 profile，请在命令行指定: -Dspring.profiles.active=local,fabric
 
 fabric:
   enabled: true
@@ -11,8 +13,3 @@ fabric:
     endpoint: http://ca.org1.example.com:7054
     admin-name: admin
     admin-password: ${FABRIC_CA_ADMIN_PASSWORD:}
-
-spring:
-  # Fabric profile 激活时，同时启用 docker 数据源配置
-  profiles:
-    include: docker

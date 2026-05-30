@@ -1,9 +1,6 @@
 package com.oaiss.chain.controller;
 
-import com.oaiss.chain.dto.ApiResponse;
-import com.oaiss.chain.dto.CarbonNeutralProjectRequest;
-import com.oaiss.chain.dto.CarbonNeutralProjectResponse;
-import com.oaiss.chain.dto.ProjectVerificationRequest;
+import com.oaiss.chain.dto.*;
 import com.oaiss.chain.security.JwtUserDetails;
 import com.oaiss.chain.service.CarbonNeutralProjectService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -17,8 +14,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.Map;
 
 /**
  * 碳中和项目控制器
@@ -167,10 +162,8 @@ public class CarbonNeutralProjectController {
     public ApiResponse<CarbonNeutralProjectResponse> review(
             @AuthenticationPrincipal JwtUserDetails currentUser,
             @Parameter(description = "项目ID", required = true, example = "1") @PathVariable Long id,
-            @RequestBody Map<String, Object> body) {
-        boolean approved = Boolean.TRUE.equals(body.get("approved"));
-        String comment = (String) body.get("comment");
-        return ApiResponse.success(projectService.reviewProject(currentUser, id, approved, comment));
+            @Valid @RequestBody ProjectReviewRequest request) {
+        return ApiResponse.success(projectService.reviewProject(currentUser, id, request.getApproved(), request.getComment()));
     }
 
     @PostMapping("/{id}/start")
@@ -200,9 +193,8 @@ public class CarbonNeutralProjectController {
     public ApiResponse<CarbonNeutralProjectResponse> submitForVerification(
             @AuthenticationPrincipal JwtUserDetails currentUser,
             @Parameter(description = "项目ID", required = true, example = "1") @PathVariable Long id,
-            @RequestBody Map<String, Long> body) {
-        Long verifierId = body.get("verifierId");
-        return ApiResponse.success(projectService.submitForVerification(currentUser, id, verifierId));
+            @Valid @RequestBody SubmitVerificationRequest request) {
+        return ApiResponse.success(projectService.submitForVerification(currentUser, id, request.getVerifierId()));
     }
 
     @PostMapping("/verify")
@@ -232,9 +224,8 @@ public class CarbonNeutralProjectController {
     public ApiResponse<CarbonNeutralProjectResponse> useCredits(
             @AuthenticationPrincipal JwtUserDetails currentUser,
             @Parameter(description = "项目ID", required = true, example = "1") @PathVariable Long id,
-            @RequestBody Map<String, java.math.BigDecimal> body) {
-        java.math.BigDecimal amount = body.get("amount");
-        return ApiResponse.success(projectService.useCredits(currentUser, id, amount));
+            @Valid @RequestBody UseCreditsRequest request) {
+        return ApiResponse.success(projectService.useCredits(currentUser, id, request.getAmount()));
     }
 
     @PutMapping("/{id}/monitoring")
@@ -248,9 +239,8 @@ public class CarbonNeutralProjectController {
     public ApiResponse<CarbonNeutralProjectResponse> updateMonitoring(
             @AuthenticationPrincipal JwtUserDetails currentUser,
             @Parameter(description = "项目ID", required = true, example = "1") @PathVariable Long id,
-            @RequestBody Map<String, String> body) {
-        String monitoringData = body.get("monitoringData");
-        return ApiResponse.success(projectService.updateMonitoring(currentUser, id, monitoringData));
+            @Valid @RequestBody MonitoringUpdateRequest request) {
+        return ApiResponse.success(projectService.updateMonitoring(currentUser, id, request.getMonitoringData()));
     }
 
     @PostMapping("/{id}/apply-certification")
@@ -265,9 +255,8 @@ public class CarbonNeutralProjectController {
     public ApiResponse<CarbonNeutralProjectResponse> applyForCertification(
             @AuthenticationPrincipal JwtUserDetails currentUser,
             @Parameter(description = "项目ID", required = true, example = "1") @PathVariable Long id,
-            @RequestBody Map<String, String> body) {
-        String certOrg = body.get("certOrg");
-        return ApiResponse.success(projectService.applyForCertification(currentUser, id, certOrg));
+            @Valid @RequestBody ApplyCertificationRequest request) {
+        return ApiResponse.success(projectService.applyForCertification(currentUser, id, request.getCertOrg()));
     }
 
     @PostMapping("/{id}/certify")
@@ -282,9 +271,8 @@ public class CarbonNeutralProjectController {
     @PreAuthorize("hasRole('REVIEWER') or hasRole('ADMIN')")
     public ApiResponse<CarbonNeutralProjectResponse> completeCertification(
             @Parameter(description = "项目ID", required = true, example = "1") @PathVariable Long id,
-            @RequestBody Map<String, String> body) {
-        String certNo = body.get("certNo");
-        return ApiResponse.success(projectService.completeCertification(id, certNo));
+            @Valid @RequestBody CompleteCertificationRequest request) {
+        return ApiResponse.success(projectService.completeCertification(id, request.getCertNo()));
     }
 
     @PostMapping("/{id}/terminate")
@@ -299,9 +287,8 @@ public class CarbonNeutralProjectController {
     public ApiResponse<CarbonNeutralProjectResponse> terminate(
             @AuthenticationPrincipal JwtUserDetails currentUser,
             @Parameter(description = "项目ID", required = true, example = "1") @PathVariable Long id,
-            @RequestBody Map<String, String> body) {
-        String reason = body.get("reason");
-        return ApiResponse.success(projectService.terminateProject(currentUser, id, reason));
+            @Valid @RequestBody TerminateProjectRequest request) {
+        return ApiResponse.success(projectService.terminateProject(currentUser, id, request.getReason()));
     }
 
     @GetMapping("/pending-verification")

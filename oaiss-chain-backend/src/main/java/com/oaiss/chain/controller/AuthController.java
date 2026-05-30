@@ -1,5 +1,6 @@
 package com.oaiss.chain.controller;
 
+import com.oaiss.chain.annotation.RateLimit;
 import com.oaiss.chain.dto.*;
 import com.oaiss.chain.security.JwtUserDetails;
 import com.oaiss.chain.service.AuthService;
@@ -31,6 +32,7 @@ public class AuthController {
     private final AuthService authService;
 
     @PostMapping("/login")
+    @RateLimit(key = "auth:login", limit = 5, period = 60, limitType = RateLimit.LimitType.IP_USER)
     @Operation(
         summary = "用户登录", 
         description = "使用用户名密码进行登录，支持图形验证码校验。登录成功返回JWT令牌。"
@@ -62,6 +64,7 @@ public class AuthController {
     }
 
     @PostMapping("/register")
+    @RateLimit(key = "auth:register", limit = 3, period = 300, limitType = RateLimit.LimitType.IP)
     @Operation(
         summary = "用户注册", 
         description = "注册新用户账号。支持企业用户、审核员、第三方机构、管理员等不同类型用户注册。"
@@ -93,6 +96,7 @@ public class AuthController {
     }
 
     @PostMapping("/captcha")
+    @RateLimit(key = "auth:captcha", limit = 20, period = 60, limitType = RateLimit.LimitType.IP)
     @Operation(
         summary = "获取图形验证码", 
         description = "生成图形验证码，返回验证码图片Base64和验证码Key。验证码有效期5分钟。"
@@ -110,6 +114,7 @@ public class AuthController {
     }
 
     @PostMapping("/refresh")
+    @RateLimit(key = "auth:refresh", limit = 10, period = 60, limitType = RateLimit.LimitType.IP_USER)
     @Operation(
         summary = "刷新访问令牌", 
         description = "使用RefreshToken获取新的AccessToken，延长用户会话有效期。"
@@ -133,6 +138,7 @@ public class AuthController {
     }
 
     @GetMapping("/check-ip")
+    @RateLimit(key = "auth:check-ip", limit = 30, period = 60, limitType = RateLimit.LimitType.IP)
     @Operation(
         summary = "IP访问检查", 
         description = "检查当前IP地址是否在允许访问的白名单中。"
