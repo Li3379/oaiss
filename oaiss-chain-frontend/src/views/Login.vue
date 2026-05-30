@@ -106,19 +106,19 @@ const onSubmit = async () => {
 </script>
 
 <template>
-  <div class=login-page>
+  <main class=login-page>
     <div class=login-bg-layer />
 
     <el-card class=login-card shadow=never>
-      <div class=login-header>
+      <header class=login-header>
         <div class=logo-dot />
         <div>
           <h1>{{ t('login.title') }}</h1>
           <p>{{ t('login.subtitle') }}</p>
         </div>
-      </div>
+      </header>
 
-      <el-form ref=formRef :model=form :rules=formRules label-position=top @submit.prevent>
+      <el-form ref=formRef :model=form :rules=formRules label-position=top @submit.prevent aria-label="login form">
         <el-form-item :label="t('login.account')" prop=account>
           <el-input v-model=form.account :placeholder="t('login.enterAccount')" clearable />
         </el-form-item>
@@ -157,7 +157,7 @@ const onSubmit = async () => {
         </el-button>
       </el-form>
     </el-card>
-  </div>
+  </main>
 </template>
 
 <style scoped>

@@ -11,6 +11,7 @@ import { getAccessToken } from '../../utils/auth'
 import { formatDateTime } from '../../utils/format'
 
 const { t, locale } = useI18n()
+const RSA_KEY_REVOKED_CODE = 5015
 
 interface ProfileEditForm {
   realName: string
@@ -209,15 +210,15 @@ async function fetchSignatureKeyPair(): Promise<RsaKeyPairResponse | null> {
     },
   })
 
-  if (response.status === 400 || response.status === 404) {
-    return null
-  }
-
   let payload: ApiResponse<RsaKeyPairResponse> | null = null
   try {
     payload = await response.json()
   } catch {
     payload = null
+  }
+
+  if (response.status === 404 || payload?.code === RSA_KEY_REVOKED_CODE) {
+    return null
   }
 
   if (!response.ok || !payload || ![200, 0].includes(payload.code)) {

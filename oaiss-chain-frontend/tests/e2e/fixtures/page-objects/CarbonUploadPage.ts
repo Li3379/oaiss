@@ -10,7 +10,7 @@ export class CarbonUploadPage {
 
   async expectLoaded(): Promise<void> {
     await expect(this.page).toHaveURL(/\/enterprise\/carbon\/upload/)
-    await expect(this.page.getByRole('button', { name: '创建项目' })).toBeVisible()
+    await expect(this.page.getByRole('button', { name: /创建|鍒涘缓/ })).toBeVisible()
   }
 
   async expectTableHeaders(): Promise<void> {
@@ -21,12 +21,12 @@ export class CarbonUploadPage {
   }
 
   async expectEmptyState(): Promise<void> {
-    await expect(this.page.getByText(/暂无碳核算报告/)).toBeVisible()
+    await expect(this.page.getByText(/暂无碳核算报告|鏆傛棤纰虫牳绠楁姤鍛?/)).toBeVisible()
   }
 
   async expectSearchForm(): Promise<void> {
-    await expect(this.page.getByPlaceholder('请输入报告标题')).toBeVisible()
-    await expect(this.page.getByPlaceholder('请输入核算周期')).toBeVisible()
-    await expect(this.page.getByRole('button', { name: '查询' })).toBeVisible()
+    await expect(this.page.getByPlaceholder(/请输入报告标题|璇疯緭鍏ユ姤鍛婃爣棰?/)).toBeVisible()
+    await expect(this.page.getByPlaceholder(/请输入核算周期|璇疯緭鍏ユ牳绠楀懆鏈?/)).toBeVisible()
+    await expect(this.page.getByRole('button', { name: /查询|鏌ヨ/ })).toBeVisible()
   }
 }

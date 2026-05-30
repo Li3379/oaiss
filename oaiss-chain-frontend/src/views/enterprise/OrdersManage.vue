@@ -28,57 +28,26 @@ const detailDialogVisible = ref(false)
 const currentDetailTrade = ref(null)
 
 const filteredTableData = computed(() => {
-  const tradeNo = searchForm.tradeNo.trim().toLowerCase()
   const tradeType = searchForm.tradeType
-  const [startDate, endDate] = searchForm.dateRange || []
-
-  return tableData.value.filter((row) => {
-    if (tradeNo && !String(row.tradeNo || '').toLowerCase().includes(tradeNo)) {
-      return false
-    }
-
-    if (tradeType && row.tradeType !== tradeType) {
-      return false
-    }
-
-    if (startDate || endDate) {
-      const createdAt = row.createdAt ? new Date(row.createdAt) : null
-      if (!createdAt || Number.isNaN(createdAt.getTime())) {
-        return false
-      }
-
-      if (startDate) {
-        const start = new Date(`${startDate}T00:00:00`)
-        if (createdAt < start) {
-          return false
-        }
-      }
-
-      if (endDate) {
-        const end = new Date(`${endDate}T23:59:59`)
-        if (createdAt > end) {
-          return false
-        }
-      }
-    }
-
-    return true
-  })
+  if (!tradeType) return tableData.value
+  return tableData.value.filter((row) => row.tradeType === tradeType)
 })
 
-const displayTotal = computed(() => {
-  const hasLocalFilter = Boolean(searchForm.tradeNo || searchForm.tradeType || (searchForm.dateRange && searchForm.dateRange.length))
-  return hasLocalFilter ? filteredTableData.value.length : total.value
-})
+const displayTotal = computed(() => total.value)
 
 const loadTrades = async () => {
   try {
     loading.value = true
-    const data = await getMyTrades({
+    const [startDate, endDate] = searchForm.dateRange || []
+    const params: Record<string, unknown> = {
       pageNum: currentPage.value,
       pageSize: pageSize.value,
       tradeType: searchForm.tradeType || undefined,
-    })
+      tradeNo: searchForm.tradeNo.trim() || undefined,
+    }
+    if (startDate) params.startTime = `${startDate} 00:00:00`
+    if (endDate) params.endTime = `${endDate} 23:59:59`
+    const data = await getMyTrades(params)
     tableData.value = data?.items || []
     total.value = data?.total || 0
   } catch (error) {

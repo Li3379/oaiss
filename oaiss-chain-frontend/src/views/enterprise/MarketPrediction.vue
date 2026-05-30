@@ -13,6 +13,7 @@ const horizonDays = ref(30)
 const loading = ref(false)
 const forecastResponse = ref<MarketForecastResponse | null>(null)
 const chartRef = ref<HTMLElement | null>(null)
+const emptyStateMessage = ref('')
 
 let chartInstance: echarts.ECharts | null = null
 
@@ -61,6 +62,11 @@ const trendTagType = computed(() => {
   return 'warning'
 })
 
+function resetForecastState() {
+  forecastResponse.value = null
+  emptyStateMessage.value = ''
+}
+
 const fetchForecast = async () => {
   loading.value = true
   try {
@@ -72,9 +78,13 @@ const fetchForecast = async () => {
     const fn = fetcher[predictionType.value]
     const result = await fn(horizonDays.value)
     forecastResponse.value = result
+    emptyStateMessage.value = dataPoints.value.length === 0
+      ? t('marketPrediction.insufficientData')
+      : ''
     await nextTick()
     renderChart()
   } catch (error) {
+    resetForecastState()
     ElMessage.error(t('marketPrediction.loadFailed'))
   } finally {
     loading.value = false
@@ -216,7 +226,7 @@ onBeforeUnmount(() => {
       </div>
       <el-empty
         v-if="!loading && dataPoints.length === 0"
-        :description="t('marketPrediction.noData')"
+        :description="emptyStateMessage || t('marketPrediction.noData')"
         class="chart-empty"
       />
       <div v-show="dataPoints.length > 0" ref="chartRef" class="chart-box" />

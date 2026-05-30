@@ -932,6 +932,7 @@ export default {
     trendDown: 'Downward',
     loading: 'Loading predictions...',
     noData: 'No prediction data available',
+    insufficientData: 'Not enough historical trades yet. At least 10 trade records are required before a forecast can be generated.',
     loadFailed: 'Failed to load prediction data',
     trendDirection: 'Trend Direction',
     horizon: 'Prediction Horizon',

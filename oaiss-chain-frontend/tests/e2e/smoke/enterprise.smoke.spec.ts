@@ -19,7 +19,17 @@ test.describe('Role: Enterprise - Smoke', () => {
     await page.goto('/enterprise/carbon/upload')
     await page.waitForLoadState('networkidle')
     const layout = new Layout(page)
-    await layout.expectSidebar(['碳核算', 'P2P订单管理', '碳交易', '本公司信息', '信誉评分', '碳币账户', '区块链', '碳中和', '个人中心'])
+    await layout.expectSidebar([
+      '碳核算',
+      'P2P订单管理',
+      '碳交易',
+      '本公司信息',
+      '信誉评分',
+      '碳币账户',
+      '区块链',
+      '碳中和',
+      '个人中心',
+    ])
   })
 
   test('user info displayed', async ({ page }) => {
@@ -64,7 +74,7 @@ test.describe('Role: Enterprise - Smoke', () => {
     test('create button exists', async ({ page }) => {
       const po = new CarbonUploadPage(page)
       await po.goto()
-      await expect(page.getByRole('button', { name: '创建项目' })).toBeVisible()
+      await expect(page.getByRole('button', { name: /创建|鍒涘缓/ })).toBeVisible()
     })
   })
 

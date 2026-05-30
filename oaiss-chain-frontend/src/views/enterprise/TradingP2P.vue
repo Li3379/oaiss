@@ -64,12 +64,16 @@ const displayTotal = computed(() => {
 const dialogVisible = ref(false)
 const dialogFormRef = ref()
 const dialogForm = reactive({
+  buyerId: "",
   quantity: "",
   unitPrice: "",
   remark: "",
 })
 
 const dialogRules = {
+  buyerId: [
+    { required: true, message: "请输入买方ID", trigger: "blur" },
+  ],
   quantity: [
     { required: true, message: t("tradingP2P.enterQuantity"), trigger: "blur" },
     { type: "number", min: 0.01, message: t("tradingP2P.quantityPositive"), trigger: "blur" }
@@ -151,6 +155,7 @@ const onSave = async () => {
   try {
     await createP2PTrade({
       tradeType: 2,
+      buyerId: Number(dialogForm.buyerId),
       quantity: Number(dialogForm.quantity),
       unitPrice: Number(dialogForm.unitPrice),
       remark: dialogForm.remark || "",
@@ -297,6 +302,10 @@ onMounted(() => {
 
     <el-dialog v-model="dialogVisible" :title="t('tradingP2P.dialogCreate')" width="520px" destroy-on-close>
       <el-form ref="dialogFormRef" :model="dialogForm" :rules="dialogRules" label-width="100px">
+        <el-form-item label="买方ID" prop="buyerId">
+          <el-input-number v-model="dialogForm.buyerId" :min="1" :precision="0" :step="1" style="width: 100%" placeholder="请输入买方用户ID" />
+        </el-form-item>
+
         <el-form-item :label="t('tradingP2P.colQuantity')" prop="quantity">
           <el-input-number v-model="dialogForm.quantity" :min="0.01" :precision="2" :step="1" style="width: 100%" :placeholder="t('tradingP2P.enterQuantity')" />
         </el-form-item>

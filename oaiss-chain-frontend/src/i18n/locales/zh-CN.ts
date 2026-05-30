@@ -943,6 +943,7 @@ export default {
     trendDown: '下降',
     loading: '加载预测数据...',
     noData: '暂无预测数据',
+    insufficientData: '历史成交数据不足，至少需要 10 条交易记录后才能生成预测。',
     loadFailed: '加载预测数据失败',
     trendDirection: '趋势方向',
     horizon: '预测周期',

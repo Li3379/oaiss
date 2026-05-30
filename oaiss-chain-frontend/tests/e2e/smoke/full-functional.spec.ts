@@ -151,7 +151,9 @@ async function loginByApi(page: Page, request: APIRequestContext, user: keyof ty
   const data = await api<{ accessToken: string; refreshToken: string }>(request, 'post', undefined, '/auth/login', {
     data: { username: auth.username, password: auth.password },
   })
+  // Navigate to base URL first to load the SPA
   await page.goto(BASE_URL, { waitUntil: 'domcontentloaded', timeout: 15000 })
+  // Set tokens in storage
   await page.evaluate(({ accessToken, refreshToken }) => {
     localStorage.setItem('access_token', accessToken)
     localStorage.setItem('refresh_token', refreshToken)
@@ -159,6 +161,8 @@ async function loginByApi(page: Page, request: APIRequestContext, user: keyof ty
     sessionStorage.setItem('access_token', accessToken)
     sessionStorage.setItem('refresh_token', refreshToken)
   }, data)
+  // Reload so Pinia store re-initializes with tokens from storage
+  await page.reload({ waitUntil: 'domcontentloaded', timeout: 15000 })
   return data.accessToken
 }
 
@@ -171,8 +175,14 @@ async function gotoAs(page: Page, request: APIRequestContext, user: keyof typeof
 
 async function expectAppPage(page: Page, route: string) {
   if (!page.url().includes(route)) throw new Error(`Expected route ${route}, got ${page.url()}`)
-  const shellCount = await page.locator('.app-shell, .main-content, .section-card, .el-card').count()
-  if (shellCount === 0) throw new Error('No application shell or content cards rendered')
+  // Wait up to 5s for the app shell to mount (Vue SPA hydration can be slow)
+  const selector = '.app-shell, .main-content, .section-card, .el-card'
+  const deadline = Date.now() + 5000
+  while (Date.now() < deadline) {
+    if ((await page.locator(selector).count()) > 0) return
+    await page.waitForTimeout(200)
+  }
+  throw new Error('No application shell or content cards rendered')
 }
 
 async function clickUnique(page: Page, selector: string, label: string) {
@@ -255,7 +265,7 @@ async function createDraftReport(request: APIRequestContext, token: string, titl
 
 async function createP2PTrade(request: APIRequestContext, token: string) {
   return api<any>(request, 'post', token, '/trade/p2p', {
-    data: { tradeType: 2, quantity: 1, unitPrice: 1, remark: 'full functional test' },
+      data: { tradeType: 2, sellerId: 2, buyerId: 3, quantity: 1, unitPrice: 1, remark: 'full functional test' },
   })
 }
 
@@ -609,6 +619,7 @@ test.describe('OAISS CHAIN frontend full functional matrix', () => {
       await clickFirstVisible(page, [
         '.el-table__fixed-right .el-button',
         '.el-table .el-button',
+        'button:has-text("查看")',
         'button:has-text("查看详情")',
         'button:has-text("View Detail")',
       ])
@@ -689,8 +700,9 @@ test.describe('OAISS CHAIN frontend full functional matrix', () => {
     await recordCase(page, 'S4 P2P', 'S4-02', 'create p2p trade', 'P1', async () => {
       await page.locator('.search-form .el-button--success').click()
       const dialog = page.locator('.el-dialog:visible').first()
-      await dialog.locator('.el-input-number input').nth(0).fill('1')
-      await dialog.locator('.el-input-number input').nth(1).fill('1')
+      await dialog.locator('.el-input-number input').nth(0).fill('3')  // buyerId (enterprise002)
+      await dialog.locator('.el-input-number input').nth(1).fill('1')  // quantity
+      await dialog.locator('.el-input-number input').nth(2).fill('1')  // unitPrice
       await dialog.locator('textarea').fill('automated p2p trade')
       await dialog.locator('.el-dialog__footer .el-button--primary').click()
       await page.waitForTimeout(1200)
@@ -854,7 +866,7 @@ test.describe('OAISS CHAIN frontend full functional matrix', () => {
     await recordCase(page, 'S10 Carbon Neutral', 'S10-06', 'project status flow actions visible', 'P1', async () => {
       await page.goto(`${BASE_URL}/enterprise/carbon-neutral/projects`)
       await settle(page)
-      if ((await page.locator('.el-table__body-wrapper tbody tr button, .el-table__body-wrapper tbody tr a').count()) === 0) {
+      if ((await page.locator('.el-table__fixed-right .el-table__body-wrapper tbody tr button, .el-table__fixed-right .el-table__body-wrapper tbody tr a, .el-table__body-wrapper tbody tr button, .el-table__body-wrapper tbody tr a').count()) === 0) {
         throw new Error('No project lifecycle operation controls visible')
       }
     })

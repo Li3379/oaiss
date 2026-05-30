@@ -10,12 +10,15 @@ export class Layout {
   }
 
   async expectUserInfo(username: string, roleLabel: string): Promise<void> {
-    await expect(this.page.getByText(username)).toBeVisible()
-    await expect(this.page.locator('header').getByText(roleLabel)).toBeVisible()
+    const header = this.page.locator('header')
+    await expect(header.getByText(username, { exact: true })).toBeVisible()
+    await expect(header.getByText(roleLabel)).toBeVisible()
   }
 
   async expectBreadcrumb(...segments: string[]): Promise<void> {
-    const nav = this.page.getByRole('navigation', { name: 'Breadcrumb' })
+    // Element Plus breadcrumb accessible name follows locale; avoid hard-coding one language label.
+    const nav = this.page.locator('.el-breadcrumb').first()
+    await expect(nav).toBeVisible()
     for (const segment of segments) {
       await expect(nav).toContainText(segment)
     }

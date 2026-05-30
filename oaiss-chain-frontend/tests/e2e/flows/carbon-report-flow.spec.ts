@@ -8,22 +8,25 @@ test.describe('Flow: Carbon Report Lifecycle', () => {
       await page.goto('/enterprise/carbon/upload')
       await page.waitForLoadState('networkidle')
 
-      await page.getByRole('button', { name: '创建项目' }).click()
+      const reportTitle = `E2E-CARBON-${Date.now()}`
 
-      // Fill fields in the dialog (scoped to dialog to avoid strict mode)
+      await page.getByRole('button', { name: /^创建$|^Create$/ }).click()
+
       const dialog = page.getByRole('dialog')
-      await dialog.getByPlaceholder(/核算周期|2024/).fill('2026-Q2')
-      // Use exact role match for dialog's 报告标题 textbox (the one with "* 报告标题" label)
-      await dialog.getByRole('textbox', { name: '* 报告标题' }).fill('E2E测试碳报告')
-      await dialog.getByPlaceholder(/JSON格式/).fill('{"scope1":100,"scope2":200}')
+      await expect(dialog).toBeVisible()
+      await dialog.getByPlaceholder(/2024-Q1|e\.g\./i).fill('2026-Q2')
+      await dialog.getByPlaceholder(/请输入报告标题|Enter report title/i).fill(reportTitle)
+      await dialog.getByPlaceholder(/JSON格式|JSON format/i).fill('{"scope1":100,"scope2":200}')
+      await dialog.getByRole('button', { name: /^创建$|^Create$/ }).click()
+      await expect(page.getByText(/成功|Created successfully|创建成功/i).first()).toBeVisible({ timeout: 10000 }).catch(() => {})
+      if (await dialog.isVisible().catch(() => false)) {
+        await dialog.getByRole('button', { name: /关闭|close|取消|cancel/i }).first().click().catch(() => {})
+      }
 
-      // Click create button (actual button text is "创建")
-      await dialog.getByRole('button', { name: '创建' }).click()
-
-      // Verify response
-      await expect(page.getByText(/成功/).first()).toBeVisible({ timeout: 10000 }).catch(() => {
-        // Creation may fail due to validation — just verify dialog was interacted with
-      })
+      const searchTitleInput = page.getByRole('textbox', { name: /^报告标题$|^Report Title$/i })
+      await searchTitleInput.fill(reportTitle)
+      await page.getByRole('button', { name: /^查询$|^Search$/ }).click()
+      await expect(page.getByText(reportTitle)).toBeVisible({ timeout: 10000 })
     })
 
     test('submit report changes status', async ({ page }) => {
@@ -31,10 +34,10 @@ test.describe('Flow: Carbon Report Lifecycle', () => {
       await page.goto('/enterprise/carbon/upload')
       await page.waitForLoadState('networkidle')
 
-      const submitBtn = page.getByRole('button', { name: /提交/ }).first()
+      const submitBtn = page.getByRole('button', { name: /^提交$|^Submit$/ }).first()
       if (await submitBtn.isVisible()) {
         await submitBtn.click()
-        await expect(page.getByText(/成功|已提交/)).toBeVisible({ timeout: 5000 }).catch(() => {})
+        await expect(page.getByText(/成功|已提交|success|submitted/i)).toBeVisible({ timeout: 5000 }).catch(() => {})
       }
     })
   })
@@ -46,7 +49,7 @@ test.describe('Flow: Carbon Report Lifecycle', () => {
       await page.waitForLoadState('networkidle')
 
       await expect(page).toHaveURL(/\/auditor\/audit\/list/)
-      await expect(page.getByRole('columnheader', { name: '报告编号' })).toBeVisible()
+      await expect(page.getByRole('columnheader', { name: /报告编号|Report No/i })).toBeVisible()
     })
 
     test('reviewer can approve report', async ({ page }) => {
@@ -54,10 +57,10 @@ test.describe('Flow: Carbon Report Lifecycle', () => {
       await page.goto('/auditor/audit/list')
       await page.waitForLoadState('networkidle')
 
-      const approveBtn = page.getByRole('button', { name: '操作' }).first()
-      if (await approveBtn.isVisible()) {
-        await approveBtn.click()
-        await expect(page.getByText(/通过/)).toBeVisible({ timeout: 5000 }).catch(() => {})
+      const actionBtn = page.getByRole('button', { name: /操作|Action/i }).first()
+      if (await actionBtn.isVisible()) {
+        await actionBtn.click()
+        await expect(page.getByText(/通过|Approved?|approve/i)).toBeVisible({ timeout: 5000 }).catch(() => {})
       }
     })
   })

@@ -3,6 +3,7 @@ import { getAccessToken, getRefreshToken, setTokens, clearTokens, isTokenExpired
 import router from '../router'
 import { ElMessage } from 'element-plus'
 import type { ApiResponse, SpringPage } from '../types'
+import { pinia, useAppStore } from '../store'
 
 const RETRY_MAX_ATTEMPTS = 2
 const RETRY_BASE_DELAY_MS = 1000
@@ -12,6 +13,7 @@ const SUCCESS_CODES = [200, 0]
 declare module 'axios' {
   interface InternalAxiosRequestConfig {
     __retryCount?: number
+    suppressErrorMessage?: boolean
   }
 }
 
@@ -28,6 +30,7 @@ const request = axios.create({
 
 let isRefreshing = false
 let pendingRequests: PendingRequest[] = []
+const appStore = useAppStore(pinia)
 
 function onTokenRefreshed(newToken: string): void {
   pendingRequests.forEach(({ resolve }) => resolve(newToken))
@@ -70,6 +73,7 @@ request.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
         } catch {
           onTokenRefreshFailed()
           clearTokens()
+          appStore.logout()
           router.push('/login')
           return Promise.reject(new Error('Token 刷新失败，请重新登录'))
         } finally {
@@ -140,6 +144,7 @@ request.interceptors.response.use(
         if (!isLoginRequest) {
           onTokenRefreshFailed()
           clearTokens()
+          appStore.logout()
           router.push('/login')
           ElMessage.error('登录已过期，请重新登录')
         } else {
@@ -148,12 +153,18 @@ request.interceptors.response.use(
       } else if (status === 403) {
         ElMessage.error('没有权限执行此操作')
       } else if (status === 404) {
-        ElMessage.error('请求的资源不存在')
+        if (!config?.suppressErrorMessage) {
+          ElMessage.error('请求的资源不存在')
+        }
       } else {
-        ElMessage.error(msg)
+        if (!config?.suppressErrorMessage) {
+          ElMessage.error(msg)
+        }
       }
     } else {
-      ElMessage.error('网络异常，请检查网络连接')
+      if (!config?.suppressErrorMessage) {
+        ElMessage.error('网络异常，请检查网络连接')
+      }
     }
     return Promise.reject(error)
   },
