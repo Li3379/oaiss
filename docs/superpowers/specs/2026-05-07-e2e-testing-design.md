@@ -1,11 +1,13 @@
 # E2E Testing Design: Full-Role, Full-Module Coverage
 
+> Obsolete note (2026-05-29): this draft predates the retirement of the legacy `AUTHENTICATOR` role assumption. The current runtime role baseline is `ENTERPRISE / REVIEWER / THIRD_PARTY / ADMIN`; references below to `AUTHENTICATOR`, `authenticator001`, or `/authenticator/*` are historical only and should not guide new implementation or QA.
+
 > Date: 2026-05-07
 > Status: Approved
 
 ## 1. Overview
 
-Comprehensive end-to-end testing strategy for OAISS CHAIN covering all 5 roles and all 16 business modules. Combines Playwright frontend E2E tests with backend Testcontainers integration tests.
+Comprehensive end-to-end testing strategy for OAISS CHAIN. This historical draft covered an outdated 5-role assumption; current execution should align to the 4 active runtime roles and corresponding business modules.
 
 ### Requirements
 

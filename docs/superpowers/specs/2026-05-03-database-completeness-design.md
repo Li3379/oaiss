@@ -1,5 +1,7 @@
 # 数据库 SQL 全面完善设计
 
+> Obsolete note (2026-05-29): this historical draft assumed `AUTHENTICATOR` was a valid runtime role. The current requirement baseline and implementation do not support that role. Treat all `AUTHENTICATOR` references in this file as outdated; the live role set is `ENTERPRISE / REVIEWER / THIRD_PARTY / ADMIN`.
+
 > 日期: 2026-05-03 | 状态: 已批准 | 方案: B（整体重建）
 
 ## 背景

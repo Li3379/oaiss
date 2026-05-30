@@ -100,7 +100,6 @@ src/main/java/com/oaiss/chain/
 | `RsaKeyPair` | rsa_key_pair | RSA 密钥对 |
 | `Reviewer` | reviewer | 审核员 |
 | `ReviewerQualification` | reviewer_qualification | 审核员资质 |
-| `Authenticator` | authenticator | 认证器 |
 | `ThirdPartyOrg` | third_party_org | 第三方组织 |
 | `EnterpriseAdmission` | enterprise_admission | 企业准入 |
 | `OperationLog` | operation_log | 操作日志 |

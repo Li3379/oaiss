@@ -1,120 +1,120 @@
-# Phase 2: outer layer — multiple Prompt schemes
+# Phase 2：外层方案设计
 
-## Core idea
+## 核心思想
 
-**Same requirement, different phrasing.** Every Prompt describes the **same product**; only **how** you describe it changes, not **what** you build.
+**需求相同，表述方式不同。** 每一个 Prompt 都必须描述 **同一个产品**；变化的只是“怎么描述”，而不是“做什么”。
 
-## Five dimensions for “different phrasing”
+## “不同表述”的五个维度
 
-Pick **3–5** dimensions; produce **one** Prompt scheme per dimension (or as your plan defines).
+从下列维度中选择 **3-4** 个；每个维度产出 **一个** Prompt 方案，或者按你的计划分配。
 
-**Dimension 1: abstraction**
+**维度 1：抽象层级**
 
-```
-L1 one line:     "Build an expense tracker"
-L2 + features:   "Build an expense tracker with income/expense, monthly stats, category filter"
-L3 + tech:       "Build an expense tracker with … stack Next.js + SQLite …"
-L4 + edge cases: "… handle empty input, negatives, insufficient balance …"
-```
-
-Compare two adjacent levels (e.g. L1 vs L3).
-
-**Dimension 2: quality emphasis**
-
-```
-Brevity: "Minimal code, no over-engineering"
-Robustness: "Every edge case and error handled gracefully"
-Performance: "Prefer speed and memory"
-Maintainability: "Clear structure for future changes"
+```text
+L1 单行：      "Build an expense tracker"
+L2 带功能：    "Build an expense tracker with income/expense, monthly stats, category filter"
+L3 带技术栈：  "Build an expense tracker with ... stack Next.js + SQLite ..."
+L4 带边界：    "... handle empty input, negatives, insufficient balance ..."
 ```
 
-**Dimension 3: example-driven**
+通常比较相邻两个层级，例如 L1 与 L3。
 
-```
-Abstract: "Add income and expense; monthly stats"
-Example-driven: "Input 'lunch 35' → line '-35 lunch'; 'this month' → stats"
-```
+**维度 2：质量强调点**
 
-Coverage levels:
-
-```
-Level 1: 1–2 normal I/O examples
-Level 2: + main scenarios
-Level 3: + edges and errors
+```text
+简洁型：       "Minimal code, no over-engineering"
+稳健型：       "Every edge case and error handled gracefully"
+性能型：       "Prefer speed and memory"
+可维护型：     "Clear structure for future changes"
 ```
 
-**Dimension 4: role**
+**维度 3：示例驱动**
 
-```
-"You are a senior engineer with 10 years …"
-"You are a PM focused on UX …"
-"You are a minimalist (YAGNI) …"
-```
-
-**Dimension 5: decomposition**
-
-```
-A By feature: sub-prompts for ledger, stats, filter
-B By role: user vs admin
-C No split: one Prompt for everything
+```text
+抽象描述：     "Add income and expense; monthly stats"
+示例驱动：     "Input 'lunch 35' -> line '-35 lunch'; 'this month' -> stats"
 ```
 
-## Scheme generation rules
+覆盖等级：
 
-- First scheme = user’s **original** wording (baseline).
-- Later schemes = pick different **levels** on different dimensions.
-- Every scheme must include **all** features from the spec—no silent scope creep.
-
-## Consistency check (mandatory)
-
-> Common failure: schemes drift in scope, so “better score” means “more features,” not “better phrasing.”
-
-After all schemes exist, **must** run:
-
-**Check:**
-
-```
-□ Same feature scope
-  Extract feature lists; they must match.
-  Bad: A has “generate+polish”, B adds “tone + versioning”.
-
-□ Same tech stack
-□ Same output type (SPA, API, …)
-□ Same acceptance checklist (if phase-1 file exists)
-  All schemes must satisfy the **same** acceptance items; no dropping items per scheme.
-
-□ Differences only in phrasing
-  OK: abstraction, examples, role, emphasis
-  Not OK: different feature count, stack, or architecture
+```text
+Level 1: 1-2 个正常输入输出示例
+Level 2: 加上主要场景
+Level 3: 再加边界与错误场景
 ```
 
-**Must output explicitly:**
+**维度 4：角色视角**
 
+```text
+"You are a senior engineer with 10 years ..."
+"You are a PM focused on UX ..."
+"You are a minimalist (YAGNI) ..."
 ```
+
+**维度 5：拆解方式**
+
+```text
+A 按功能拆：ledger、stats、filter 分成子提示
+B 按角色拆：user 与 admin
+C 不拆：一个 Prompt 覆盖全部
+```
+
+## 方案生成规则
+
+- 第一个方案必须保留用户的 **原始表达**，作为 baseline。
+- 后续方案应在不同维度上选取不同层级或风格。
+- 每个方案都必须覆盖规格中的 **全部功能**，禁止暗中增删范围。
+
+## 一致性检查（强制）
+
+> 常见失败点：不同方案在范围上已经漂移，导致“得分更高”其实是“多做了功能”，而不是“表述更优”。
+
+在所有方案生成完成后，**必须** 执行以下检查：
+
+**检查项：**
+
+```text
+- 功能范围一致
+  抽取每个方案的功能列表，必须完全一致
+  错误示例：A 只有“生成+润色”，B 却额外加了“语气 + 版本管理”
+
+- 技术栈一致
+- 输出类型一致（SPA、API 等）
+- 验收清单一致（如果 phase-1 文件已存在）
+  所有方案都必须满足同一份 acceptance，不允许每个方案自己删项
+
+- 差异只能来自表述方式
+  允许：抽象层级、示例、角色、强调点不同
+  不允许：功能数量、技术栈、架构不同
+```
+
+**必须显式输出如下结构：**
+
+```text
 ## Scheme consistency check
 
 Feature list: [all features]
 Stack: [technologies]
 
-Scheme 1 features: [...] → match ✓ / mismatch ✗ [note]
-Scheme 2 features: [...] → match ✓ / mismatch ✗ [note]
-Scheme 3 features: [...] → match ✓ / mismatch ✗ [note]
+Scheme 1 features: [...] -> match / mismatch [note]
+Scheme 2 features: [...] -> match / mismatch [note]
+Scheme 3 features: [...] -> match / mismatch [note]
 
 Result: pass / fail (fixed)
 ```
 
-**If check fails:**
+**如果检查失败：**
 
-- Do not enter phase 3.
-- Fix schemes against phase 1 spec.
-- Re-run until pass.
+- 不得进入 phase 3
+- 必须回到 phase 1 规格重新修正方案
+- 修正后重新执行一致性检查，直到通过
 
-## Gate
+## 闸门
 
-Consistency check **passes**. Otherwise **no** phase 3.
+只有一致性检查 **通过** 才能进入 phase 3。否则 **不得** 进入下一阶段。
 
-## On-disk record (default)
+## 默认落盘记录
 
-Besides chat, write the full **Scheme consistency check** block (title, feature list, stack, per-scheme lines, **result**) and the **scheme–dimension table** to **`tracks/phase-02-consistency-check.md`** (or maintainer path), **then** phase 3. Details: **`execution.md`** “Multi-scheme inner independence.”
+除对话输出外，还必须把完整的 **Scheme consistency check** 内容写入 **`tracks/phase-02-consistency-check.md`**，包括标题、功能列表、技术栈、逐方案比对行和 **result**，并同时记录 **scheme-维度映射表**，之后才能进入 phase 3。细则见 **`execution.md`** 中的“多方案内循环独立性”。
 
-> **Maintainer-tunable**: defaults can be relaxed in host-specific rules or root `SKILL.md`.
+> **可由维护者调整**：这些默认要求可以通过根目录 `SKILL.md` 或宿主规则放宽。

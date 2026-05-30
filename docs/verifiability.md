@@ -1,47 +1,47 @@
-# Verifiability and honesty (sole authoritative rules)
+# 可验证性与诚实性规则（唯一权威）
 
-> **Sole source for R1–R5.** Phase docs only reference this section to avoid multiple conflicting “rule sets.”
+> **R1-R5 的唯一权威来源就是本文件。** 其他 phase 文档仅引用这里，目的是避免出现多套互相冲突的“规则版本”。
 
-### R1 — Physical artifacts (iterations)
+### R1：实体产物（迭代过程）
 
-- Each round’s output must be a **separate file on disk**; **forbidden** to use chat-only “iteration logs” instead of files.
-- **Forbidden** to claim “round N changed X” if no matching `r{N}` file exists in the repo.
-- **Forbidden** to narrate “five iterations” without five diffable versions on disk.
-- **Forbidden** to describe a change (e.g. “added :focus-visible”) without that change **actually** in the file.
+- 每一轮输出都必须是 **磁盘上的独立文件**；**禁止** 用“只存在于对话中的迭代记录”替代真实文件。
+- 如果仓库里不存在对应的 `r{N}` 文件，**禁止** 声称“第 N 轮改了 X”。
+- 如果磁盘上没有五个可 diff 的版本，**禁止** 描述成“做了五轮迭代”。
+- 如果某项改动实际上没有落到文件中，**禁止** 叙述成“已经添加了某改动”，例如“加了 `:focus-visible`”。
 
-### R2 — Delivery provenance (match final track file)
+### R2：交付来源可追溯（必须匹配最终轨道文件）
 
-- If you claim the delivery matches a final track file (“same”, “same source”, “only a comment differs”), you need **machine-checkable** sameness or a **written** statement of differences:
-  - **Same**: delivery file is **byte-identical** to the final track file; or differences are only paths/explanations in a **top comment** of the delivery file as documented.
-- **Forbidden** to claim sameness when `diff` / `shasum` show otherwise.
-- **Forbidden** to hide large diffs behind “only one comment changed.”
+- 如果你声称交付内容与某个最终轨道文件一致，例如说“same”“same source”“只有注释不同”，那就必须提供 **机器可检查的一致性**，或者书面列出 **实际差异**：
+  - **Same** 的定义：交付文件与最终轨道文件 **字节级一致**；或者差异仅限于交付文件顶端注释中已明确说明的路径/解释信息。
+- 如果 `diff` / `shasum` 表明不一致，**禁止** 声称“相同”。
+- **禁止** 用“只是改了一条注释”来掩盖大量实际差异。
 
-### R3 — Delivery bar (acceptance first; self-score reference only)
+### R3：交付门槛（acceptance 优先，自评分仅作参考）
 
-> When generator and grader are the same model, **high self-score cannot alone mean “done”** (systematic bias). This Skill uses the **phase-1 acceptance checklist** as the hard bar; self-score is for comparison and review.
+> 当生成者和评分者是同一个模型时，**高自评分本身不能等于“完成”**。本 Skill 以 **phase 1 的 acceptance checklist** 作为硬门槛；自评分只用于比较和复盘。
 
-- **Phase 1** must produce **`tracks/phase-01-acceptance.md`** (or an equivalent path specified by the maintainer) with **line-item** checks (prefer mechanically testable items); the list **must not** be silently rewritten mid-flight to move goalposts (changes go back to phase 1/2 with trace). **No list or empty list** then entering phase 3 is a process violation (unless the user **waives** in the current turn).
-- **Inner loop on one track**: **main termination** is **all** acceptance items satisfied against **current** artifacts; **forbidden** to end solely because self-score is “≥8”. Self-score must still be **logged each round** for the next round and phase 4; it is **not** sufficient for stop or delivery.
-- **Deliverable final**: need **at least one** track with acceptance **fully checked**, and **`phase-04-output.md`** + R2; **forbidden** to ship as “final” while items remain unchecked.
-- **Forbidden** to justify early stop or delivery with “only one item left but score is high” (see `phase-04-output.md` for actions).
+- **Phase 1** 必须生成 **`tracks/phase-01-acceptance.md`**（或维护者指定的等价路径），其中必须是 **逐行可检查** 的验收项，且最好尽量机械可测；清单 **不得** 在执行中途偷偷改写以移动门槛。若要改范围，必须带痕迹地回到 phase 1 / 2。**如果没有清单或清单为空，却直接进入 phase 3，就属于流程违规**，除非用户在当前轮明确豁免。
+- **单条轨道的 inner loop**：主终止条件是 **当前产物已满足所有 acceptance 项**；**禁止** 仅因为“自评分 >= 8”就终止。自评分仍然必须 **每轮都记录**，用于下一轮判断和 phase 4 比较，但它 **不能单独成为停止或交付依据**。
+- **最终可交付**：至少需要 **一条轨道把 acceptance 全部勾选完成**，并同时满足 **`phase-04-output.md`** 与 R2；**只要还有未勾选项，就禁止以“final”身份交付**。
+- **禁止** 用“只剩一个验收项没过，但分数已经很高”来为提前停止或交付辩护（应按 `phase-04-output.md` 处理）。
 
-### R4 — Environment classes (who can verify)
+### R4：环境分类（谁有资格说“已验证”）
 
-| Class | Meaning | Requirements for “same / verified” claims |
-|-------|---------|-------------------------------------------|
-| **A** | Agent/IDE: **read/write repo** and **can run terminal** (`shasum`, `cmp`, `diff`) | Before claiming **byte match** or **verified**, **must** run the check and show **command + output** (or equivalent). **Forbidden** to claim “hash matches” without running the command. |
-| **B** | Chat-only: **no workspace write** or **no terminal** | Mechanical checks in R1/R2 are **soft**: **forbidden** to claim “I ran shasum locally”; must say “cannot verify here; please run: …” with a **one-line copy-paste**. Delivery wording must be “aligned with stated source; **please verify**,” **forbidden** to pretend verification is done. |
+| 类别 | 含义 | 对“same / verified”类说法的要求 |
+|---|---|---|
+| **A** | Agent/IDE：**可读写仓库**，且 **可运行终端命令**（`shasum`、`cmp`、`diff`） | 在声称“字节级一致”或“已验证”之前，**必须** 实际运行检查命令，并附上 **命令 + 输出** 或等价证据。**禁止** 在未运行命令时声称“哈希已匹配”。 |
+| **B** | 纯聊天环境：**不能写工作区** 或 **不能跑终端** | R1/R2 中的机械校验降级为软要求：**禁止** 说“我已经在本地运行了 shasum”；只能写“此处无法验证，请运行：...”并给出 **一行可复制命令**。交付措辞必须改成“与声明来源一致，请你自行验证”，**禁止** 冒充验证已完成。 |
 
-**Class B one-liner (repo root):**
+**Class B 一行命令（仓库根目录运行）：**
 
 ```bash
 FINAL_TRACK_FILE=tracks/prompt-d/r09.html DELIVERY_FILE=index.html bash scripts/skill-verify.sh
 ```
 
-### R5 — “Detecting violations” (blind spots)
+### R5：违规识别（盲区问题）
 
-> The model **may not know** it is violating rules (e.g. `index.html` ≠ `r05` without read access or terminal).
+> 模型 **未必知道自己正在违规**，例如在没有读权限或终端权限时，`index.html` 实际并不等于 `r05`，但模型可能察觉不到。
 
-- **Do not** rely on “when the AI notices it can’t comply” as the only trigger—many violations are **invisible** to the model.
-- **Class A**: **Executed command output** is the **only** basis for “same”; if you cannot write `tracks/` or run checks → **stop** and tell the user what capability is missing.
-- **Class B**: assume **cannot prove sameness**; **do not** output “verified” or “byte match with rXX” unless the user pasted results.
+- 不要把“等 AI 自己意识到做不到”作为唯一触发条件，因为很多违规对模型来说 **本来就是不可见的**。
+- **Class A** 下，只有 **真实执行过命令的输出**，才是声称“same”的依据；如果既不能写 `tracks/`，也不能执行检查命令，就应当 **立刻停止**，并明确告诉用户缺失了什么能力。
+- **Class B** 下，应默认 **无法证明完全一致**；除非用户自己贴出结果，否则 **不得** 使用“verified”或“与 rXX 字节一致”这类说法。

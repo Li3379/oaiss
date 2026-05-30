@@ -147,7 +147,6 @@ Refresh-Token: <refresh_token>
 |---------|---------|---------|
 | ENTERPRISE | 企业用户 | 提交碳报告、参与交易、管理项目 |
 | REVIEWER | 审核员 | 审核碳报告、扣除信誉分 |
-| AUTHENTICATOR | 认证员 | 区块链认证操作 |
 | THIRD_PARTY | 第三方机构 | 监管查询、数据统计 |
 | ADMIN | 管理员 | 系统管理、用户管理 |
 
@@ -308,8 +307,8 @@ Refresh-Token: <refresh_token>
 
 | 方法 | 路径 | 说明 | 认证 | 权限 |
 |------|------|------|:----:|------|
-| GET | `/blockchain/status` | 检查区块链连接状态 | ✅ | ADMIN/AUTHENTICATOR |
-| GET | `/blockchain/block/{blockNumber}` | 查询区块信息 | ✅ | ADMIN/AUTHENTICATOR/THIRD_PARTY |
+| GET | `/blockchain/status` | 检查区块链连接状态 | ✅ | ADMIN |
+| GET | `/blockchain/block/{blockNumber}` | 查询区块信息 | ✅ | ADMIN/THIRD_PARTY |
 | GET | `/blockchain/transaction/{txHash}` | 查询链上交易 | ✅ | - |
 
 ---

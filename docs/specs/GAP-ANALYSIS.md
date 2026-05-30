@@ -79,7 +79,7 @@
 | 对比项 | 原始文档要求 | 当前实现 | 差异 |
 |--------|-------------|----------|------|
 | 表数量 | 11张表 | 22张表 | 扩展了11张表 |
-| 核心表 | user, enterprise, carbon_report, reviewer, authenticator, transaction, third_party_org, reviewer_qualification, entry_permission, account_permission_list, user_type_list | 完整实现 + 新增信用评分、碳币账户、拍卖订单、匹配结果、碳中和项目等 | ✅ 功能增强 |
+| 核心表 | user, enterprise, carbon_report, reviewer, transaction, third_party_org, reviewer_qualification, entry_permission, account_permission_list, user_type_list | 完整实现 + 新增信用评分、碳币账户、拍卖订单、匹配结果、碳中和项目等 | ✅ 功能增强 |
 
 **原始文档表结构 vs 当前实现：**
 
@@ -89,7 +89,7 @@
 | enterprise | ✅ 存在 | 扩展字段 |
 | carbon_report | ✅ 存在 | 扩展字段 |
 | reviewer | ✅ 存在 | 扩展字段 |
-| authenticator | ✅ 存在 | 扩展字段 |
+| authenticator | ✅ 已退场 | 原始需求中的中文语义对应“管理员签发者”旧命名，并非现行登录角色；当前运行时基线仅保留 `ENTERPRISE / REVIEWER / THIRD_PARTY / ADMIN`，历史表已由 Flyway `V8__drop_legacy_authenticator.sql` 退场 |
 | transaction | ✅ 存在 | 扩展字段 |
 | third_party_org | ✅ 存在 | 扩展字段 |
 | reviewer_qualification | ✅ 存在 | - |

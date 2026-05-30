@@ -1,5 +1,7 @@
 # README.md 设计规格文档
 
+> Obsolete note (2026-05-29): this design draft predates the retirement of the legacy `AUTHENTICATOR` role assumption. Use the live role baseline `ENTERPRISE / REVIEWER / THIRD_PARTY / ADMIN` when updating README or onboarding materials.
+
 > 本文档定义 OAISS CHAIN 项目 README.md 的完整结构和内容
 
 ---

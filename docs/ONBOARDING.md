@@ -2,7 +2,7 @@
 
 ## Overview
 
-OAISS CHAIN（双碳链动）是一个基于区块链的可信碳核算与交易平台。企业提交碳排放报告，审核员/认证员审核，第三方监管，管理员管理全系统。支持碳币交易、双向拍卖、P2P交易、碳中和项目等核心业务。
+OAISS CHAIN（双碳链动）是一个基于区块链的可信碳核算与交易平台。企业提交碳排放报告，审核员审核，第三方监管，管理员管理全系统。支持碳币交易、双向拍卖、P2P交易、碳中和项目等核心业务。
 
 ## Tech Stack
 
@@ -50,7 +50,6 @@ OAISS CHAIN（双碳链动）是一个基于区块链的可信碳核算与交易
 |------|---------|-----------|-------------|
 | `ENTERPRISE` | 企业 | `/enterprise/carbon/upload` | 提交碳报告、交易、查看碳币 |
 | `REVIEWER` | 审核员 | `/auditor/audit/list` | 审核碳排放数据 |
-| `AUTHENTICATOR` | 认证员 | `/authenticator/verify/list` | 数字签名认证 |
 | `THIRD_PARTY` | 第三方 | `/third-party/monitor` | 监管面板 |
 | `ADMIN` | 管理员 | `/admin/system/users` | 用户管理、系统配置 |
 
@@ -177,23 +176,25 @@ OAISS CHAIN（双碳链动）是一个基于区块链的可信碳核算与交易
 
 | Task | Command |
 |------|---------|
-| Start backend dev server | `cd oaiss-chain-backend && mvn spring-boot:run` |
+| Start backend dev server | `scripts/start-backend.bat` / `./scripts/start-backend.sh` |
+| Stop backend dev server | `scripts/stop-backend.bat` / `./scripts/stop-backend.sh` |
 | Start frontend dev server | `cd oaiss-chain-frontend && npm run dev` |
 | Run backend tests | `cd oaiss-chain-backend && mvn test` |
 | Run backend integration tests | `cd oaiss-chain-backend && mvn verify` |
 | Run frontend unit tests | `cd oaiss-chain-frontend && npm run test` |
 | Run frontend E2E tests | `cd oaiss-chain-frontend && npm run test:e2e` |
 | Build frontend for production | `cd oaiss-chain-frontend && npm run build` |
-| Start full stack | `docker-compose up` |
+| Start full stack | `docker compose up` |
 | View Swagger API docs | `http://localhost:8080/api/v1/swagger-ui.html` |
 | View MinIO console | `http://localhost:9003` |
 
 ## Environment Setup
 
 1. Copy `.env.example` to `.env` and fill values
-2. Key variables: `DB_PASSWORD`, `REDIS_PASSWORD`, `JWT_SECRET`, `MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY`
+2. Key variables: `DB_PASSWORD`, `REDIS_PASSWORD`, `JWT_SECRET`, `MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY`, `RSA_KEK`
 3. Backend runs on port **8080**, frontend dev on **5173**
 4. MySQL on **3306**, Redis on **6379**, MinIO API on **9002**, console on **9003**
+5. For `local,fabric`, prefer `scripts/start-all.bat --with-fabric` or `./scripts/start-all.sh --with-fabric` so `.env` variables are injected before Spring Boot starts
 
 ## Where to Look
 

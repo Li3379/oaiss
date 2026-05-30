@@ -9,7 +9,8 @@
 | File | Description |
 |------|-------------|
 | `CLAUDE.md` | Project-specific AI behavioral guidelines and tech stack reference |
-| `docker-compose.yml` | Full-stack Docker Compose (MySQL, Redis, MinIO, backend, frontend) |
+| `docker-compose.yml` | Full-stack Docker Compose for local integration/demo |
+| `docker-compose.prod.yml` | Production application-only Docker Compose |
 | `docker-compose.infra.yml` | Infrastructure-only Docker Compose (MySQL, Redis, MinIO) |
 | `.env.example` | Environment variable template |
 | `pom.xml` | Maven parent POM (if multi-module) |
@@ -31,7 +32,8 @@
 ### Working In This Directory
 - Always check `.env.example` before running any service; copy to `.env` and fill in secrets
 - Backend runs on port 8080, frontend dev server on port 5173
-- Run `docker-compose up` for full stack, or `docker-compose -f docker-compose.infra.yml up` for infrastructure only
+- Run `docker-compose up` for local full-stack integration/demo, or `docker-compose -f docker-compose.infra.yml up` for infrastructure only
+- For production deployment guidance, use `docker-compose.prod.yml` together with `docs/production-readiness.md`
 - Use conventional commits: `feat|fix|docs|test|refactor|chore(scope): description`
 
 ### Testing Requirements
@@ -58,7 +60,7 @@
 <claude-mem-context>
 # Memory Context
 
-# [OAISS CHAIN] recent context, 2026-05-22 6:11pm GMT+8
+# [OAISS CHAIN] recent context, 2026-05-22 8:16pm GMT+8
 
 Legend: 🎯session 🔴bugfix 🟣feature 🔄refactor ✅change 🔵discovery ⚖️decision 🚨security_alert 🔐security_note
 Format: ID TIME TYPE TITLE

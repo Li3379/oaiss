@@ -61,8 +61,8 @@ OAISS Chain（双碳链动系统）是一个基于区块链技术的企业碳资
 
 ```
 ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
-│   企业用户   │    │   审核员     │    │  认证机构    │
-│ (ENTERPRISE) │    │ (REVIEWER)  │    │(AUTHENTICATOR)│
+│   企业用户   │    │   审核员     │    │  第三方监管   │
+│ (ENTERPRISE) │    │ (REVIEWER)  │    │(THIRD_PARTY)  │
 └──────┬──────┘    └──────┬──────┘    └──────┬──────┘
        │                  │                  │
        └──────────┬───────┴──────────────────┘
@@ -142,9 +142,8 @@ OAISS Chain（双碳链动系统）是一个基于区块链技术的企业碳资
 |---------|----------|---------|------|
 | ENTERPRISE | 1 | 企业用户 | 碳排放主体，进行碳核算报告提交、碳交易、碳中和项目管理 |
 | REVIEWER | 2 | 审核员 | 审核碳排放报告和碳中和项目，管理信誉评分 |
-| AUTHENTICATOR | 3 | 认证机构 | 对碳中和项目进行第三方认证 |
 | ADMIN | 4 | 管理员 | 系统管理，用户管理，执行撮合，碳币充值，信誉评估，签发准入证书和审核员资格证 |
-| THIRD_PARTY | 5 | 第三方监管 | 监管碳报告和交易数据，查看统计信息，定期核查 |
+| THIRD_PARTY | 3 | 第三方监管 | 监管碳报告和交易数据，查看统计信息，定期核查 |
 
 ### 3.2 Fabric节点映射
 
@@ -159,7 +158,7 @@ OAISS Chain（双碳链动系统）是一个基于区块链技术的企业碳资
 
 ### 3.2 权限矩阵
 
-| 功能模块 | 企业用户 | 审核员 | 认证机构 | 管理员 | 第三方监管 |
+| 功能模块 | 企业用户 | 审核员 | 管理员 | 第三方监管 |
 |---------|:-------:|:-----:|:-------:|:-----:|:--------:|
 | 创建碳报告 | ✅ | ❌ | ❌ | ❌ | ❌ |
 | 审核碳报告 | ❌ | ✅ | ❌ | ❌ | ❌ |
@@ -273,7 +272,7 @@ E = (Σ(REC容量,i - REC回收,i) + Σ(REP容量,j - REP回收,j)) × GWPSF₆ 
 | POST | `/carbon/reports` | 创建碳报告（草稿状态） | ENTERPRISE |
 | POST | `/carbon/reports/{reportId}/submit` | 提交碳报告至审核 | ENTERPRISE |
 | GET | `/carbon/reports/{reportId}` | 获取报告详情 | 已登录 |
-| GET | `/carbon/reports` | 查询报告列表（分页） | ADMIN/REVIEWER/AUTHENTICATOR/THIRD_PARTY |
+| GET | `/carbon/reports` | 查询报告列表（分页） | ADMIN/REVIEWER/THIRD_PARTY |
 | GET | `/carbon/my-reports` | 查询我的报告 | ENTERPRISE |
 | DELETE | `/carbon/reports/{reportId}` | 删除草稿报告 | ENTERPRISE |
 | POST | `/carbon/review` | 审核碳报告（通过/驳回） | REVIEWER |
@@ -742,8 +741,8 @@ AI智能模块包含两大核心功能：市场智能预测和企业境况智能
 
 | 方法 | 路径 | 说明 | 权限 |
 |------|------|------|------|
-| GET | `/blockchain/status` | 检查区块链连接状态 | ADMIN/AUTHENTICATOR |
-| GET | `/blockchain/block/{blockNumber}` | 查询区块信息 | ADMIN/AUTHENTICATOR/THIRD_PARTY |
+| GET | `/blockchain/status` | 检查区块链连接状态 | ADMIN |
+| GET | `/blockchain/block/{blockNumber}` | 查询区块信息 | ADMIN/THIRD_PARTY |
 | GET | `/blockchain/transaction/{txHash}` | 查询链上交易 | 已登录 |
 | GET | `/blockchain/transactions` | 链上交易列表 | 已登录 |
 | GET | `/blockchain/blocks/latest` | 最新区块列表 | 已登录 |
@@ -920,7 +919,7 @@ AI智能模块包含两大核心功能：市场智能预测和企业境况智能
 │                       碳中和项目完整流程                                  │
 ├─────────────────────────────────────────────────────────────────────────┤
 │                                                                          │
-│  企业用户        管理员/审核员      第三方核证      认证机构              │
+│  企业用户        管理员/审核员      第三方核证/监管                      │
 │    │                │                │               │                   │
 │    ├─ 创建项目 ──→ │                │               │                   │
 │    ├─ 提交审核 ──→ │                │               │                   │
@@ -979,7 +978,7 @@ AI智能模块包含两大核心功能：市场智能预测和企业境况智能
 | | enterprise | 企业信息表 |
 | | reviewer | 审核员信息表 |
 | | reviewer_qualification | 审核员资质表 |
-| | authenticator | 认证机构表 |
+| | authenticator | 管理员签发信息表（历史命名，已由 V8 迁移从活动数据库退场） |
 | | third_party_org | 第三方监管机构表 |
 | | account_permission_list | 账户权限表 |
 | | entry_permission | 权限条目表 |
@@ -1087,7 +1086,7 @@ AI智能模块包含两大核心功能：市场智能预测和企业境况智能
 ```
 user ──1:1──→ enterprise
 user ──1:1──→ reviewer
-user ──1:1──→ authenticator
+user ──1:1──→ authenticator (legacy admin issuer table)
 user ──1:1──→ third_party_org
 user ──1:1──→ carbon_coin_account
 user ──1:1──→ rsa_key_pair
@@ -1131,7 +1130,7 @@ carbon_coin_account ──1:N──→ carbon_coin_transaction
 | `/enterprise/emission/data` | EmissionData.vue | ENTERPRISE | 排放数据 |
 | `/enterprise/user/profile` | UserProfile.vue | ENTERPRISE | 个人中心 |
 | `/auditor/audit/list` | AuditList.vue | REVIEWER | 碳排放数据审核 |
-| `/authenticator/verify/list` | VerifyList.vue | AUTHENTICATOR | 认证列表 |
+| `/admin/verify/list` | VerifyList.vue | ADMIN | 认证列表 |
 | `/third-party/monitor` | Monitor.vue | THIRD_PARTY | 监管面板 |
 | `/admin/system/users` | SystemUsers.vue | ADMIN | 用户管理 |
 | `/admin/system/carbon` | SystemCarbon.vue | ADMIN | 碳核算管理 |

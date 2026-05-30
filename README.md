@@ -124,8 +124,9 @@ OAISS CHAIN/
 ├── fabric-config/                # Fabric 网络配置与加密材料
 ├── scripts/                      # 测试/部署脚本
 ├── docs/                         # 项目文档
-├── docker-compose.yml            # 主编排 (全栈 5 服务)
-├── docker-compose.infra.yml      # 基础设施 (MySQL/Redis/MinIO)
+├── docker-compose.yml            # 全栈容器编排（本地/演示）
+├── docker-compose.prod.yml       # 生产容器编排（仅应用服务）
+├── docker-compose.infra.yml      # 基础设施 (MySQL/Redis/MinIO/ML Service)
 └── docker-compose.fabric.yml     # Fabric 区块链网络
 ```
 
@@ -162,7 +163,7 @@ cp .env.example .env
 # 编辑 .env，设置 DB_PASSWORD, REDIS_PASSWORD, JWT_SECRET, MINIO_ACCESS_KEY, MINIO_SECRET_KEY
 
 # 2. 启动所有服务
-docker-compose up -d
+docker compose up -d
 ```
 
 服务端口：
@@ -189,7 +190,7 @@ docker-compose up -d
 
 ```bash
 cd "OAISS CHAIN"
-docker-compose -f docker-compose.infra.yml up -d
+docker compose -f docker-compose.infra.yml up -d
 ```
 
 | 容器 | 端口映射 | 默认密码 |
@@ -217,13 +218,13 @@ docker-compose -f docker-compose.infra.yml up -d
 
 | Profile | 用途 |
 |---------|------|
-| `local` | 本地开发，连接 Docker 基础设施（MySQL 3307），Fabric 关闭 |
+| `local` | 本地开发，连接 Docker 基础设施（MySQL 3306），Fabric 关闭 |
 | `dev` | 本地开发（无 Docker），MySQL 3306，Flyway 关闭，JPA ddl-auto=update |
 | `local,fabric` | 本地开发 + 启用 Fabric 区块链连接 |
 | `docker` | Docker Compose 全栈部署，服务间通过容器名通信 |
 | `test` | 自动化测试，使用 Testcontainers |
 
-#### 第 3 步：启动前端
+#### 第 3 步：启动前端（手动路径）
 
 ```bash
 cd oaiss-chain-frontend
@@ -244,22 +245,22 @@ npm run dev
 | 审核员 | `reviewer001` | `admin123` |
 | 第三方监管 | `thirdparty001` | `admin123` |
 
-#### 第 5 步（可选）：启动 Fabric 区块链网络
+#### 第 5 步（可选）：启动 Fabric 区块链网络（手动路径）
 
 ```bash
 # 前提：已生成加密材料
 cd "OAISS CHAIN"
-docker-compose -f docker-compose.fabric.yml up -d
+docker compose -f docker-compose.fabric.yml up -d
 ```
 
 验证：
 
 ```bash
-docker-compose -f docker-compose.fabric.yml ps
+docker compose -f docker-compose.fabric.yml ps
 # 应看到 5 个容器全部 Up: orderer, peer0, couchdb0, ca.org1, fabric-cli
 ```
 
-启用 Fabric 后，IDEA `Run Configuration` 中将 Active profiles 改为 `default,fabric`。
+启用 Fabric 后，如仍使用 IDEA 手动启动后端，请将 `Run Configuration` 中的 Active profiles 改为 `local,fabric`。
 
 > **注意**: `fabric` profile 需要所有 Fabric 容器正常运行，且加密材料已生成。否则后端启动失败。
 > 区块链是**可选组件**，不启动不影响核心业务功能。
@@ -272,16 +273,79 @@ docker-compose -f docker-compose.fabric.yml ps
 |------|------|------|
 | `docker-compose.infra.yml` | MySQL, Redis, MinIO, ML Service | **本地开发**的基础设施，创建共享网络 `oaiss-network` |
 | `docker-compose.fabric.yml` | Orderer, Peer, CouchDB, CA, CLI | Fabric 区块链网络（可选） |
-| `docker-compose.yml` | MySQL, Redis, MinIO, Backend, Frontend, ML | **生产/演示**全栈部署 |
+| `docker-compose.yml` | MySQL, Redis, MinIO, Backend, Frontend, ML | **本地集成/演示**全栈部署 |
+| `docker-compose.prod.yml` | Frontend, Backend, ML | **生产部署**应用层编排；数据库、Redis、对象存储应使用托管或私有基础设施 |
 
 ### 启动顺序
 
+以下为手动启动路径；日常本地开发优先使用下一节的一键脚本。
+
 ```
-1. docker-compose -f docker-compose.infra.yml up -d     # 基础设施 + ML 服务（必须）
-2. docker-compose -f docker-compose.fabric.yml up -d     # 区块链（可选）
-3. IDEA 启动后端 / mvn spring-boot:run                    # 后端应用
+1. docker compose -f docker-compose.infra.yml up -d     # 基础设施 + ML 服务（必须）
+2. docker compose -f docker-compose.fabric.yml up -d     # 区块链（可选）
+3. scripts/start-backend.bat 或 ./scripts/start-backend.sh  # 后端应用
 4. cd oaiss-chain-frontend && npm run dev                 # 前端应用
 ```
+
+### 一键启动脚本
+
+项目提供统一启动/停止脚本，自动处理依赖等待和健康检查：
+
+**Linux / macOS：**
+
+```bash
+# 启动基础服务 + 后端 + 前端（推荐日常开发）
+./scripts/start-all.sh
+
+# 启动全部服务（含 Fabric 区块链）
+./scripts/start-all.sh --with-fabric
+
+# 仅启动基础设施
+./scripts/start-all.sh --infra-only
+
+# 跳过特定服务
+./scripts/start-all.sh --skip-frontend --skip-backend
+
+# 停止所有服务
+./scripts/stop-all.sh
+
+# 停止所有服务（含 Fabric）
+./scripts/stop-all.sh --with-fabric
+```
+
+**Windows：**
+
+```bat
+REM 启动基础服务 + 后端 + 前端（后端和前端在独立窗口运行）
+scripts\start-all.bat
+
+REM 启动全部服务（含 Fabric 区块链）
+scripts\start-all.bat --with-fabric
+
+REM 仅启动基础设施
+scripts\start-all.bat --infra-only
+
+REM 停止所有服务
+scripts\stop-all.bat
+```
+
+> 脚本特性：
+> - 加载 `.env` 环境变量
+> - 自动轮询 Docker 容器健康状态（`docker inspect`），等待 MySQL/Redis/MinIO 就绪后再启动应用
+> - 后端使用 `local` profile，Fabric 使用 `fabric` profile
+> - Windows 脚本中后端和前端各在独立 `cmd` 窗口运行，关闭窗口即停止进程
+
+> 推荐做法：
+> - 本地开发优先使用 `scripts/start-all.bat --with-fabric` 或 `./scripts/start-all.sh --with-fabric`
+> - 只想单独启动后端时，使用 `scripts/start-backend.bat` 或 `./scripts/start-backend.sh`
+> - 停止单独后端时，使用 `scripts/stop-backend.bat` 或 `./scripts/stop-backend.sh`
+> - 不要直接在未注入 `.env` 的终端里运行裸 `mvn spring-boot:run`
+> - `RSA_KEK`、`JWT_SECRET`、`DB_PASSWORD` 等敏感变量依赖 `.env` 或 IDE Run Configuration 注入
+> - 生产环境不要复用 `docker-compose.yml`；请使用 `docker-compose.prod.yml` 和 `prod` / `prod,fabric` profile
+
+> 最简入口：
+> - 全栈本地联调：`scripts\start-all.bat --with-fabric` / `./scripts/start-all.sh --with-fabric`
+> - 单独后端联调：`scripts\start-backend.bat --with-fabric` / `./scripts/start-backend.sh --with-fabric`
 
 ### 健康检查
 
@@ -298,12 +362,46 @@ curl -X POST http://localhost:8080/api/v1/auth/login \
 curl http://localhost:9002/minio/health/live              # MinIO
 docker exec oaiss-mysql mysql -uroot -p${DB_PASSWORD} -e "SELECT 1"   # MySQL
 docker exec oaiss-redis redis-cli -a ${REDIS_PASSWORD} ping            # Redis
-docker-compose -f docker-compose.fabric.yml ps            # Fabric 网络
+docker compose -f docker-compose.fabric.yml ps            # Fabric 网络
 ```
+
+### 生产部署入口
+
+生产环境与本地 `local` / `local,fabric` 联调是两条不同路径：
+
+- 本地联调：优先使用 `scripts/start-all.bat --with-fabric` / `./scripts/start-all.sh --with-fabric`
+- 生产部署：使用 `docker-compose.prod.yml`，通过 `--env-file` 指向生产环境文件，并设置 `SPRING_PROFILES_ACTIVE=prod` 或 `prod,fabric`
+
+更完整的生产发布约束、回滚策略和验收清单见
+`docs/production-readiness.md`。
+
+实际部署时的操作顺序、staging/prod 差异、上线后验收与回滚步骤见
+`docs/deployment-runbook.md`。
+
+最终收口所需的本地 `local,fabric` 探针结果、串行执行建议和发布前人工检查项见
+`docs/final-acceptance-checklist.md`。
+
+> 生产环境如果仓库根目录存在本地开发 `.env`，请额外设置 `COMPOSE_DISABLE_ENV_FILE=1`，避免 Docker Compose 隐式加载本地变量并污染生产配置。
+> 在 Windows 本地终端里，如果当前进程已经注入过 `DB_PASSWORD`、`JWT_SECRET`、`SPRING_PROFILES_ACTIVE` 等开发变量，优先使用 `scripts/prod-compose.ps1` 包装脚本执行生产 compose 命令。
+> Linux / macOS 终端请使用 `scripts/prod-compose.sh --env-file /secure/path/oaiss-chain.env ...`，它会执行同样的清理动作。
+> 如果是在 Windows 的 WSL 里调用 `scripts/prod-compose.sh`，还需要先给该 WSL 发行版启用 Docker Desktop integration。
 
 ## 区块链集成（Fabric）
 
 Fabric 是**可选组件**，不启动不影响核心业务功能。启用后提供碳报告上链存证和交易记录不可篡改。
+
+### 状态数据库
+
+Fabric Peer 默认使用 **LevelDB**（内嵌式，无需外部依赖）。如需使用 CouchDB（支持富查询），修改 `docker-compose.fabric.yml` 中 Peer 的环境变量：
+
+```yaml
+- CORE_LEDGER_STATE_STATEDATABASE=CouchDB
+- CORE_LEDGER_STATE_COUCHDBCONFIG_COUCHDBADDRESS=couchdb0:5984
+- CORE_LEDGER_STATE_COUCHDBCONFIG_USERNAME=admin
+- CORE_LEDGER_STATE_COUCHDBCONFIG_PASSWORD=adminpw
+```
+
+> **注意**: CouchDB 单节点部署需配置 `cluster/n=1` 和 `cluster/q=1`，否则 Peer 启动时报 `unexpected end of JSON input` 错误。配置文件位于 `fabric-config/couchdb/docker.ini`。
 
 ### 前置条件
 
@@ -324,13 +422,13 @@ cd "OAISS CHAIN"
 bash ./scripts/generate-fabric-crypto.sh /path/to/fabric-samples
 
 # 3. 启动 Fabric 网络
-docker-compose -f docker-compose.fabric.yml up -d
+docker compose -f docker-compose.fabric.yml up -d
 ```
 
 验证：
 
 ```bash
-docker-compose -f docker-compose.fabric.yml ps
+docker compose -f docker-compose.fabric.yml ps
 # 应看到 5 个容器全部 Up: orderer, peer0, couchdb0, ca.org1, fabric-cli
 ```
 
@@ -339,6 +437,7 @@ docker-compose -f docker-compose.fabric.yml ps
 IDEA `Run Configuration` 中将 Active profiles 改为 `local,fabric`。
 
 > **注意**: `fabric` profile 需要所有 Fabric 容器正常运行，且加密材料已生成。否则后端启动失败。
+> 同时需要注入 `.env` 中的 `RSA_KEK`、`JWT_SECRET`、`DB_PASSWORD` 等环境变量；否则后端会在启动阶段因密钥加密器初始化失败而退出。
 
 ### 架构设计
 
@@ -388,6 +487,7 @@ API 文档：http://localhost:8001/docs
 | `MINIO_SECRET_KEY` | — | MinIO Secret Key |
 | `MINIO_BUCKET` | `oaiss-chain` | MinIO 存储桶 |
 | `ML_SERVICE_URL` | `http://localhost:8001` | ML 服务地址 |
+| `RSA_KEK` | — | RSA 私钥 AES-256-GCM 加密密钥（**必填**，需为 Base64 编码的 32 字节密钥） |
 | `SPRING_PROFILES_ACTIVE` | `default` | Spring Profile |
 
 > 各 profile 的默认值定义在对应的 `application-{profile}.yml` 中，环境变量优先级高于配置文件。

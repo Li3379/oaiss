@@ -1,37 +1,37 @@
-# Execution constraints and phase order
+# 执行约束与阶段顺序
 
-## Cost and scope
+## 成本与范围
 
-- Default **3–4** schemes, max **5** (cost control).
-- Inner loop: **one change per round**, max **5** rounds.
-- Do not repeatedly ask “should I continue?” **Run to completion** means: per **`phase-03-inner.md`**, iterate **each** `prompt-*` track until **termination** or **5 rounds**—not “always 5 rounds,” and not the agent quitting early on its own.
-- In repos using this Skill, maintainers may state in root `SKILL.md` or host-specific rules whether “requirements already concrete → skip straight to output” is allowed, or whether extra gates (phase 2 on disk, independent `r01`, etc.) apply.
-- The goal is **quality**, not delay.
+- 默认使用 **3-4** 个方案，最多 **5** 个，用于控制成本。
+- 内循环要求：**每轮只改一个点**，最多 **5** 轮。
+- 不要反复询问“是否继续”。所谓 **Run to completion** 的意思是：按照 **`phase-03-inner.md`**，对 **每一个** `prompt-*` 轨道持续迭代，直到满足 **终止条件** 或达到 **5 轮上限**。它不是“永远固定 5 轮”，也不是代理可以自行提前中止。
+- 在使用本 Skill 的仓库里，维护者可以在根目录 `SKILL.md` 或宿主规则中声明：是否允许“需求已经足够明确，直接跳到输出”，或者是否必须增加额外闸门，例如 phase 2 必须落盘、`r01` 必须彼此独立等。
+- 目标是 **质量**，不是人为拖延。
 
-## Strict execution (aligned with `SKILL.md`)
+## 严格执行要求（与 `SKILL.md` 对齐）
 
-- The agent **must** follow this file, **`phase-03-inner.md`**, **`phase-04-output.md`**, **`verifiability.md`**, etc.; **must not** shorten or skip any `prompt-*` track’s inner loop or gates for undocumented reasons (e.g. “save work,” fewer tokens, “non-final track can be shorter”).
-- **Each track** must run until **`phase-03-inner.md` termination**: mainly **`tracks/phase-01-acceptance.md` all checked**, capped at **5** rounds, plus **gates** (currently at least **r01**, **r02** per scheme). **Self-score alone cannot mean “done”** (R3). Claiming “inner loop done” in phase 4 without this is a **process violation**.
+- 代理 **必须** 遵守本文件、**`phase-03-inner.md`**、**`phase-04-output.md`**、**`verifiability.md`** 等规则；**不得** 以未记录的理由缩短或跳过任何 `prompt-*` 轨道的内循环或闸门，例如“省工作量”“节省 token”“非最终轨道可以短一点”等。
+- **每条轨道** 都必须运行到 **`phase-03-inner.md` 定义的终止条件**：核心要求是 **`tracks/phase-01-acceptance.md` 中全部项目勾选完成**，同时受 **最多 5 轮** 限制，并满足闸门要求，目前至少包括每个 scheme 的 **`r01`、`r02`**。**仅凭自评分数高，不能视为“完成”**（见 R3）。如果在 phase 4 中声称“inner loop 已完成”，但没有满足这些条件，就属于 **流程违规**。
 
-## Phase execution
+## 阶段执行顺序
 
-- **Strict order**: requirements → outer schemes → inner loop → compare. No skipping phases.
-- **Each phase must produce explicit output** before the next.
-- **Gates block the next phase** until fixed and re-checked.
-- **Consistency check is mandatory**; skipping it before inner loop is a violation.
+- **严格顺序**：需求定义 -> 外层方案 -> 内层迭代 -> 对比输出。不得跳阶段。
+- **每个阶段必须先产生明确输出**，才能进入下一阶段。
+- **闸门未通过时，禁止进入下一阶段**，必须先修复并重新检查。
+- **一致性检查是强制项**，在进入 inner loop 前跳过它属于违规。
 
-## Multi-scheme inner independence (default)
+## 多方案内循环独立性（默认规则）
 
-1. **Phase 2 on disk**: before phase 3, write or update **`tracks/phase-02-consistency-check.md`** with the full block required in `phase-02-prompts.md` (heading **`## Scheme consistency check`**, per-scheme lines, and **result**).
-2. **Scheme–dimension table**: same file must include **scheme / track dir / phase-02 dimension / note**.
-3. **Independent `r01`**: for `prompt-b`, `prompt-c`, … **`r01` must not** be a full-page copy of `prompt-a` with comments tweaked; generate **per scheme**, visibly different structure or layout from `prompt-a/r01`.
+1. **Phase 2 必须落盘**：进入 phase 3 前，必须写入或更新 **`tracks/phase-02-consistency-check.md`**，内容应完整符合 `phase-02-prompts.md` 的要求，包括标题 **`## Scheme consistency check`**、逐 scheme 对照行以及 **result**。
+2. **方案-维度映射表**：同一文件中还必须包含 **scheme / track dir / phase-02 dimension / note** 对照表。
+3. **独立 `r01`**：对于 `prompt-b`、`prompt-c` 等后续方案，**`r01` 不能只是** 从 `prompt-a` 整页复制后改几句注释。必须按各自 scheme 重新生成，并且在结构或布局上与 `prompt-a/r01` 明显不同。
 
-> **Maintainer-tunable**: defaults above can be adjusted via root `SKILL.md` or host-specific rules (IDE rules, OpenClaw, etc.).
+> **可由维护者调整**：上述默认规则可通过根目录 `SKILL.md` 或宿主侧规则（IDE 规则、OpenClaw 等）进行调整。
 
-## Honesty and verification (read when executing)
+## 诚实性与可验证性（执行时必读）
 
-**Sole rules: `verifiability.md` (R1–R5).** Reminder only:
+**唯一权威规则在 `verifiability.md`（R1-R5）中。** 这里仅作提醒：
 
-- Do not treat similar wording in different files as multiple rule sets; on R1–R5 ambiguity, **`verifiability.md` wins**; phase flow and gates follow **`phase-*.md`** and **`execution.md`** in a way compatible with R1–R5.
-- **Class A**: “same” claims need **terminal evidence**; recommend `scripts/skill-verify.sh` at repo root (see `program.md`).
-- **Class B**: do not pretend file-level checks ran; give user commands and “please confirm” wording (R4, R5).
+- 不要把多个文件中相似的表述误当成多套独立规则；涉及 R1-R5 的歧义时，**以 `verifiability.md` 为准**；阶段流程与闸门则以 **`phase-*.md`** 和 **`execution.md`** 为准，但必须与 R1-R5 兼容。
+- **Class A** 场景下，凡是声称“相同”“已验证”，都需要有 **终端证据**；通常建议在仓库根目录运行 `scripts/skill-verify.sh`（见 `program.md`）。
+- **Class B** 场景下，不得伪装成已经执行过文件级检查；只能给用户可执行命令，并明确写出“请你本地确认”之类措辞（见 R4、R5）。

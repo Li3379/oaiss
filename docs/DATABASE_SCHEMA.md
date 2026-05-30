@@ -49,7 +49,7 @@
 | 5 | `reviewer` | 审核员表 | 用户管理 | `Reviewer` | `ReviewerRepository` |
 | 6 | `reviewer_qualification` | 审核员资质表 | 用户管理 | `ReviewerQualification` | `ReviewerQualificationRepository` |
 | 7 | `third_party_org` | 第三方机构表 | 用户管理 | `ThirdPartyOrg` | `ThirdPartyOrgRepository` |
-| 8 | `authenticator` | 认证机构表 | 用户管理 | `Authenticator` | `AuthenticatorRepository` |
+| 8 | `authenticator` | 管理员签发信息表（历史命名，已退场） | 用户管理 | - | - |
 | 9 | `carbon_report` | 碳报告表 | 碳管理 | `CarbonReport` | `CarbonReportRepository` |
 | 10 | `transaction` | 交易记录表 | 碳交易 | `Transaction` | `TransactionRepository` |
 | 11 | `account_permission_list` | 账户权限定义表 | 权限管理 | `AccountPermissionList` | `AccountPermissionListRepository` |
@@ -222,9 +222,9 @@
 
 ---
 
-### 4.7 `authenticator` — 认证机构表
+### 4.7 `authenticator` — 管理员签发信息表（历史命名，已退场）
 
-> **Entity**: `Authenticator.java` | **Repository**: `AuthenticatorRepository`
+> **状态说明**: 原始需求文档中 `authenticator` 字段/表的中文语义是“管理员/签发管理员”，并非当前系统中的独立登录角色。当前运行时角色基线为 `ENTERPRISE / REVIEWER / THIRD_PARTY / ADMIN`；对应 Java Entity/Repository 已删除，该历史表也已由 Flyway `V8__drop_legacy_authenticator.sql` 从当前活动数据库中退场。此处仅保留历史结构说明，解释旧迁移来源与旧数据库命名。
 
 | 字段名 | 类型 | 可空 | 默认值 | 唯一 | 说明 |
 |--------|------|------|--------|------|------|
@@ -612,7 +612,7 @@
 | 2 | REVIEWER | 审核员 |
 | 3 | THIRD_PARTY | 第三方监管 |
 | 4 | ADMIN | 系统管理员 |
-| 5 | AUTHENTICATOR | 认证机构 |
+> 注：当前运行时用户类型基线为 `ENTERPRISE / REVIEWER / THIRD_PARTY / ADMIN`。历史文档中的 `AUTHENTICATOR`/`authenticator` 仅表示旧命名下的“管理员签发者”，不再作为有效登录角色。
 
 ### 5.2 `ReportStatusEnum` — 碳报告状态
 
@@ -693,7 +693,7 @@ user_type_list
 │  1:1 ──→ enterprise               │
 │  1:1 ──→ reviewer                 │
 │  1:1 ──→ third_party_org          │
-│  1:1 ──→ authenticator            │
+│  1:1 ──→ authenticator (legacy admin issuer table) │
 │  1:1 ──→ carbon_coin_account      │
 │  1:N ──→ rsa_key_pair             │
 │  1:N ──→ auction_order            │
@@ -735,7 +735,7 @@ entry_permission ── API入口权限（关联 user_type）
 ```
 
 **关系类型统计**:
-- 1:1 关系: 7 个（user ↔ enterprise, user ↔ reviewer, user ↔ third_party_org, user ↔ authenticator, user ↔ carbon_coin_account, enterprise ↔ credit_score）
+- 1:1 关系: 7 个（其中 `user ↔ authenticator` 仅为旧命名下“管理员签发信息表”的历史遗留关系说明，当前活动数据库已由 V8 迁移移除该表）
 - 1:N 关系: 14 个
 - 逻辑关联（无FK约束）: 3 个（user.user_type ↔ user_type_list, account_permission_list, entry_permission）
 
@@ -758,8 +758,8 @@ entry_permission ── API入口权限（关联 user_type）
 | reviewer | uk_reviewer_qualification_no | qualification_no | 资质编号唯一 |
 | third_party_org | uk_third_party_org_user_id | user_id | 一个用户只有一个机构 |
 | third_party_org | uk_third_party_org_org_code | org_code | 机构编码唯一 |
-| authenticator | uk_authenticator_user_id | user_id | 一个用户只有一个认证机构 |
-| authenticator | uk_authenticator_org_code | org_code | 机构编码唯一 |
+| authenticator | uk_authenticator_user_id | user_id | 历史遗留唯一约束 |
+| authenticator | uk_authenticator_org_code | org_code | 历史遗留唯一约束 |
 | carbon_report | uk_carbon_report_report_no | report_no | 报告编号唯一 |
 | transaction | uk_transaction_trade_no | trade_no | 交易编号唯一 |
 | account_permission_list | uk_account_permission_list_permission_code | permission_code | 权限代码唯一 |
@@ -817,7 +817,7 @@ entry_permission ── API入口权限（关联 user_type）
 | 4 | Reviewer | ReviewerRepository | UserController | OK |
 | 5 | ReviewerQualification | ReviewerQualificationRepository | - (内部调用) | OK |
 | 6 | ThirdPartyOrg | ThirdPartyOrgRepository | ThirdPartyController | OK |
-| 7 | Authenticator | AuthenticatorRepository | - (内部调用) | OK |
+| 7 | Authenticator | - | 历史遗留，运行时已移除 | Deprecated |
 | 8 | CarbonReport | CarbonReportRepository | CarbonController | OK |
 | 9 | Transaction | TransactionRepository | TradeController | OK |
 | 10 | AccountPermissionList | AccountPermissionListRepository | AdminController | OK |
@@ -854,7 +854,7 @@ entry_permission ── API入口权限（关联 user_type）
 
 1. **无物理外键**: SQL DDL 未定义 `FOREIGN KEY` 约束，表间关系由 Java 代码逻辑维护
 2. **敏感字段**: `user.password`（BCrypt加密）、`rsa_key_pair.private_key` 不应在 API 响应中暴露（`@JsonProperty(access = WRITE_ONLY)`）
-3. **JSON字段**: `reviewer.reviewable_industries`、`third_party_org.supervision_scope`、`authenticator.cert_scope`、`user.allowed_ips`、`carbon_report.emission_data`、`carbon_report.attachments`、`carbon_neutral_project.application_data` 等使用 TEXT 存储JSON
+3. **JSON字段**: `reviewer.reviewable_industries`、`third_party_org.supervision_scope`、`user.allowed_ips`、`carbon_report.emission_data`、`carbon_report.attachments`、`carbon_neutral_project.application_data` 等使用 TEXT 存储JSON；`authenticator.cert_scope` 仅保留于历史遗留表
 4. **逻辑删除**: 所有表支持 `is_deleted` 软删除，但 SQL 中未配置 Hibernate `@Where` 过滤，需在查询时注意
 5. **碳币交易类型**: `carbon_coin_transaction.tx_type`（1=充值, 2=购买配额, 3=出售配额, 4=转账）在枚举类中未定义为独立枚举
-6. **Seed数据**: V2 迁移脚本和 data.sql 中 `user_type_list` 仅包含4种类型（缺少 AUTHENTICATOR=5），但种子数据中有 authenticator 用户（user_type=5）
+6. **Seed数据**: 当前种子数据与运行时基线统一为 4 种类型（`ENTERPRISE / REVIEWER / THIRD_PARTY / ADMIN`）；旧环境中的 `authenticator` 遗留表已由 V8 迁移清理
