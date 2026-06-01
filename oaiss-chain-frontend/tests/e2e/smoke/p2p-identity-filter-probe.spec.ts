@@ -1,10 +1,33 @@
-import { test, expect } from '@playwright/test'
+import { test, expect, type Page, type Request } from '@playwright/test'
 import fs from 'node:fs'
 import path from 'node:path'
-import { loginViaToken } from '../fixtures/auth'
+import { loginViaApi } from '../fixtures/auth'
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5173'
+const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:8080/api/v1'
 const OUT_DIR = path.join(process.cwd(), 'test-results', 'ad-hoc-probes')
+
+type TableSnapshot = {
+  rows: number
+  tradeNos: string[]
+}
+
+type SeedTradeResult = {
+  created: boolean
+  tradeNo?: string
+  status?: number
+  body?: unknown
+}
+
+type SeedLoginResult = {
+  token: string
+  userId: number
+}
+
+type IdentityCaseResult = {
+  snapshot: TableSnapshot
+  urls: string[]
+}
 
 function ensureOutDir() {
   fs.mkdirSync(OUT_DIR, { recursive: true })
@@ -14,107 +37,201 @@ function writeJson(name: string, data: unknown) {
   fs.writeFileSync(path.join(OUT_DIR, name), JSON.stringify(data, null, 2), 'utf8')
 }
 
-async function readRowCount(page: import('@playwright/test').Page) {
-  return page.locator('table tbody tr').count()
+async function settle(page: Page) {
+  await page.waitForLoadState('domcontentloaded', { timeout: 5000 }).catch(() => {})
+  await page.waitForTimeout(800)
 }
 
-async function applyIdentityFilter(
-  page: import('@playwright/test').Page,
-  optionText: RegExp,
-) {
-  await page.goto(`${BASE_URL}/enterprise/trading/p2p`)
-  await page.waitForLoadState('domcontentloaded')
-  await page.waitForTimeout(1000)
-
-  const select = page.locator('.search-form .el-select').first()
-  await select.click()
-  await page.locator('.el-select-dropdown:visible .el-select-dropdown__item').filter({ hasText: optionText }).first().click()
-  await page.getByRole('button', { name: /Search|查询|搜索/ }).first().click()
-  await page.waitForTimeout(600)
-
-  const rowCount = await readRowCount(page)
-  const bodyText = (await page.locator('.el-table__body').first().textContent()) || ''
-  return { rowCount, bodyText }
+async function waitForTradeTableOrEmpty(page: Page) {
+  await page.waitForFunction(() => {
+    const rows = document.querySelectorAll('.el-table__body tbody tr').length
+    const empty = Array.from(document.querySelectorAll('.el-table__empty-text'))
+      .some((node) => (node.textContent || '').trim().length > 0)
+    return rows > 0 || empty
+  }, undefined, { timeout: 15000 })
 }
 
-test('probe p2p identity filter works on current user role', async ({ page }) => {
-  ensureOutDir()
-  await loginViaToken(page, 'ENTERPRISE')
+async function captureTradeRequests(page: Page, action: () => Promise<void>): Promise<string[]> {
+  const urls: string[] = []
+  const handler = (request: Request) => {
+    const url = request.url()
+    if (url.includes('/api/v1/trade/my-trades')) {
+      urls.push(url)
+    }
+  }
+  page.on('request', handler)
+  try {
+    await action()
+    await page.waitForTimeout(1200)
+    return urls
+  } finally {
+    page.off('request', handler)
+  }
+}
 
-  await page.route('**/api/v1/trade/my-trades**', async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({
-        code: 200,
-        message: 'ok',
-        data: {
-          content: [
-            {
-              id: 801,
-              tradeNo: 'P2P-BUYER',
-              buyerId: 2,
-              buyerName: 'Current User',
-              sellerId: 9,
-              sellerName: 'Seller A',
-              quantity: 8,
-              unitPrice: 70,
-              totalAmount: 560,
-              status: 0,
-              statusText: '待处理',
-              createdAt: '2026-05-24T09:00:00',
-            },
-            {
-              id: 802,
-              tradeNo: 'P2P-SELLER',
-              buyerId: 10,
-              buyerName: 'Buyer B',
-              sellerId: 2,
-              sellerName: 'Current User',
-              quantity: 5,
-              unitPrice: 90,
-              totalAmount: 450,
-              status: 0,
-              statusText: '待处理',
-              createdAt: '2026-05-24T10:00:00',
-            },
-          ],
-          totalElements: 2,
-          totalPages: 1,
-          size: 10,
-          number: 0,
-          first: true,
-          last: true,
-          empty: false,
-        },
-      }),
-    })
+async function loginForSeed(page: Page, username: string, password: string): Promise<SeedLoginResult> {
+  const response = await page.request.post(`${API_BASE_URL}/auth/login`, {
+    headers: { 'Content-Type': 'application/json' },
+    data: { username, password },
+  })
+  const body = await response.json().catch(() => null)
+  if (!response.ok() || body?.code !== 200 || !body?.data?.accessToken || !body?.data?.userId) {
+    throw new Error(`Seed login failed for ${username}: HTTP ${response.status()} ${JSON.stringify(body)}`)
+  }
+  return {
+    token: String(body.data.accessToken),
+    userId: Number(body.data.userId),
+  }
+}
+
+async function createP2PSeedTrade(
+  page: Page,
+  token: string,
+  buyerId: number,
+  remark: string,
+): Promise<SeedTradeResult> {
+  const response = await page.request.post(`${API_BASE_URL}/trade/p2p`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    data: {
+      tradeType: 2,
+      buyerId,
+      quantity: 1,
+      unitPrice: 1,
+      remark,
+    },
   })
 
+  const body = await response.json().catch(() => null)
+  if (!response.ok() || body?.code !== 200) {
+    return {
+      created: false,
+      status: response.status(),
+      body,
+    }
+  }
+
+  return {
+    created: true,
+    tradeNo: body?.data?.tradeNo,
+    status: response.status(),
+    body,
+  }
+}
+
+async function openP2PPage(page: Page) {
   await page.goto(`${BASE_URL}/enterprise/trading/p2p`)
-  await page.waitForLoadState('domcontentloaded')
-  await page.waitForTimeout(1000)
+  await settle(page)
+  await waitForTradeTableOrEmpty(page)
+}
 
-  const beforeRows = await readRowCount(page)
-  const bodyTable = page.locator('.el-table__body').first()
-  await expect(bodyTable).toContainText('P2P-BUYER')
-  await expect(bodyTable).toContainText('P2P-SELLER')
+async function fillTradeNo(page: Page, tradeNo: string) {
+  const input = page.locator('.search-form input:not([readonly]):visible').nth(1)
+  await input.waitFor({ state: 'visible', timeout: 10000 })
+  await input.click()
+  await input.fill(tradeNo)
+}
 
-  const buyerResult = await applyIdentityFilter(page, /Buyer|买方/)
-  const sellerResult = await applyIdentityFilter(page, /Seller|卖方/)
+async function selectIdentity(page: Page, optionIndex: number) {
+  const select = page.locator('.search-form .el-select').first()
+  await select.click()
+  const options = page.locator('.el-select-dropdown:visible .el-select-dropdown__item:not(.is-disabled)')
+  await options.nth(optionIndex).click()
+}
+
+async function clickSearch(page: Page) {
+  await page.locator('.search-form .el-button--primary').first().click()
+}
+
+async function snapshotTable(page: Page): Promise<TableSnapshot> {
+  const rows = page.locator('.el-table__body tbody tr')
+  const rowCount = await rows.count()
+  const tradeNoCells = page.locator('.el-table__body tbody tr td:nth-child(2)')
+  const tradeNos = [...new Set((await tradeNoCells.allTextContents()).map((text) => text.trim()).filter(Boolean))]
+  return {
+    rows: rowCount,
+    tradeNos,
+  }
+}
+
+async function runIdentityCase(page: Page, tradeNo: string, optionIndex: number): Promise<IdentityCaseResult> {
+  await openP2PPage(page)
+  await fillTradeNo(page, tradeNo)
+  await selectIdentity(page, optionIndex)
+  const urls = await captureTradeRequests(page, async () => {
+    await clickSearch(page)
+  })
+  await settle(page)
+  await waitForTradeTableOrEmpty(page)
+  return {
+    snapshot: await snapshotTable(page),
+    urls,
+  }
+}
+
+function assertSeedTradeCreated(seedTrade: SeedTradeResult, label: string) {
+  expect(seedTrade.created, `${label} seed trade should be created`).toBeTruthy()
+  expect(seedTrade.tradeNo, `${label} seed trade should return a tradeNo`).toBeTruthy()
+}
+
+test('probe p2p identity filter works against live backend', async ({ page }) => {
+  test.setTimeout(60_000)
+  ensureOutDir()
+
+  const enterpriseUser = await loginForSeed(page, 'enterprise001', 'admin123')
+  const counterpartyUser = await loginForSeed(page, 'enterprise002', 'admin123')
+
+  const sellerSeed = await createP2PSeedTrade(
+    page,
+    enterpriseUser.token,
+    counterpartyUser.userId,
+    `identity-filter-seller-${Date.now()}`,
+  )
+  const buyerSeed = await createP2PSeedTrade(
+    page,
+    counterpartyUser.token,
+    enterpriseUser.userId,
+    `identity-filter-buyer-${Date.now()}`,
+  )
+
+  assertSeedTradeCreated(sellerSeed, 'seller-side')
+  assertSeedTradeCreated(buyerSeed, 'buyer-side')
+
+  await loginViaApi(page, 'enterprise001', 'admin123')
+
+  const sellerMatch = await runIdentityCase(page, sellerSeed.tradeNo!, 1)
+  const sellerMismatch = await runIdentityCase(page, sellerSeed.tradeNo!, 0)
+  const buyerMatch = await runIdentityCase(page, buyerSeed.tradeNo!, 0)
+  const buyerMismatch = await runIdentityCase(page, buyerSeed.tradeNo!, 1)
 
   await page.screenshot({
-    path: path.join(OUT_DIR, 'p2p-identity-filter-fixed-2026-05-24.png'),
+    path: path.join(OUT_DIR, 'p2p-identity-filter-live-2026-05-31.png'),
     fullPage: true,
   })
 
-  writeJson('p2p-identity-filter-probe-fixed-2026-05-24.json', {
-    beforeRows,
-    buyerRows: buyerResult.rowCount,
-    sellerRows: sellerResult.rowCount,
-    buyerHasBuyerTrade: buyerResult.bodyText.includes('P2P-BUYER'),
-    buyerHasSellerTrade: buyerResult.bodyText.includes('P2P-SELLER'),
-    sellerHasBuyerTrade: sellerResult.bodyText.includes('P2P-BUYER'),
-    sellerHasSellerTrade: sellerResult.bodyText.includes('P2P-SELLER'),
-  })
+  const result = {
+    sellerSeed,
+    buyerSeed,
+    sellerMatch,
+    sellerMismatch,
+    buyerMatch,
+    buyerMismatch,
+  }
+  writeJson('p2p-identity-filter-probe-2026-05-31.json', result)
+
+  for (const urls of [sellerMatch.urls, sellerMismatch.urls, buyerMatch.urls, buyerMismatch.urls]) {
+    expect(urls.some((url) => url.includes('tradeNo='))).toBeTruthy()
+  }
+
+  expect(sellerMatch.urls.some((url) => url.includes('identity=seller'))).toBeTruthy()
+  expect(sellerMismatch.urls.some((url) => url.includes('identity=buyer'))).toBeTruthy()
+  expect(buyerMatch.urls.some((url) => url.includes('identity=buyer'))).toBeTruthy()
+  expect(buyerMismatch.urls.some((url) => url.includes('identity=seller'))).toBeTruthy()
+
+  expect(sellerMatch.snapshot.tradeNos).toContain(sellerSeed.tradeNo!)
+  expect(sellerMismatch.snapshot.rows).toBe(0)
+  expect(buyerMatch.snapshot.tradeNos).toContain(buyerSeed.tradeNo!)
+  expect(buyerMismatch.snapshot.rows).toBe(0)
 })

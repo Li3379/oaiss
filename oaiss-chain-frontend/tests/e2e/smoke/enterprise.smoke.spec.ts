@@ -74,7 +74,7 @@ test.describe('Role: Enterprise - Smoke', () => {
     test('create button exists', async ({ page }) => {
       const po = new CarbonUploadPage(page)
       await po.goto()
-      await expect(page.getByRole('button', { name: /创建|鍒涘缓/ })).toBeVisible()
+      await expect(page.getByRole('button', { name: '创建' })).toBeVisible()
     })
   })
 

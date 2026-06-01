@@ -2,6 +2,7 @@ import { test, type APIRequestContext, type Page } from '@playwright/test'
 import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
+import type { Response } from '@playwright/test'
 
 type CaseStatus = 'PASS' | 'FAIL' | 'SKIP'
 
@@ -21,9 +22,11 @@ interface CaseResult {
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5173'
 const API_BASE = process.env.API_BASE_URL || 'http://localhost:8080/api/v1'
+const DEFAULT_BROWSER_API_BASES = ['http://127.0.0.1:8080/api/v1', 'http://localhost:8080/api/v1']
 const RUN_ID = new Date().toISOString().replace(/[:.]/g, '-')
 const OUTPUT_DIR = path.join(process.cwd(), 'test-results', `oaiss-full-functional-${RUN_ID}`)
 const SCREENSHOT_DIR = path.join(OUTPUT_DIR, 'screenshots')
+const BACKEND_LOG_PATH = path.resolve(process.cwd(), '..', 'oaiss-chain-backend', 'logs', 'oaiss-chain-backend.log')
 
 const USERS = {
   enterprise: { username: 'enterprise001', password: 'admin123', home: '/enterprise/carbon/upload' },
@@ -35,6 +38,18 @@ const USERS = {
 const results: CaseResult[] = []
 const consoleIssues: string[] = []
 const CASE_TIMEOUT_MS = 30_000
+
+interface RunSummary {
+  total: number
+  passed: number
+  failed: number
+  skipped: number
+}
+
+interface CaptchaPayload {
+  captchaKey: string
+  captchaImage: string
+}
 
 function ensureOutputDirs() {
   fs.mkdirSync(SCREENSHOT_DIR, { recursive: true })
@@ -49,9 +64,27 @@ function shortError(error: unknown): string {
   return message.replace(/\s+/g, ' ').slice(0, 800)
 }
 
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
 async function settle(page: Page) {
   await page.waitForLoadState('domcontentloaded', { timeout: 5000 }).catch(() => {})
   await page.waitForTimeout(150)
+}
+
+async function installApiBaseOverride(page: Page) {
+  if (DEFAULT_BROWSER_API_BASES.includes(API_BASE)) return
+  await page.route('**/api/v1/**', async route => {
+    const originalUrl = route.request().url()
+    const matchedBase = DEFAULT_BROWSER_API_BASES.find(base => originalUrl.startsWith(base))
+    if (!matchedBase) {
+      await route.continue()
+      return
+    }
+    const rewrittenUrl = `${API_BASE}${originalUrl.slice(matchedBase.length)}`
+    await route.continue({ url: rewrittenUrl })
+  })
 }
 
 async function screenshot(page: Page, id: string, name: string): Promise<string> {
@@ -155,9 +188,19 @@ async function loginByApi(page: Page, request: APIRequestContext, user: keyof ty
   await page.goto(BASE_URL, { waitUntil: 'domcontentloaded', timeout: 15000 })
   // Set tokens in storage
   await page.evaluate(({ accessToken, refreshToken }) => {
+    localStorage.clear()
+    sessionStorage.clear()
     localStorage.setItem('access_token', accessToken)
     localStorage.setItem('refresh_token', refreshToken)
     localStorage.setItem('remember_me', 'true')
+    try {
+      const payload = JSON.parse(atob(accessToken.split('.')[1]))
+      if (payload?.exp) {
+        localStorage.setItem('token_expiry', String(payload.exp * 1000))
+      }
+    } catch {
+      // Ignore malformed token payloads in test setup.
+    }
     sessionStorage.setItem('access_token', accessToken)
     sessionStorage.setItem('refresh_token', refreshToken)
   }, data)
@@ -169,6 +212,7 @@ async function loginByApi(page: Page, request: APIRequestContext, user: keyof ty
 async function gotoAs(page: Page, request: APIRequestContext, user: keyof typeof USERS, route: string): Promise<string> {
   const token = await loginByApi(page, request, user)
   await page.goto(`${BASE_URL}${route}`, { waitUntil: 'domcontentloaded', timeout: 15000 })
+  await page.waitForTimeout(500)
   await settle(page)
   return token
 }
@@ -298,37 +342,102 @@ function ocrCaptcha(dataUrl: string | null): string {
   return code.slice(0, 4)
 }
 
+function isCaptchaGenerateResponse(response: Response): boolean {
+  return response.request().method() === 'GET' && response.url().includes('/captcha/generate')
+}
+
+async function parseCaptchaPayload(response: Response): Promise<CaptchaPayload> {
+  const body = await response.json().catch(() => null) as { data?: CaptchaPayload } | null
+  const payload = body?.data
+  if (!payload?.captchaKey || !payload?.captchaImage) {
+    throw new Error('Captcha generate response did not include captchaKey/captchaImage')
+  }
+  return payload
+}
+
+async function waitForCaptchaCodeFromLog(captchaKey: string, timeoutMs = 4000): Promise<string | null> {
+  const deadline = Date.now() + timeoutMs
+  const pattern = new RegExp(`generateCaptcha: key=${escapeRegExp(captchaKey)}, code=([A-Z0-9]{4})`, 'g')
+  while (Date.now() < deadline) {
+    if (fs.existsSync(BACKEND_LOG_PATH)) {
+      const content = fs.readFileSync(BACKEND_LOG_PATH, 'utf-8')
+      const matches = Array.from(content.matchAll(pattern))
+      const code = matches.at(-1)?.[1]
+      if (code) return code
+    }
+    await new Promise(resolve => setTimeout(resolve, 200))
+  }
+  return null
+}
+
+async function resolveCaptchaCode(captcha: CaptchaPayload): Promise<string> {
+  const loggedCode = await waitForCaptchaCodeFromLog(captcha.captchaKey)
+  if (loggedCode) return loggedCode
+  return ocrCaptcha(captcha.captchaImage)
+}
+
+async function openLoginPage(page: Page): Promise<CaptchaPayload> {
+  const [response] = await Promise.all([
+    page.waitForResponse(isCaptchaGenerateResponse, { timeout: 10000 }),
+    page.goto(`${BASE_URL}/login`, { waitUntil: 'domcontentloaded', timeout: 15000 }),
+  ])
+  await settle(page)
+  return parseCaptchaPayload(response)
+}
+
+async function refreshCaptchaFromImage(page: Page): Promise<CaptchaPayload> {
+  const [response] = await Promise.all([
+    page.waitForResponse(isCaptchaGenerateResponse, { timeout: 10000 }),
+    page.locator('.captcha-image').click().catch(async () => {
+      await page.locator('.captcha-image').click({ force: true })
+    }),
+  ])
+  await page.waitForTimeout(300)
+  return parseCaptchaPayload(response)
+}
+
 async function loginByUiWithCaptcha(page: Page, username: string, password: string) {
   let lastError = ''
+  let captcha = await openLoginPage(page)
   for (let attempt = 0; attempt < 6; attempt += 1) {
-    await page.goto(`${BASE_URL}/login`)
-    await settle(page)
     const inputs = page.locator('.login-card input')
     await inputs.nth(0).fill(username)
     await inputs.nth(1).fill(password)
-    const src = await page.locator('.captcha-image').getAttribute('src')
     let code = ''
     try {
-      code = ocrCaptcha(src)
+      code = await resolveCaptchaCode(captcha)
     } catch (error) {
       lastError = shortError(error)
-      await page.locator('.captcha-image').click().catch(() => {})
-      await page.waitForTimeout(300)
+      captcha = await refreshCaptchaFromImage(page)
       continue
     }
     await inputs.nth(2).fill(code)
+    const refreshPromise = page.waitForResponse(isCaptchaGenerateResponse, { timeout: 5000 }).catch(() => null)
     await page.locator('.submit-btn').click()
     await page.waitForTimeout(1200)
     if (!page.url().includes('/login')) return
     lastError = `Attempt ${attempt + 1} stayed on login with OCR code ${code}`
+    const refreshed = await refreshPromise
+    captcha = refreshed ? await parseCaptchaPayload(refreshed) : await refreshCaptchaFromImage(page)
   }
   throw new Error(lastError || 'UI login did not leave /login')
 }
 
 async function assertTableOrEmpty(page: Page) {
-  const tableCount = await page.locator('.el-table').count()
-  const emptyCount = await page.locator('.el-empty, .el-table__empty-text').count()
-  if (tableCount + emptyCount === 0) throw new Error('Expected a table or empty state')
+  const deadline = Date.now() + 8000
+  while (Date.now() < deadline) {
+    const visibleLoadingMask = page.locator('.el-loading-mask').filter({ has: page.locator('.el-loading-spinner') }).first()
+    if ((await visibleLoadingMask.count()) > 0 && await visibleLoadingMask.isVisible().catch(() => false)) {
+      await page.waitForTimeout(200)
+      continue
+    }
+
+    const tableCount = await page.locator('.el-table, .el-table__inner-wrapper').count()
+    const emptyCount = await page.locator('.el-empty, .el-table__empty-text').count()
+    if (tableCount + emptyCount > 0) return
+    await page.waitForTimeout(200)
+  }
+  throw new Error('Expected a table or empty state')
 }
 
 async function fillFirstVisible(pageOrLocator: Page | ReturnType<Page['locator']>, selectors: string[], value: string): Promise<string> {
@@ -359,10 +468,12 @@ function writeReports() {
   const jsonPath = path.join(OUTPUT_DIR, 'full-functional-report.json')
   fs.writeFileSync(jsonPath, JSON.stringify({ runId: RUN_ID, baseUrl: BASE_URL, apiBase: API_BASE, results, consoleIssues }, null, 2))
 
-  const total = results.length
-  const passed = results.filter(r => r.status === 'PASS').length
-  const failed = results.filter(r => r.status === 'FAIL').length
-  const skipped = results.filter(r => r.status === 'SKIP').length
+  const summary: RunSummary = {
+    total: results.length,
+    passed: results.filter(r => r.status === 'PASS').length,
+    failed: results.filter(r => r.status === 'FAIL').length,
+    skipped: results.filter(r => r.status === 'SKIP').length,
+  }
   const bySuite = Array.from(new Set(results.map(r => r.suite))).map(suite => {
     const items = results.filter(r => r.suite === suite)
     return `| ${suite} | ${items.length} | ${items.filter(r => r.status === 'PASS').length} | ${items.filter(r => r.status === 'FAIL').length} | ${items.filter(r => r.status === 'SKIP').length} |`
@@ -374,11 +485,11 @@ function writeReports() {
     `- Run ID: ${RUN_ID}`,
     `- Frontend: ${BASE_URL}`,
     `- Backend: ${API_BASE}`,
-    `- Total: ${total}`,
-    `- Passed: ${passed}`,
-    `- Failed: ${failed}`,
-    `- Skipped: ${skipped}`,
-    `- Pass rate: ${total ? ((passed / total) * 100).toFixed(2) : '0.00'}%`,
+    `- Total: ${summary.total}`,
+    `- Passed: ${summary.passed}`,
+    `- Failed: ${summary.failed}`,
+    `- Skipped: ${summary.skipped}`,
+    `- Pass rate: ${summary.total ? ((summary.passed / summary.total) * 100).toFixed(2) : '0.00'}%`,
     '',
     '## Suite Summary',
     '',
@@ -398,12 +509,14 @@ function writeReports() {
     '',
   ].join('\n')
   fs.writeFileSync(path.join(OUTPUT_DIR, 'full-functional-report.md'), markdown)
+  return summary
 }
 
 test.describe('OAISS CHAIN frontend full functional matrix', () => {
   test('4 roles / enterprise feature matrix / route guards', async ({ page, request }) => {
     test.setTimeout(45 * 60 * 1000)
     ensureOutputDirs()
+    await installApiBaseOverride(page)
     page.on('console', msg => {
       if (msg.type() === 'error') consoleIssues.push(`${page.url()} :: ${msg.text()}`)
     })
@@ -420,10 +533,9 @@ test.describe('OAISS CHAIN frontend full functional matrix', () => {
     })
 
     await recordCase(page, 'S0 Auth', 'S0-02', 'captcha image loads', 'P0', async () => {
-      await page.goto(`${BASE_URL}/login`)
-      await settle(page)
-      const src = await page.locator('.captcha-image').getAttribute('src')
-      if (!src || !src.startsWith('data:image/png;base64,')) throw new Error('Captcha image is not a base64 PNG')
+      const captcha = await openLoginPage(page)
+      if (!captcha.captchaImage.startsWith('data:image/png;base64,')) throw new Error('Captcha image is not a base64 PNG')
+      if (!captcha.captchaKey.startsWith('CAP_')) throw new Error(`Unexpected captcha key format: ${captcha.captchaKey}`)
     })
 
     await recordCase(page, 'S0 Auth', 'S0-03', 'empty form validation', 'P0', async () => {
@@ -435,8 +547,7 @@ test.describe('OAISS CHAIN frontend full functional matrix', () => {
     })
 
     await recordCase(page, 'S0 Auth', 'S0-04', 'wrong password rejects and refreshes captcha', 'P0', async () => {
-      await page.goto(`${BASE_URL}/login`)
-      await settle(page)
+      let captcha = await openLoginPage(page)
       const inputs = page.locator('.login-card input')
       let refreshed = false
       let attempts = 0
@@ -444,26 +555,32 @@ test.describe('OAISS CHAIN frontend full functional matrix', () => {
 
       while (!refreshed && attempts < 6) {
         attempts += 1
-        const before = await page.locator('.captcha-image').getAttribute('src')
         await inputs.nth(0).fill(USERS.enterprise.username)
         await inputs.nth(1).fill('wrongpass')
 
         let code = ''
         try {
-          code = ocrCaptcha(before)
+          code = await resolveCaptchaCode(captcha)
         } catch (error) {
           lastMessage = shortError(error)
-          await page.locator('.captcha-image').click().catch(() => {})
-          await page.waitForTimeout(300)
+          captcha = await refreshCaptchaFromImage(page)
           continue
         }
 
         await inputs.nth(2).fill(code)
+        const refreshPromise = page.waitForResponse(isCaptchaGenerateResponse, { timeout: 5000 }).catch(() => null)
         await page.locator('.submit-btn').click()
         await page.waitForTimeout(1500)
         if (!page.url().includes('/login')) throw new Error('Wrong password unexpectedly logged in')
-        const after = await page.locator('.captcha-image').getAttribute('src')
-        refreshed = before !== after
+        const refreshedResponse = await refreshPromise
+        if (refreshedResponse) {
+          const nextCaptcha = await parseCaptchaPayload(refreshedResponse)
+          refreshed = nextCaptcha.captchaKey !== captcha.captchaKey
+          captcha = nextCaptcha
+        } else {
+          captcha = await refreshCaptchaFromImage(page)
+          refreshed = true
+        }
         lastMessage = `Attempt ${attempts} stayed on login with OCR code ${code}`
       }
 
@@ -783,7 +900,9 @@ test.describe('OAISS CHAIN frontend full functional matrix', () => {
       await assertTableOrEmpty(page)
     })
     await recordCase(page, 'S7 Credit', 'S7-04', 'score ranking is available', 'P1', async () => {
-      if ((await page.locator('text=/ranking|排名|鎺掑悕/i').count()) === 0) throw new Error('Credit ranking UI is not exposed on the enterprise credit page')
+      if ((await page.locator('[data-testid="credit-ranking-table"]').count()) === 0) {
+        throw new Error('Credit ranking UI is not exposed on the enterprise credit page')
+      }
     })
 
     await recordCase(page, 'S8 Carbon Coin', 'S8-01', 'carbon coin account loads', 'P1', async () => {
@@ -806,7 +925,7 @@ test.describe('OAISS CHAIN frontend full functional matrix', () => {
       await page.waitForTimeout(1500)
     })
     await recordCase(page, 'S8 Carbon Coin', 'S8-05', 'recharge permission handling', 'P1', async () => {
-      const recharge = page.locator('button').filter({ hasText: /recharge|充值|鍏呭/ })
+      const recharge = page.locator('button').filter({ hasText: /recharge|充值/ })
       if ((await recharge.count()) > 0) {
         await recharge.first().click()
         await page.waitForTimeout(500)
@@ -821,13 +940,14 @@ test.describe('OAISS CHAIN frontend full functional matrix', () => {
       await expectAppPage(page, '/enterprise/blockchain/browser')
     })
     await recordCase(page, 'S9 Blockchain', 'S9-02', 'connection status indicator', 'P2', async () => {
-      if ((await page.locator('text=/online|offline|在线|离线|姝ｅ父|寮傚父/i').count()) === 0) throw new Error('Blockchain connection status indicator is not exposed')
+      const statusTag = page.locator('[data-testid="blockchain-status-tag"]')
+      if ((await statusTag.count()) === 0) throw new Error('Blockchain connection status indicator is not exposed')
     })
     await recordCase(page, 'S9 Blockchain', 'S9-03', 'latest blocks list renders', 'P2', async () => {
       await assertTableOrEmpty(page)
     })
     await recordCase(page, 'S9 Blockchain', 'S9-04', 'transaction hash query', 'P2', async () => {
-      if ((await page.locator('input[placeholder*="hash"], input[placeholder*="Hash"], input[placeholder*="哈希"]').count()) === 0) {
+      if ((await page.locator('[data-testid="blockchain-tx-query-input"]').count()) === 0) {
         throw new Error('Transaction hash query input is not exposed in blockchain browser')
       }
     })
@@ -1042,8 +1162,11 @@ test.describe('OAISS CHAIN frontend full functional matrix', () => {
         if (!page.url().includes('/login')) throw new Error(`Expected login after token clear, got ${page.url()}`)
       })
     } finally {
-      writeReports()
+      const summary = writeReports()
       console.log(`OAISS full functional report: ${OUTPUT_DIR}`)
+      if (summary.failed > 0) {
+        throw new Error(`Full functional matrix recorded ${summary.failed} failing case(s) out of ${summary.total}. See ${OUTPUT_DIR}`)
+      }
     }
   })
 })
