@@ -91,7 +91,7 @@ const onSubmitForm = async () => {
     })
     ElMessage.success(t('carbonUpload.createSuccess'))
     dialogVisible.value = false
-    fetchData()
+    await fetchData()
   } catch {
     ElMessage.error(t('carbonUpload.createFailed'))
   }
@@ -102,7 +102,7 @@ const onSubmitReport = async (row) => {
     await ElMessageBox.confirm(t('carbonUpload.confirmSubmit') + ' ' + row.reportNo + '？', t('common.confirm'), { type: 'warning' })
     await submitReport(row.id)
     ElMessage.success(t('carbonUpload.submitSuccess'))
-    fetchData()
+    await fetchData()
   } catch (e) {
     if (e !== 'cancel') ElMessage.error(t('carbonUpload.submitFailed'))
   }
@@ -113,7 +113,7 @@ const onDeleteReport = async (row) => {
     await ElMessageBox.confirm(t('carbonUpload.confirmDelete') + ' ' + row.reportNo + '？', t('common.confirm'), { type: 'warning' })
     await deleteReport(row.id)
     ElMessage.success(t('carbonUpload.deleteSuccess'))
-    fetchData()
+    await fetchData()
   } catch (e) {
     if (e !== 'cancel') ElMessage.error(t('carbonUpload.deleteFailed'))
   }

@@ -5,17 +5,20 @@ export class LoginPage {
 
   async goto(): Promise<void> {
     await this.page.goto('/login')
+    await this.page.waitForLoadState('domcontentloaded')
   }
 
   async expectLoaded(): Promise<void> {
-    await expect(this.page.getByPlaceholder('请输入账号')).toBeVisible()
-    await expect(this.page.getByPlaceholder('请输入密码')).toBeVisible()
-    await expect(this.page.getByRole('button', { name: '登录' })).toBeVisible()
+    const inputs = this.page.locator('.login-card input')
+    await expect(inputs.nth(0)).toBeVisible()
+    await expect(inputs.nth(1)).toBeVisible()
+    await expect(this.page.locator('.submit-btn')).toBeVisible()
   }
 
   async login(username: string, password: string): Promise<void> {
-    await this.page.getByPlaceholder('请输入账号').fill(username)
-    await this.page.getByPlaceholder('请输入密码').fill(password)
-    await this.page.getByRole('button', { name: '登录' }).click()
+    const inputs = this.page.locator('.login-card input')
+    await inputs.nth(0).fill(username)
+    await inputs.nth(1).fill(password)
+    await this.page.locator('.submit-btn').click()
   }
 }

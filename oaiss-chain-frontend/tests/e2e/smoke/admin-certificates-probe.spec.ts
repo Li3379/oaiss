@@ -28,13 +28,17 @@ test('probe admin certificates page against live backend data', async ({ page })
   })
 
   await page.goto(`${BASE_URL}/admin/certificates`)
-  await page.waitForTimeout(500)
+  await page.waitForLoadState('domcontentloaded')
+  await page.locator('.el-tabs__nav').waitFor({ state: 'visible', timeout: 5000 })
 
   const admissionRows = await page.locator('.el-tab-pane.is-active .el-table__body tbody tr').count().catch(() => 0)
   const admissionText = await page.locator('.el-tab-pane.is-active').textContent().catch(() => '')
 
-  await page.locator('.el-tabs__item').nth(1).click({ force: true, timeout: 1000 }).catch(() => {})
-  await page.waitForTimeout(500)
+  const qualificationTab = page.locator('.el-tabs__item').nth(1)
+  if ((await qualificationTab.count()) > 0) {
+    await qualificationTab.click({ force: true, timeout: 3000 })
+    await page.waitForTimeout(800)
+  }
 
   const qualificationRows = await page.locator('.el-tab-pane.is-active .el-table__body tbody tr').count().catch(() => 0)
   const qualificationText = await page.locator('.el-tab-pane.is-active').textContent().catch(() => '')

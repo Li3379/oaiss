@@ -72,7 +72,7 @@ const submitContact = async () => {
     })
     ElMessage.success(t('enterpriseInfo.contactUpdated'))
     contactDialogVisible.value = false
-    fetchInfo()
+    await fetchInfo()
   } catch {
     ElMessage.error(t('enterpriseInfo.contactUpdateFailed'))
   } finally {

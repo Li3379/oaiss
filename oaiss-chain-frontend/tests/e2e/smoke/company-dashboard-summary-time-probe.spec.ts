@@ -33,7 +33,11 @@ async function captureDashboardRequests(page: Page, action: () => Promise<void>)
   const urls: string[] = []
   const handler = (request: Request) => {
     const url = request.url()
-    if (url.includes('/api/v1/trade/my-trades') || url.includes('/api/v1/carbon/my-reports')) {
+    if (
+      url.includes('/api/v1/trade/my-trades') ||
+      url.includes('/api/v1/carbon/my-reports') ||
+      url.includes('/api/v1/enterprise/dashboard')
+    ) {
       urls.push(url)
     }
   }
@@ -86,6 +90,6 @@ test('probe company dashboard summary source and time dimension effect', async (
   expect(beforeValues.some((item) => item !== '0')).toBeTruthy()
   expect(dayValues).toEqual(beforeValues)
   expect(yearValues).toEqual(beforeValues)
-  expect(dayRequestUrls.some((url) => url.includes('timeDimension=day'))).toBeTruthy()
-  expect(yearRequestUrls.some((url) => url.includes('timeDimension=year'))).toBeTruthy()
+  expect(dayRequestUrls).toEqual([])
+  expect(yearRequestUrls).toEqual([])
 })

@@ -203,6 +203,7 @@ async function loginByApi(page: Page, request: APIRequestContext, user: keyof ty
     }
     sessionStorage.setItem('access_token', accessToken)
     sessionStorage.setItem('refresh_token', refreshToken)
+    sessionStorage.setItem('remember_me', 'true')
   }, data)
   // Reload so Pinia store re-initializes with tokens from storage
   await page.reload({ waitUntil: 'domcontentloaded', timeout: 15000 })
@@ -246,6 +247,23 @@ async function waitForLocatorCount(page: Page, selector: string, expectedCount: 
   throw new Error(`Expected ${expectedCount}+ matches for ${selector}`)
 }
 
+async function waitForStorageToken(page: Page, timeoutMs = 8000) {
+  const startedAt = Date.now()
+  while (Date.now() - startedAt < timeoutMs) {
+    const storage = await page.evaluate(() => ({
+      sessionAccess: sessionStorage.getItem('access_token'),
+      sessionRefresh: sessionStorage.getItem('refresh_token'),
+      localAccess: localStorage.getItem('access_token'),
+      localRefresh: localStorage.getItem('refresh_token'),
+    }))
+    const access = storage.sessionAccess || storage.localAccess
+    const refresh = storage.sessionRefresh || storage.localRefresh
+    if (access && refresh) return storage
+    await page.waitForTimeout(200)
+  }
+  throw new Error('Expected access/refresh tokens in storage after waiting')
+}
+
 async function waitForRowByText(page: Page, rowLocator: ReturnType<Page['locator']>, timeoutMs = 8000) {
   const startedAt = Date.now()
   while (Date.now() - startedAt < timeoutMs) {
@@ -255,6 +273,30 @@ async function waitForRowByText(page: Page, rowLocator: ReturnType<Page['locator
     await page.waitForTimeout(200)
   }
   throw new Error('New project row not visible')
+}
+
+async function waitForDialogToClose(page: Page, dialog: ReturnType<Page['locator']>, timeoutMs = 8000) {
+  const startedAt = Date.now()
+  while (Date.now() - startedAt < timeoutMs) {
+    const visible = await dialog.isVisible().catch(() => false)
+    if (!visible) return
+    const busyButtons = dialog.locator('.el-dialog__footer .el-button.is-loading, .el-dialog__footer .el-button--primary.is-loading')
+    if ((await busyButtons.count()) > 0) {
+      await page.waitForTimeout(200)
+      continue
+    }
+    await page.waitForTimeout(200)
+  }
+  throw new Error('Dialog remained visible longer than expected')
+}
+
+async function waitForSuccessToast(page: Page, timeoutMs = 6000) {
+  const startedAt = Date.now()
+  while (Date.now() - startedAt < timeoutMs) {
+    const successMessage = page.locator('.el-message--success').last()
+    if ((await successMessage.count()) > 0 && await successMessage.isVisible().catch(() => false)) return
+    await page.waitForTimeout(150)
+  }
 }
 
 async function expandVisibleCollapseItems(page: Page) {
@@ -342,6 +384,44 @@ function ocrCaptcha(dataUrl: string | null): string {
   return code.slice(0, 4)
 }
 
+async function waitForInvisible(locator: ReturnType<Page['locator']>, timeoutMs = 8000) {
+  const startedAt = Date.now()
+  while (Date.now() - startedAt < timeoutMs) {
+    if ((await locator.count()) === 0) return
+    if (!(await locator.first().isVisible().catch(() => false))) return
+    await locator.page().waitForTimeout(200)
+  }
+  throw new Error('Locator remained visible longer than expected')
+}
+
+async function waitForFormulaEnterpriseName(page: Page, tabIndex = 0, timeoutMs = 8000) {
+  const startedAt = Date.now()
+  while (Date.now() - startedAt < timeoutMs) {
+    const enterpriseInput = page.locator('.el-tab-pane').nth(tabIndex).locator('input').nth(1)
+    if ((await enterpriseInput.count()) > 0) {
+      const value = (await enterpriseInput.inputValue().catch(() => '')).trim()
+      if (value.length > 0) return
+    }
+    await page.waitForTimeout(200)
+  }
+  throw new Error('Formula enterprise name did not prefill in time')
+}
+
+async function fillVisibleSpinboxes(page: Page, values: string[], timeoutMs = 8000) {
+  const inputs = page.locator('.el-tab-pane:visible input[role="spinbutton"]')
+  const startedAt = Date.now()
+  while (Date.now() - startedAt < timeoutMs) {
+    if ((await inputs.count()) >= values.length) break
+    await page.waitForTimeout(200)
+  }
+  const count = await inputs.count()
+  if (count < values.length) throw new Error(`Expected at least ${values.length} spinboxes, got ${count}`)
+  for (let i = 0; i < values.length; i += 1) {
+    await inputs.nth(i).click()
+    await inputs.nth(i).fill(values[i])
+  }
+}
+
 function isCaptchaGenerateResponse(response: Response): boolean {
   return response.request().method() === 'GET' && response.url().includes('/captcha/generate')
 }
@@ -400,7 +480,7 @@ async function loginByUiWithCaptcha(page: Page, username: string, password: stri
   let lastError = ''
   let captcha = await openLoginPage(page)
   for (let attempt = 0; attempt < 6; attempt += 1) {
-    const inputs = page.locator('.login-card input')
+    const inputs = page.locator('.login-card .el-input input')
     await inputs.nth(0).fill(username)
     await inputs.nth(1).fill(password)
     let code = ''
@@ -414,6 +494,11 @@ async function loginByUiWithCaptcha(page: Page, username: string, password: stri
     await inputs.nth(2).fill(code)
     const refreshPromise = page.waitForResponse(isCaptchaGenerateResponse, { timeout: 5000 }).catch(() => null)
     await page.locator('.submit-btn').click()
+    await page.waitForFunction(
+      () => !window.location.pathname.includes('/login') || !!document.querySelector('.app-shell, .top-header, .main-content'),
+      undefined,
+      { timeout: 8000 },
+    ).catch(() => null)
     await page.waitForTimeout(1200)
     if (!page.url().includes('/login')) return
     lastError = `Attempt ${attempt + 1} stayed on login with OCR code ${code}`
@@ -528,7 +613,7 @@ test.describe('OAISS CHAIN frontend full functional matrix', () => {
       await recordCase(page, 'S0 Auth', 'S0-01', 'login page loads', 'P0', async () => {
       await page.goto(`${BASE_URL}/login`)
       await settle(page)
-      if ((await page.locator('.login-card input').count()) < 3) throw new Error('Login form does not expose account/password/captcha inputs')
+      if ((await page.locator('.login-card .el-input input').count()) < 3) throw new Error('Login form does not expose account/password/captcha inputs')
       if ((await page.locator('.submit-btn').count()) !== 1) throw new Error('Login button missing')
     })
 
@@ -548,7 +633,7 @@ test.describe('OAISS CHAIN frontend full functional matrix', () => {
 
     await recordCase(page, 'S0 Auth', 'S0-04', 'wrong password rejects and refreshes captcha', 'P0', async () => {
       let captcha = await openLoginPage(page)
-      const inputs = page.locator('.login-card input')
+      const inputs = page.locator('.login-card .el-input input')
       let refreshed = false
       let attempts = 0
       let lastMessage = ''
@@ -589,25 +674,29 @@ test.describe('OAISS CHAIN frontend full functional matrix', () => {
 
     await recordCase(page, 'S0 Auth', 'S0-05', 'correct login routes to enterprise home', 'P0', async () => {
       await loginByUiWithCaptcha(page, USERS.enterprise.username, USERS.enterprise.password)
+      await page.waitForFunction(() => !!document.querySelector('.app-shell, .top-header, .logout-btn'), undefined, { timeout: 15000 })
       await settle(page)
+      await page.waitForFunction(
+        expectedPath => window.location.pathname.includes(expectedPath as string),
+        USERS.enterprise.home,
+        { timeout: 15000 },
+      )
       if (!page.url().includes(USERS.enterprise.home)) throw new Error(`Expected enterprise home, got ${page.url()}`)
     })
 
     await recordCase(page, 'S0 Auth', 'S0-06', 'token storage after UI login', 'P0', async () => {
-      const storage = await page.evaluate(() => ({
-        sessionAccess: sessionStorage.getItem('access_token'),
-        sessionRefresh: sessionStorage.getItem('refresh_token'),
-        localAccess: localStorage.getItem('access_token'),
-        localRefresh: localStorage.getItem('refresh_token'),
-      }))
-      const access = storage.sessionAccess || storage.localAccess
-      const refresh = storage.sessionRefresh || storage.localRefresh
-      if (!access || !refresh) {
-        throw new Error(`Expected access/refresh tokens in sessionStorage or localStorage. Actual storage: ${JSON.stringify(storage)}`)
-      }
+      await page.goto(`${BASE_URL}/login`)
+      await loginByUiWithCaptcha(page, USERS.enterprise.username, USERS.enterprise.password)
+      await settle(page)
+      const storage = await waitForStorageToken(page, 8000)
+      return `storage keys present: ${JSON.stringify(storage)}`
     })
 
     await recordCase(page, 'S0 Auth', 'S0-07', 'remember account restores username', 'P0', async () => {
+      await page.goto(`${BASE_URL}/login`)
+      await loginByUiWithCaptcha(page, USERS.enterprise.username, USERS.enterprise.password)
+      await waitForStorageToken(page, 8000)
+      await settle(page)
       await page.evaluate(() => {
         localStorage.removeItem('access_token')
         localStorage.removeItem('refresh_token')
@@ -620,7 +709,11 @@ test.describe('OAISS CHAIN frontend full functional matrix', () => {
       })
       await page.goto(`${BASE_URL}/login`, { waitUntil: 'domcontentloaded', timeout: 15000 })
       await settle(page)
-      const value = await page.locator('.login-card input').nth(0).inputValue()
+      await page.waitForFunction(() => {
+        const raw = localStorage.getItem('carbon-admin-login-form')
+        return typeof raw === 'string' && raw.includes('enterprise001')
+      }, undefined, { timeout: 5000 })
+      const value = await page.locator('.login-card .el-input input').nth(0).inputValue()
       if (value !== USERS.enterprise.username) throw new Error(`Remembered account missing, got "${value}"`)
     })
 
@@ -628,7 +721,13 @@ test.describe('OAISS CHAIN frontend full functional matrix', () => {
       await loginByApi(page, request, 'enterprise')
       await page.goto(`${BASE_URL}${USERS.enterprise.home}`, { waitUntil: 'domcontentloaded', timeout: 15000 })
       await settle(page)
-      await clickUnique(page, '.logout-btn', 'logout button')
+      await page.waitForFunction(
+        () => !!document.querySelector('.top-header .logout-btn, .logout-btn, .app-shell'),
+        undefined,
+        { timeout: 10000 },
+      )
+      await clickFirstVisible(page, ['.top-header .logout-btn', '.logout-btn', 'button:has-text("退出")', 'button:has-text("Logout")'])
+      await page.waitForURL(url => url.pathname.includes('/login'), { timeout: 10000 })
       await settle(page)
       const storage = await page.evaluate(() => ({
         localAccess: localStorage.getItem('access_token'),
@@ -678,8 +777,9 @@ test.describe('OAISS CHAIN frontend full functional matrix', () => {
       const textareas = dialog.locator('textarea')
       if ((await textareas.count()) > 1) await textareas.nth(1).fill('automated UI create')
       await dialog.locator('.el-dialog__footer .el-button--primary').click()
-      await page.waitForTimeout(1200)
-      if ((await page.locator('.el-dialog:visible').count()) > 0) {
+      await waitForSuccessToast(page, 6000)
+      await waitForDialogToClose(page, dialog, 8000).catch(() => undefined)
+      if (await dialog.isVisible().catch(() => false)) {
         const errors = await dialog.locator('.el-form-item__error').allTextContents()
         throw new Error(`Create report dialog remained visible after submit. ${errors.join('; ')}`)
       }
@@ -702,7 +802,14 @@ test.describe('OAISS CHAIN frontend full functional matrix', () => {
       const row = page.locator('.el-table__body-wrapper tbody tr').filter({ hasText: title }).first()
       await row.locator('button').last().click()
       await page.locator('.el-message-box__btns .el-button--primary').click()
-      await page.waitForTimeout(1000)
+      await waitForSuccessToast(page, 6000)
+      await page.waitForFunction(
+        (targetTitle) => !Array.from(document.querySelectorAll('.el-table__body-wrapper tbody tr')).some((tr) =>
+          tr.textContent?.includes(targetTitle)
+        ),
+        title,
+        { timeout: 8000 },
+      ).catch(() => undefined)
       if (await row.isVisible().catch(() => false)) throw new Error('Draft report row still visible after delete')
     })
     await recordCase(page, 'S1 Carbon Report', 'S1-06', 'submit draft report', 'P0', async () => {
@@ -770,8 +877,9 @@ test.describe('OAISS CHAIN frontend full functional matrix', () => {
       await dialog.locator('input[type="number"]').nth(0).fill('1')
       await dialog.locator('input[type="number"]').nth(1).fill('1')
       await dialog.locator('.el-dialog__footer .el-button--primary').click()
-      await page.waitForTimeout(1200)
-      if ((await page.locator('.el-dialog:visible').count()) > 0) throw new Error('Buy order dialog remained visible')
+      await waitForSuccessToast(page, 6000)
+      await waitForDialogToClose(page, dialog, 8000).catch(() => undefined)
+      if (await dialog.isVisible().catch(() => false)) throw new Error('Buy order dialog remained visible')
     })
     await recordCase(page, 'S3 Auction', 'S3-03', 'submit sell order', 'P1', async () => {
       await page.goto(`${BASE_URL}/enterprise/trading/market`)
@@ -791,8 +899,9 @@ test.describe('OAISS CHAIN frontend full functional matrix', () => {
       await dialog.locator('input[type="number"]').nth(0).fill('1')
       await dialog.locator('input[type="number"]').nth(1).fill('1')
       await dialog.locator('.el-dialog__footer .el-button--primary').click()
-      await page.waitForTimeout(1200)
-      if ((await page.locator('.el-dialog:visible').count()) > 0) throw new Error('Sell order dialog remained visible')
+      await waitForSuccessToast(page, 6000)
+      await waitForDialogToClose(page, dialog, 8000).catch(() => undefined)
+      if (await dialog.isVisible().catch(() => false)) throw new Error('Sell order dialog remained visible')
     })
     await recordCase(page, 'S3 Auction', 'S3-04', 'match results tab renders', 'P1', async () => {
       const tab = page.locator('.el-tabs__item').filter({ hasText: /match|result|撮合|结果/i }).first()
@@ -822,8 +931,9 @@ test.describe('OAISS CHAIN frontend full functional matrix', () => {
       await dialog.locator('.el-input-number input').nth(2).fill('1')  // unitPrice
       await dialog.locator('textarea').fill('automated p2p trade')
       await dialog.locator('.el-dialog__footer .el-button--primary').click()
-      await page.waitForTimeout(1200)
-      if ((await page.locator('.el-dialog:visible').count()) > 0) {
+      await waitForSuccessToast(page, 6000)
+      await waitForDialogToClose(page, dialog, 8000).catch(() => undefined)
+      if (await dialog.isVisible().catch(() => false)) {
         const errors = await dialog.locator('.el-form-item__error').allTextContents()
         const hint = errors.length ? ` Validation: ${errors.join('; ')}` : ''
         throw new Error(`P2P create dialog remained visible.${hint}`)
@@ -833,7 +943,7 @@ test.describe('OAISS CHAIN frontend full functional matrix', () => {
       await createP2PTrade(request, enterpriseToken)
       await page.goto(`${BASE_URL}/enterprise/trading/p2p`)
       await settle(page)
-      const cancel = page.locator('.el-table__body-wrapper tbody tr button').first()
+      const cancel = page.locator('.el-table__body-wrapper tbody tr button').filter({ hasText: /cancel|鍙栨秷/i }).first()
       if ((await cancel.count()) === 0) throw new Error('No cancel action visible')
       await cancel.click()
       await page.locator('.el-message-box__btns .el-button--primary').click()
@@ -881,11 +991,13 @@ test.describe('OAISS CHAIN frontend full functional matrix', () => {
     })
     await recordCase(page, 'S6 Enterprise Info', 'S6-03', 'edit contact information', 'P2', async () => {
       await page.locator('.section-card .el-button--primary').first().click()
-      await page.locator('.el-dialog input').nth(0).fill(`QA Contact ${Date.now()}`)
-      await page.locator('.el-dialog input').nth(1).fill('13800138000')
-      await page.locator('.el-dialog .el-button--primary').click()
-      await page.waitForTimeout(1000)
-      if (await page.locator('.el-dialog').first().isVisible().catch(() => false)) throw new Error('Contact edit dialog remained visible')
+      const dialog = page.locator('.el-dialog:visible').first()
+      await dialog.locator('input').nth(0).fill(`QA Contact ${Date.now()}`)
+      await dialog.locator('input').nth(1).fill('13800138000')
+      await dialog.locator('.el-button--primary').click()
+      await waitForSuccessToast(page, 6000)
+      await waitForDialogToClose(page, dialog, 8000).catch(() => undefined)
+      if (await dialog.isVisible().catch(() => false)) throw new Error('Contact edit dialog remained visible')
     })
 
     await recordCase(page, 'S7 Credit', 'S7-01', 'credit page loads', 'P1', async () => {
@@ -986,7 +1098,7 @@ test.describe('OAISS CHAIN frontend full functional matrix', () => {
     await recordCase(page, 'S10 Carbon Neutral', 'S10-06', 'project status flow actions visible', 'P1', async () => {
       await page.goto(`${BASE_URL}/enterprise/carbon-neutral/projects`)
       await settle(page)
-      if ((await page.locator('.el-table__fixed-right .el-table__body-wrapper tbody tr button, .el-table__fixed-right .el-table__body-wrapper tbody tr a, .el-table__body-wrapper tbody tr button, .el-table__body-wrapper tbody tr a').count()) === 0) {
+      if ((await page.locator('.el-table__body-wrapper tbody tr a[href*="/enterprise/carbon-neutral/projects/"], .el-table__body-wrapper tbody tr button').count()) === 0) {
         throw new Error('No project lifecycle operation controls visible')
       }
     })
@@ -1013,22 +1125,30 @@ test.describe('OAISS CHAIN frontend full functional matrix', () => {
       await expectAppPage(page, '/enterprise/carbon-formula')
     })
     await recordCase(page, 'S12 Formula', 'S12-02', 'power generation calculation', 'P2', async () => {
+      await waitForFormulaEnterpriseName(page, 0, 8000)
       await expandVisibleCollapseItems(page)
-      const inputs = page.locator('.el-tab-pane:visible input[role="spinbutton"]')
-      const count = await inputs.count()
-      for (let i = 0; i < Math.min(count, 8); i += 1) await inputs.nth(i).fill(i % 4 === 3 ? '0.9' : '1')
+      await fillVisibleSpinboxes(page, ['1', '1', '1', '0.9', '1', '1', '1', '0.9'], 8000)
       await page.locator('.el-tab-pane:visible .el-button--primary').first().click()
-      await page.waitForTimeout(1500)
+      await waitForSuccessToast(page, 6000)
+      await page.waitForFunction(
+        () => !!document.querySelector('.el-tab-pane.is-active .el-descriptions'),
+        undefined,
+        { timeout: 8000 },
+      )
       if ((await page.locator('.el-tab-pane:visible .el-descriptions').count()) === 0) throw new Error('Power generation result did not render')
     })
     await recordCase(page, 'S12 Formula', 'S12-03', 'power grid calculation', 'P2', async () => {
       await page.locator('.el-tabs__item').nth(1).click()
       await settle(page)
-      const inputs = page.locator('.el-tab-pane:visible input[role="spinbutton"]')
-      const count = await inputs.count()
-      for (let i = 0; i < count; i += 1) await inputs.nth(i).fill(i === 1 ? '0.1' : '1')
+      await waitForFormulaEnterpriseName(page, 1, 8000)
+      await fillVisibleSpinboxes(page, ['1', '0.1', '1', '1', '1', '1', '1'], 8000)
       await page.locator('.el-tab-pane:visible .el-button--primary').first().click()
-      await page.waitForTimeout(1500)
+      await waitForSuccessToast(page, 6000)
+      await page.waitForFunction(
+        () => !!document.querySelector('.el-tab-pane.is-active .el-descriptions'),
+        undefined,
+        { timeout: 8000 },
+      )
       if ((await page.locator('.el-tab-pane:visible .el-descriptions').count()) === 0) throw new Error('Power grid result did not render')
     })
     await recordCase(page, 'S12 Formula', 'S12-04', 'empty value validation', 'P2', async () => {

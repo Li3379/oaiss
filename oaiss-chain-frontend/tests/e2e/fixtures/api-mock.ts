@@ -83,6 +83,7 @@ const SMOKE_ROUTES: Record<string, MockRouteConfig[]> = {
   ADMIN: [
     { method: 'GET', path: '/admin/users*', data: EMPTY_PAGE },
     { method: 'GET', path: '/carbon/reports*', data: EMPTY_PAGE },
+    { method: 'GET', path: '/blockchain/status*', data: { status: 'healthy', connected: true, mode: 'MOCK' } },
     { method: 'GET', path: '/admin/statistics*', data: { totalUsers: 10, totalReports: 50, totalTrades: 20 } },
     {
       method: 'GET',

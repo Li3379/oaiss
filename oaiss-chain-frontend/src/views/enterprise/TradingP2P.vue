@@ -32,9 +32,9 @@ const tableData = ref<TradeResponse[]>([])
 const dialogVisible = ref(false)
 const dialogFormRef = ref()
 const dialogForm = reactive({
-  buyerId: "",
-  quantity: "",
-  unitPrice: "",
+  buyerId: null as number | null,
+  quantity: null as number | null,
+  unitPrice: null as number | null,
   remark: "",
 })
 
@@ -104,8 +104,9 @@ const onPageChange = (val: number) => {
 }
 
 const resetDialogForm = () => {
-  dialogForm.quantity = ""
-  dialogForm.unitPrice = ""
+  dialogForm.buyerId = null
+  dialogForm.quantity = null
+  dialogForm.unitPrice = null
   dialogForm.remark = ""
 }
 

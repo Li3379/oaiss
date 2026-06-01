@@ -121,7 +121,11 @@ export async function loginViaToken(page: Page, role: string): Promise<void> {
   await page.addInitScript(
     (args) => {
       localStorage.setItem('access_token', args.token)
+      localStorage.setItem('refresh_token', `${args.roleLabel.toLowerCase()}-refresh-token`)
+      localStorage.setItem('remember_me', 'true')
       localStorage.setItem('user_role', args.roleLabel)
+      sessionStorage.setItem('access_token', args.token)
+      sessionStorage.setItem('refresh_token', `${args.roleLabel.toLowerCase()}-refresh-token`)
     },
     { token, roleLabel: role },
   )

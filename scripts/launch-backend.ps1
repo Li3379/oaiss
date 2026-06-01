@@ -11,7 +11,14 @@ if ($WithFabric) {
     $arguments += '--with-fabric'
 }
 
-Start-Process -FilePath $backendBatch `
-    -ArgumentList $arguments `
-    -WorkingDirectory $projectRoot `
-    -WindowStyle Hidden
+$startProcessParams = @{
+    FilePath = $backendBatch
+    WorkingDirectory = $projectRoot
+    WindowStyle = 'Hidden'
+}
+
+if ($arguments.Count -gt 0) {
+    $startProcessParams.ArgumentList = $arguments
+}
+
+Start-Process @startProcessParams
