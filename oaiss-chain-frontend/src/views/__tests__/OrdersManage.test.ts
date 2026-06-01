@@ -87,20 +87,20 @@ describe('OrdersManage.vue', () => {
     setActivePinia(createPinia())
   })
 
-  it('组件正确渲染', () => {
+  it('缁勪欢姝ｇ‘娓叉煋', () => {
     const wrapper = mountComponent()
     expect(wrapper.exists()).toBe(true)
     wrapper.unmount()
   })
 
-  it('页面加载时调用API', async () => {
+  it('椤甸潰鍔犺浇鏃惰皟鐢ˋPI', async () => {
     const wrapper = mountComponent()
     await flushPromises()
     expect(getMyTrades).toHaveBeenCalled()
     wrapper.unmount()
   })
 
-  it('API调用失败显示错误消息', async () => {
+  it('API璋冪敤澶辫触鏄剧ず閿欒娑堟伅', async () => {
     getMyTrades.mockRejectedValueOnce(new Error('network error'))
     const wrapper = mountComponent()
     await flushPromises()
@@ -108,7 +108,7 @@ describe('OrdersManage.vue', () => {
     wrapper.unmount()
   })
 
-  it('组件渲染数据', async () => {
+  it('缁勪欢娓叉煋鏁版嵁', async () => {
     getMyTrades.mockResolvedValueOnce({
       items: [{ id: 1, status: 'pending' }],
       total: 1,
@@ -116,6 +116,63 @@ describe('OrdersManage.vue', () => {
     const wrapper = mountComponent()
     await flushPromises()
     expect(getMyTrades).toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  it('does not apply an extra client-side tradeType filter after server pagination', async () => {
+    getMyTrades.mockResolvedValueOnce({
+      items: [
+        {
+          id: 1,
+          tradeNo: 'TRX-001',
+          tradeType: 1,
+          tradeTypeText: 'Auction Trade',
+          sellerId: 10,
+          sellerName: 'Seller A',
+          buyerId: 20,
+          buyerName: 'Buyer A',
+          quantity: 1,
+          unitPrice: 2,
+          totalAmount: 2,
+          reportId: 0,
+          status: 0,
+          statusText: 'Pending',
+          remark: '',
+          blockchainTxHash: '',
+          completedAt: '',
+          createdAt: '2026-05-31 10:00:00',
+        },
+        {
+          id: 2,
+          tradeNo: 'TRX-002',
+          tradeType: 2,
+          tradeTypeText: 'P2P Trade',
+          sellerId: 11,
+          sellerName: 'Seller B',
+          buyerId: 21,
+          buyerName: 'Buyer B',
+          quantity: 3,
+          unitPrice: 4,
+          totalAmount: 12,
+          reportId: 0,
+          status: 2,
+          statusText: 'Completed',
+          remark: '',
+          blockchainTxHash: '',
+          completedAt: '',
+          createdAt: '2026-05-31 11:00:00',
+        },
+      ],
+      total: 2,
+    })
+
+    const wrapper = mountComponent()
+    await flushPromises()
+
+    wrapper.vm.searchForm.tradeType = 1
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.vm.tableData).toHaveLength(2)
     wrapper.unmount()
   })
 })

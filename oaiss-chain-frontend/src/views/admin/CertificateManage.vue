@@ -10,26 +10,24 @@ import {
   issueReviewerQualification,
   revokeReviewerQualification,
 } from '../../api/admin'
+import type { EnterpriseAdmissionResponse, ReviewerQualificationResponse } from '../../types'
 
 const { t } = useI18n()
 
-const activeTab = ref('admission')
+const activeTab = ref<'admission' | 'qualification'>('admission')
 
-// Admission state
-const admissionList = ref<Record<string, unknown>[]>([])
+const admissionList = ref<EnterpriseAdmissionResponse[]>([])
 const admissionLoading = ref(false)
 const admissionPage = ref(1)
 const admissionPageSize = ref(10)
 const admissionTotal = ref(0)
 
-// Qualification state
-const qualificationList = ref<Record<string, unknown>[]>([])
+const qualificationList = ref<ReviewerQualificationResponse[]>([])
 const qualificationLoading = ref(false)
 const qualificationPage = ref(1)
 const qualificationPageSize = ref(10)
 const qualificationTotal = ref(0)
 
-// Issue dialog
 const issueDialogVisible = ref(false)
 const issueType = ref<'admission' | 'qualification'>('admission')
 const issueForm = reactive({ enterpriseId: '', reviewerId: '' })
@@ -39,12 +37,12 @@ watch(issueType, () => {
   issueForm.reviewerId = ''
 })
 
-const fetchAdmissionData = async () => {
+async function fetchAdmissionData(): Promise<void> {
   admissionLoading.value = true
   try {
-    const res = await getEnterpriseAdmissionList({ pageNum: admissionPage.value, pageSize: admissionPageSize.value }) as Record<string, unknown>
-    admissionList.value = (res.items as Record<string, unknown>[]) || []
-    admissionTotal.value = (res.total as number) || 0
+    const res = await getEnterpriseAdmissionList({ pageNum: admissionPage.value, pageSize: admissionPageSize.value })
+    admissionList.value = res.items
+    admissionTotal.value = res.total
   } catch {
     ElMessage.error(t('certificateManage.loadFailed'))
   } finally {
@@ -52,12 +50,12 @@ const fetchAdmissionData = async () => {
   }
 }
 
-const fetchQualificationData = async () => {
+async function fetchQualificationData(): Promise<void> {
   qualificationLoading.value = true
   try {
-    const res = await getReviewerQualificationList({ pageNum: qualificationPage.value, pageSize: qualificationPageSize.value }) as Record<string, unknown>
-    qualificationList.value = (res.items as Record<string, unknown>[]) || []
-    qualificationTotal.value = (res.total as number) || 0
+    const res = await getReviewerQualificationList({ pageNum: qualificationPage.value, pageSize: qualificationPageSize.value })
+    qualificationList.value = res.items
+    qualificationTotal.value = res.total
   } catch {
     ElMessage.error(t('certificateManage.loadFailed'))
   } finally {
@@ -65,98 +63,107 @@ const fetchQualificationData = async () => {
   }
 }
 
-const onTabChange = (tab: string) => {
-  if (tab === 'admission') fetchAdmissionData()
-  else fetchQualificationData()
+function onTabChange(tab: 'admission' | 'qualification'): void {
+  if (tab === 'admission') {
+    void fetchAdmissionData()
+  } else {
+    void fetchQualificationData()
+  }
 }
 
-const handleIssueAdmission = async () => {
+async function handleIssueAdmission(): Promise<void> {
   const id = Number(issueForm.enterpriseId)
   if (!id || id <= 0) {
     ElMessage.warning(t('certificateManage.enterEnterpriseId'))
     return
   }
+
   try {
     await issueEnterpriseAdmission(id)
     ElMessage.success(t('certificateManage.issueSuccess'))
     issueDialogVisible.value = false
-    fetchAdmissionData()
+    await fetchAdmissionData()
   } catch {
     ElMessage.error(t('certificateManage.issueFailed'))
   }
 }
 
-const handleIssueQualification = async () => {
+async function handleIssueQualification(): Promise<void> {
   const id = Number(issueForm.reviewerId)
   if (!id || id <= 0) {
     ElMessage.warning(t('certificateManage.enterReviewerId'))
     return
   }
+
   try {
     await issueReviewerQualification(id)
     ElMessage.success(t('certificateManage.issueSuccess'))
     issueDialogVisible.value = false
-    fetchQualificationData()
+    await fetchQualificationData()
   } catch {
     ElMessage.error(t('certificateManage.issueFailed'))
   }
 }
 
-const handleRevokeAdmission = async (row: Record<string, unknown>) => {
+async function handleRevokeAdmission(row: EnterpriseAdmissionResponse): Promise<void> {
   try {
     await ElMessageBox.confirm(
       t('certificateManage.confirmRevoke'),
       t('certificateManage.revokeTitle'),
-      { confirmButtonText: t('common.confirm'), cancelButtonText: t('common.cancel'), type: 'warning' }
+      { confirmButtonText: t('common.confirm'), cancelButtonText: t('common.cancel'), type: 'warning' },
     )
-    await revokeEnterpriseAdmission(row.enterpriseId as number)
+    await revokeEnterpriseAdmission(row.enterpriseId)
     ElMessage.success(t('certificateManage.revokeSuccess'))
-    fetchAdmissionData()
+    await fetchAdmissionData()
   } catch (error) {
     if (error !== 'cancel') ElMessage.error(t('certificateManage.revokeFailed'))
   }
 }
 
-const handleRevokeQualification = async (row: Record<string, unknown>) => {
+async function handleRevokeQualification(row: ReviewerQualificationResponse): Promise<void> {
   try {
     await ElMessageBox.confirm(
       t('certificateManage.confirmRevoke'),
       t('certificateManage.revokeTitle'),
-      { confirmButtonText: t('common.confirm'), cancelButtonText: t('common.cancel'), type: 'warning' }
+      { confirmButtonText: t('common.confirm'), cancelButtonText: t('common.cancel'), type: 'warning' },
     )
-    await revokeReviewerQualification(row.reviewerId as number)
+    await revokeReviewerQualification(row.reviewerId)
     ElMessage.success(t('certificateManage.revokeSuccess'))
-    fetchQualificationData()
+    await fetchQualificationData()
   } catch (error) {
     if (error !== 'cancel') ElMessage.error(t('certificateManage.revokeFailed'))
   }
 }
 
 const getStatusType = (status: number) => (status === 1 ? 'success' : 'danger')
-const getStatusText = (status: number) =>
+const getStatusText = (status: number) => (
   status === 1 ? t('certificateManage.active') : t('certificateManage.revoked')
+)
 
-const onAdmissionSizeChange = (size: number) => {
+function onAdmissionSizeChange(size: number): void {
   admissionPageSize.value = size
   admissionPage.value = 1
-  fetchAdmissionData()
+  void fetchAdmissionData()
 }
-const onAdmissionCurrentChange = (page: number) => {
+
+function onAdmissionCurrentChange(page: number): void {
   admissionPage.value = page
-  fetchAdmissionData()
+  void fetchAdmissionData()
 }
-const onQualificationSizeChange = (size: number) => {
+
+function onQualificationSizeChange(size: number): void {
   qualificationPageSize.value = size
   qualificationPage.value = 1
-  fetchQualificationData()
+  void fetchQualificationData()
 }
-const onQualificationCurrentChange = (page: number) => {
+
+function onQualificationCurrentChange(page: number): void {
   qualificationPage.value = page
-  fetchQualificationData()
+  void fetchQualificationData()
 }
 
 onMounted(() => {
-  fetchAdmissionData()
+  void fetchAdmissionData()
 })
 </script>
 
@@ -171,7 +178,6 @@ onMounted(() => {
 
     <el-card class="section-card" shadow="never">
       <el-tabs v-model="activeTab" @tab-change="onTabChange">
-        <!-- Admission Tab -->
         <el-tab-pane :label="t('certificateManage.tabAdmission')" name="admission">
           <div style="margin-bottom: 14px;">
             <el-button type="primary" @click="issueDialogVisible = true; issueType = 'admission'">
@@ -211,7 +217,6 @@ onMounted(() => {
           </div>
         </el-tab-pane>
 
-        <!-- Qualification Tab -->
         <el-tab-pane :label="t('certificateManage.tabQualification')" name="qualification">
           <div style="margin-bottom: 14px;">
             <el-button type="primary" @click="issueDialogVisible = true; issueType = 'qualification'">
@@ -254,7 +259,6 @@ onMounted(() => {
       </el-tabs>
     </el-card>
 
-    <!-- Issue Dialog -->
     <el-dialog v-model="issueDialogVisible" :title="t('certificateManage.issue')" width="400px">
       <el-form v-if="issueType === 'admission'">
         <el-form-item :label="t('certificateManage.colEnterpriseId')">

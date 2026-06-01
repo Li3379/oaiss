@@ -8,6 +8,11 @@ import {
   isTokenExpired,
 } from '../auth'
 
+function createJwt(payload: Record<string, unknown>, header: Record<string, unknown> = { alg: 'HS256' }) {
+  const encode = (value: Record<string, unknown>) => Buffer.from(JSON.stringify(value)).toString('base64url')
+  return `${encode(header)}.${encode(payload)}.signature`
+}
+
 describe('auth utils', () => {
   beforeEach(() => {
     localStorage.clear()
@@ -91,6 +96,16 @@ describe('auth utils', () => {
       const payload = btoa(JSON.stringify({ sub: '123' }))
       const token = `${header}.${payload}.signature`
       expect(parseJwtPayload(token)).toBeNull()
+    })
+
+    it('parses base64url JWT payloads with url-safe characters and unicode', () => {
+      const token = createJwt({ sub: '测试用户', roles: ['REVIEWER'], exp: 9999999999, marker: '¾' })
+
+      const result = parseJwtPayload(token)
+
+      expect(result?.sub).toBe('测试用户')
+      expect(result?.roles).toEqual(['REVIEWER'])
+      expect(result?.marker).toBe('¾')
     })
   })
 

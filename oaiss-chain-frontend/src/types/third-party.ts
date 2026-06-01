@@ -1,4 +1,6 @@
-/** 第三方机构实体 */
+import type { CarbonReport } from './carbon'
+import type { PageResponse } from './api'
+
 export interface ThirdPartyOrg {
   id: number
   userId: number
@@ -15,3 +17,22 @@ export interface ThirdPartyOrg {
   updatedAt: string
   deleted: boolean
 }
+
+export interface ThirdPartyStatistics {
+  orgName?: string
+  accessLevel?: number
+  totalReports: number
+  pendingReports: number
+  approvedReports: number
+  rejectedReports: number
+}
+
+export interface ThirdPartyCarbonReportQuery {
+  pageNum?: number
+  pageSize?: number
+  enterpriseId?: number
+  keyword?: string
+  status?: number
+}
+
+export type ThirdPartyCarbonReportPage = PageResponse<CarbonReport>

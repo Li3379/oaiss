@@ -1,6 +1,10 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { mount, flushPromises } from '@vue/test-utils'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
+
+vi.mock('vue-i18n', () => ({
+  useI18n: () => ({ t: (key: string) => key }),
+}))
 
 vi.mock('../../api/carbon', () => ({
   getReportList: vi.fn(() => Promise.resolve({ items: [], total: 0 })),
@@ -11,38 +15,31 @@ vi.mock('element-plus', async (importOriginal) => {
   return {
     ...actual,
     ElMessage: { success: vi.fn(), error: vi.fn(), warning: vi.fn() },
-    ElMessageBox: { confirm: vi.fn(() => Promise.resolve()) },
   }
 })
 
 import SystemCarbon from '../admin/SystemCarbon.vue'
 import { getReportList } from '../../api/carbon'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage } from 'element-plus'
 
 const stubs = {
   'el-card': { template: '<div class="el-card"><slot /></div>' },
   'el-breadcrumb': { template: '<div class="el-breadcrumb"><slot /></div>' },
   'el-breadcrumb-item': { template: '<span class="el-breadcrumb-item"><slot /></span>' },
-  'el-form': {
-    template: '<form @submit.prevent><slot /></form>',
-    methods: {
-      validate() { return Promise.resolve(true) },
-      resetFields() {},
-    },
-  },
+  'el-form': { template: '<form @submit.prevent><slot /></form>' },
   'el-form-item': { template: '<div class="el-form-item"><slot /></div>', props: ['label', 'prop'] },
   'el-input': {
     template: '<input :value="modelValue" @input="$emit(\'update:modelValue\', $event.target.value)" />',
-    props: ['modelValue', 'type', 'placeholder', 'showPassword', 'clearable', 'rows'],
+    props: ['modelValue', 'placeholder', 'clearable'],
     emits: ['update:modelValue'],
   },
   'el-button': {
     template: '<button :disabled="loading" @click="$emit(\'click\')"><slot /></button>',
-    props: ['type', 'size', 'loading', 'link', 'plain'],
+    props: ['type', 'loading'],
     emits: ['click'],
   },
   'el-table': {
-    template: '<table><slot /><slot name="append" /></table>',
+    template: '<table><slot /></table>',
     props: ['data', 'border', 'emptyText'],
   },
   'el-table-column': {
@@ -54,15 +51,6 @@ const stubs = {
     template: '<div class="el-pagination"></div>',
     props: ['currentPage', 'pageSize', 'background', 'pageSizes', 'layout', 'total'],
     emits: ['size-change', 'current-change', 'update:current-page', 'update:page-size'],
-  },
-  'el-select': {
-    template: '<select :value="modelValue" @change="$emit(\'update:modelValue\', $event.target.value)"><slot /></select>',
-    props: ['modelValue', 'placeholder', 'style', 'clearable'],
-    emits: ['update:modelValue'],
-  },
-  'el-option': {
-    template: '<option :value="value"><slot /></option>',
-    props: ['label', 'value'],
   },
 }
 
@@ -81,35 +69,85 @@ describe('SystemCarbon.vue', () => {
     setActivePinia(createPinia())
   })
 
-  it('组件正确渲染', () => {
+  it('renders the page shell', () => {
     const wrapper = mountComponent()
     expect(wrapper.exists()).toBe(true)
     wrapper.unmount()
   })
 
-  it('页面加载时调用API', async () => {
+  it('loads paged report data on mount', async () => {
     const wrapper = mountComponent()
     await flushPromises()
-    expect(getReportList).toHaveBeenCalled()
-    wrapper.unmount()
-  })
 
-  it('API调用失败显示错误消息', async () => {
-    getReportList.mockRejectedValueOnce(new Error('network error'))
-    const wrapper = mountComponent()
-    await flushPromises()
-    expect(ElMessage.error).toHaveBeenCalled()
-    wrapper.unmount()
-  })
-
-  it('组件渲染数据', async () => {
-    getReportList.mockResolvedValueOnce({
-      items: [{ id: 1, title: '报告1', status: 'pending' }],
-      total: 1,
+    expect(getReportList).toHaveBeenCalledWith({
+      pageNum: 1,
+      pageSize: 10,
+      keyword: undefined,
     })
+    wrapper.unmount()
+  })
+
+  it('forwards keyword searches to the backend instead of locally re-filtering the current page', async () => {
+    getReportList
+      .mockResolvedValueOnce({
+        items: [
+          { id: 1, reportNo: 'RPT-001', title: 'Alpha', enterpriseName: 'A Corp' },
+          { id: 2, reportNo: 'RPT-002', title: 'Beta', enterpriseName: 'B Corp' },
+        ],
+        total: 2,
+      })
+      .mockResolvedValueOnce({
+        items: [{ id: 3, reportNo: 'RPT-003', title: 'Gamma', enterpriseName: 'Gamma Corp' }],
+        total: 1,
+      })
+
     const wrapper = mountComponent()
     await flushPromises()
-    expect(getReportList).toHaveBeenCalled()
+
+    await wrapper.find('input').setValue('gamma')
+    await wrapper.find('button').trigger('click')
+    await flushPromises()
+
+    expect(getReportList).toHaveBeenNthCalledWith(2, {
+      pageNum: 1,
+      pageSize: 10,
+      keyword: 'gamma',
+    })
+    expect((wrapper.vm as unknown as { tableData: Array<{ id: number }> }).tableData).toEqual([
+      { id: 3, reportNo: 'RPT-003', title: 'Gamma', enterpriseName: 'Gamma Corp' },
+    ])
+    wrapper.unmount()
+  })
+
+  it('keeps server total counts authoritative after a search response returns fewer rows', async () => {
+    getReportList
+      .mockResolvedValueOnce({
+        items: [{ id: 1, reportNo: 'RPT-001', title: 'Alpha', enterpriseName: 'A Corp' }],
+        total: 27,
+      })
+      .mockResolvedValueOnce({
+        items: [{ id: 2, reportNo: 'RPT-002', title: 'Filtered', enterpriseName: 'B Corp' }],
+        total: 11,
+      })
+
+    const wrapper = mountComponent()
+    await flushPromises()
+
+    await wrapper.find('input').setValue('filtered')
+    await wrapper.find('button').trigger('click')
+    await flushPromises()
+
+    expect((wrapper.vm as unknown as { total: number }).total).toBe(11)
+    wrapper.unmount()
+  })
+
+  it('shows an error message when loading fails', async () => {
+    vi.mocked(getReportList).mockRejectedValueOnce(new Error('network error'))
+
+    const wrapper = mountComponent()
+    await flushPromises()
+
+    expect(ElMessage.error).toHaveBeenCalledWith('systemCarbon.loadFailed')
     wrapper.unmount()
   })
 })

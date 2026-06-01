@@ -1,5 +1,5 @@
 import request from './request'
-import type { TradeRequest, TradeResponse, PageRequest } from '../types'
+import type { MyTradesQuery, PageRequest, TradePageResult, TradeRequest, TradeResponse } from '../types'
 
 export function createP2PTrade(data: TradeRequest): Promise<TradeResponse> {
   if (!data?.quantity || data.quantity <= 0) return Promise.reject(new Error('碳配额数量必须大于0'))
@@ -12,7 +12,7 @@ export function cancelTrade(tradeId: number): Promise<void> {
   return request.post(`/trade/${tradeId}/cancel`)
 }
 
-export function getMyTrades(params?: PageRequest): Promise<unknown> {
+export function getMyTrades(params?: MyTradesQuery): Promise<TradePageResult> {
   return request.get('/trade/my-trades', { params })
 }
 
@@ -32,6 +32,6 @@ export function getTrade(tradeId: number): Promise<TradeResponse> {
   return request.get(`/trade/${tradeId}`)
 }
 
-export function listTrades(params?: PageRequest): Promise<unknown> {
+export function listTrades(params?: PageRequest): Promise<TradePageResult> {
   return request.get('/trade/list', { params })
 }

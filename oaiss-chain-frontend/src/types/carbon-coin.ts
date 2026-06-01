@@ -1,4 +1,5 @@
-/** 碳币账户响应 */
+import type { PagedItems } from './api'
+
 export interface CarbonCoinAccountResponse {
   id: number
   userId: number
@@ -8,21 +9,18 @@ export interface CarbonCoinAccountResponse {
   status: number
 }
 
-/** 碳币充值请求 */
 export interface CarbonCoinRechargeRequest {
   amount: number
   paymentMethod?: number
   remark?: string
 }
 
-/** 碳币转账请求 */
 export interface CarbonCoinTransferRequest {
   counterpartId: number
   amount: number
   remark?: string
 }
 
-/** 碳币交易记录 */
 export interface CarbonCoinTransaction {
   id: number
   txNo: string
@@ -31,10 +29,12 @@ export interface CarbonCoinTransaction {
   amount: number
   balanceBefore: number
   balanceAfter: number
-  relatedQuota: number
-  relatedTradeId: number
-  counterpartId: number
+  relatedQuota: number | null
+  relatedTradeId: number | null
+  counterpartId: number | null
   remark: string
   createdAt: string
   updatedAt: string
 }
+
+export type CarbonCoinTransactionPage = PagedItems<CarbonCoinTransaction>

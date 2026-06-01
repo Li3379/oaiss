@@ -98,6 +98,7 @@ export default {
     captchaLoadFailed: '获取验证码失败',
     incompleteForm: '请完整填写登录信息',
     loginSuccess: '登录成功',
+    invalidSession: '登录状态异常，请重新登录',
     captchaPlaceholder: '点击加载',
   },
   layout: {

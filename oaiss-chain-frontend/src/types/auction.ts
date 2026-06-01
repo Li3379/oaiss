@@ -1,11 +1,13 @@
-/** 拍卖订单请求 */
+import type { PagedItems } from './api'
+
+/** Request payload for auction buy/sell orders. */
 export interface AuctionOrderRequest {
   direction: number
   quantity: number
   price: number
 }
 
-/** 拍卖订单响应 */
+/** Auction order returned by backend auction endpoints. */
 export interface AuctionOrderResponse {
   id: number
   orderNo: string
@@ -23,7 +25,7 @@ export interface AuctionOrderResponse {
   createdAt: string
 }
 
-/** 撮合结果响应 */
+/** Matching result returned by the auction matching endpoints. */
 export interface MatchingResultResponse {
   id: number
   matchNo: string
@@ -42,3 +44,6 @@ export interface MatchingResultResponse {
   settledAt: string
   createdAt: string
 }
+
+export type AuctionOrderPage = PagedItems<AuctionOrderResponse>
+export type MatchingResultPage = PagedItems<MatchingResultResponse>

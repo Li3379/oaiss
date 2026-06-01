@@ -5,6 +5,7 @@ import { useI18n } from 'vue-i18n'
 import { calculatePowerGeneration, calculatePowerGrid } from '../../api/carbonFormula'
 import { getProfile } from '../../api/user'
 import { getEnterpriseInfo } from '../../api/enterprise'
+import type { EnterpriseResponse, UserInfoResponse } from '../../types'
 import type { PowerGenerationCalculationResponse, PowerGridCalculationResponse } from '../../types/carbonFormula'
 import PageContainer from '../../components/PageContainer.vue'
 
@@ -89,8 +90,8 @@ function applyEnterpriseName(name: string) {
 
 async function loadEnterpriseName() {
   try {
-    const enterprise = await getEnterpriseInfo() as Record<string, unknown>
-    const enterpriseName = String(enterprise?.enterpriseName || '')
+    const enterprise: EnterpriseResponse = await getEnterpriseInfo()
+    const enterpriseName = String(enterprise.enterpriseName || '')
     if (enterpriseName) {
       applyEnterpriseName(enterpriseName)
       return
@@ -100,8 +101,8 @@ async function loadEnterpriseName() {
   }
 
   try {
-    const profile = await getProfile()
-    const enterpriseName = String((profile as Record<string, unknown>)?.company || '')
+    const profile: UserInfoResponse = await getProfile()
+    const enterpriseName = String(profile.company || '')
     if (enterpriseName) applyEnterpriseName(enterpriseName)
   } catch {
     // Keep manual entry available if both prefill sources are unavailable.

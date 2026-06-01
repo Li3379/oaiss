@@ -5,24 +5,29 @@ import { ElMessage } from 'element-plus'
 import { getCarbonReports, getOrgInfo, getStatistics, updateContact } from '../../api/thirdParty'
 import { formatDateTime } from '../../utils/format'
 import PageContainer from '../../components/PageContainer.vue'
+import type { CarbonReport, ThirdPartyOrg, ThirdPartyStatistics } from '../../types'
 
 const { t } = useI18n()
 
-const statistics = ref({
+const statistics = ref<ThirdPartyStatistics>({
   totalReports: 0,
   pendingReports: 0,
   approvedReports: 0,
   rejectedReports: 0,
 })
 
-const orgInfo = ref<Record<string, any> | null>(null)
+const orgInfo = ref<ThirdPartyOrg | null>(null)
 const orgLoading = ref(false)
 const savingContact = ref(false)
 
-const searchForm = reactive({
+const searchForm = reactive<{
+  enterpriseId: string
+  keyword: string
+  status: '' | number
+}>({
   enterpriseId: '',
   keyword: '',
-  status: '' as '' | number,
+  status: '',
 })
 
 const contactForm = reactive({
@@ -31,14 +36,14 @@ const contactForm = reactive({
 })
 
 const approvalRate = computed(() => {
-  const total = statistics.value.approvedReports + statistics.value.rejectedReports
-  if (total === 0) return '0%'
-  return `${((statistics.value.approvedReports / total) * 100).toFixed(1)}%`
+  const totalReviewed = statistics.value.approvedReports + statistics.value.rejectedReports
+  if (totalReviewed === 0) return '0%'
+  return `${((statistics.value.approvedReports / totalReviewed) * 100).toFixed(1)}%`
 })
 
 const statsLoading = ref(false)
 
-const reports = ref<Record<string, any>[]>([])
+const reports = ref<CarbonReport[]>([])
 const loading = ref(false)
 const currentPage = ref(1)
 const pageSize = ref(10)
@@ -47,8 +52,10 @@ const total = ref(0)
 const loadStatistics = async () => {
   try {
     statsLoading.value = true
-    const result = await (getStatistics() as Promise<Record<string, any>>)
+    const result = await getStatistics()
     statistics.value = {
+      orgName: result?.orgName,
+      accessLevel: result?.accessLevel,
       totalReports: result?.totalReports || 0,
       pendingReports: result?.pendingReports || 0,
       approvedReports: result?.approvedReports || 0,
@@ -65,7 +72,7 @@ const loadStatistics = async () => {
 const loadOrgInfo = async () => {
   try {
     orgLoading.value = true
-    const result = await (getOrgInfo() as Promise<Record<string, any>>)
+    const result = await getOrgInfo()
     orgInfo.value = result
     contactForm.contactPerson = result?.contactPerson || ''
     contactForm.contactPhone = result?.contactPhone || ''
@@ -89,9 +96,9 @@ const loadReports = async () => {
       enterpriseId: Number.isFinite(enterpriseId) ? enterpriseId : undefined,
       keyword: keyword || undefined,
       status: searchForm.status || undefined,
-    } as any)
-    reports.value = (result as any)?.items || []
-    total.value = (result as any)?.total || 0
+    })
+    reports.value = result?.items || []
+    total.value = result?.total || 0
   } catch {
     ElMessage.error(t('monitor.loadFailed'))
   } finally {
@@ -134,8 +141,15 @@ const saveContact = async () => {
     })
     ElMessage.success(t('monitor.contactSaveSuccess'))
     await loadOrgInfo()
-  } catch (error: any) {
-    const backendMessage = error?.response?.data?.data?.[0] || error?.response?.data?.message || error?.message
+  } catch (error: unknown) {
+    const maybeError = error as {
+      response?: { data?: { data?: string[]; message?: string } }
+      message?: string
+    }
+    const backendMessage =
+      maybeError?.response?.data?.data?.[0] ||
+      maybeError?.response?.data?.message ||
+      maybeError?.message
     ElMessage.error(backendMessage || t('monitor.contactSaveFailed'))
   } finally {
     savingContact.value = false

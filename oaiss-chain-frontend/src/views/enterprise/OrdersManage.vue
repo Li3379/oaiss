@@ -1,12 +1,19 @@
 <script setup lang="ts">
-import { computed, ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getMyTrades, cancelTrade } from '../../api/trade'
+import type { TradeResponse } from '../../types'
 
 const { t } = useI18n()
 
-const searchForm = reactive({
+interface OrdersSearchForm {
+  tradeNo: string
+  tradeType: number | ''
+  dateRange: string[]
+}
+
+const searchForm = reactive<OrdersSearchForm>({
   tradeNo: '',
   tradeType: '',
   dateRange: [],
@@ -17,23 +24,15 @@ const tradeTypeOptions = [
   { label: 'ordersManage.tradeTypeP2P', value: 2 },
 ]
 
-const tableData = ref([])
+const tableData = ref<TradeResponse[]>([])
 const loading = ref(false)
-const selectedRows = ref([])
+const selectedRows = ref<TradeResponse[]>([])
 const currentPage = ref(1)
 const pageSize = ref(10)
 const total = ref(0)
 
 const detailDialogVisible = ref(false)
-const currentDetailTrade = ref(null)
-
-const filteredTableData = computed(() => {
-  const tradeType = searchForm.tradeType
-  if (!tradeType) return tableData.value
-  return tableData.value.filter((row) => row.tradeType === tradeType)
-})
-
-const displayTotal = computed(() => total.value)
+const currentDetailTrade = ref<TradeResponse | null>(null)
 
 const loadTrades = async () => {
   try {
@@ -70,22 +69,22 @@ const onReset = () => {
   loadTrades()
 }
 
-const onSelectionChange = (rows) => {
+const onSelectionChange = (rows: TradeResponse[]) => {
   selectedRows.value = rows
 }
 
-const onSizeChange = (size) => {
+const onSizeChange = (size: number) => {
   pageSize.value = size
   currentPage.value = 1
   loadTrades()
 }
 
-const onCurrentChange = (page) => {
+const onCurrentChange = (page: number) => {
   currentPage.value = page
   loadTrades()
 }
 
-const getStatusType = (status) => {
+const getStatusType = (status: number) => {
   const map = {
     0: 'warning',
     1: 'primary',
@@ -95,16 +94,16 @@ const getStatusType = (status) => {
   return map[status] || 'info'
 }
 
-const getCounterparty = (row) => {
+const getCounterparty = (row: TradeResponse) => {
   return row.buyerName || row.sellerName || '-'
 }
 
-const openDetail = (row) => {
+const openDetail = (row: TradeResponse) => {
   currentDetailTrade.value = row
   detailDialogVisible.value = true
 }
 
-const handleCancel = async (row) => {
+const handleCancel = async (row: TradeResponse) => {
   try {
     await ElMessageBox.confirm(t('ordersManage.confirmCancel'), t('ordersManage.cancelTrade'), {
       confirmButtonText: t('common.confirm'),
@@ -167,8 +166,8 @@ onMounted(() => {
     </el-card>
 
     <el-card class="section-card" shadow="never">
-      <div class="table-tip">{{ t('common.total', { count: displayTotal }) }}</div>
-      <el-table :data="filteredTableData" border v-loading="loading" :empty-text="t('ordersManage.emptyText')" @selection-change="onSelectionChange">
+      <div class="table-tip">{{ t('common.total', { count: total }) }}</div>
+      <el-table :data="tableData" border v-loading="loading" :empty-text="t('ordersManage.emptyText')" @selection-change="onSelectionChange">
         <el-table-column type="selection" width="56" />
         <el-table-column :label="t('tradingMarket.colIndex')" width="80">
           <template #default="scope">
@@ -208,7 +207,7 @@ onMounted(() => {
           background
           :page-sizes="[10, 20, 50]"
           layout="total, sizes, prev, pager, next, jumper"
-          :total="displayTotal"
+          :total="total"
           @size-change="onSizeChange"
           @current-change="onCurrentChange"
         />

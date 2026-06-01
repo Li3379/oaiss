@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { mount, flushPromises } from '@vue/test-utils'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { ref } from 'vue'
 
@@ -25,20 +25,14 @@ vi.mock('element-plus', async (importOriginal) => {
 })
 
 import SystemUsers from '../admin/SystemUsers.vue'
-import { getUserList } from '../../api/admin'
-import { ElMessage } from 'element-plus'
+import { getUserList, updateUserStatus } from '../../api/admin'
+import { ElMessage, ElMessageBox } from 'element-plus'
 
 const stubs = {
   'el-card': { template: '<div class="el-card"><slot /></div>' },
   'el-breadcrumb': { template: '<div class="el-breadcrumb"><slot /></div>' },
   'el-breadcrumb-item': { template: '<span class="el-breadcrumb-item"><slot /></span>' },
-  'el-form': {
-    template: '<form @submit.prevent><slot /></form>',
-    methods: {
-      validate() { return Promise.resolve(true) },
-      resetFields() {},
-    },
-  },
+  'el-form': { template: '<form @submit.prevent><slot /></form>' },
   'el-form-item': { template: '<div class="el-form-item"><slot /></div>', props: ['label', 'prop'] },
   'el-input': {
     template: '<input :value="modelValue" @input="$emit(\'update:modelValue\', $event.target.value)" />',
@@ -51,7 +45,7 @@ const stubs = {
     emits: ['click'],
   },
   'el-table': {
-    template: '<table><slot /><slot name="append" /></table>',
+    template: '<table><slot /><slot :row="data[0] || {}" :$index="0" /><slot name="append" /></table>',
     props: ['data', 'border', 'emptyText'],
   },
   'el-table-column': {
@@ -99,10 +93,72 @@ describe('SystemUsers.vue', () => {
     wrapper.unmount()
   })
 
-  it('loads user list on mount', async () => {
+  it('loads the paged backend list on mount', async () => {
     const wrapper = mountComponent()
     await flushPromises()
-    expect(getUserList).toHaveBeenCalled()
+
+    expect(getUserList).toHaveBeenCalledWith({
+      page: 1,
+      size: 10,
+    })
+    wrapper.unmount()
+  })
+
+  it('forwards selected filters to the backend instead of re-filtering the current page locally', async () => {
+    vi.mocked(getUserList)
+      .mockResolvedValueOnce({
+        items: [
+          { id: 1, username: 'alpha', userType: 1, status: 1 },
+          { id: 2, username: 'beta', userType: 2, status: 0 },
+        ],
+        total: 2,
+      })
+      .mockResolvedValueOnce({
+        items: [{ id: 3, username: 'gamma', userType: 4, status: 1 }],
+        total: 1,
+      })
+
+    const wrapper = mountComponent()
+    await flushPromises()
+
+    const selects = wrapper.findAll('select')
+    await selects[0].setValue('4')
+    await selects[1].setValue('1')
+    await wrapper.find('button').trigger('click')
+    await flushPromises()
+
+    expect(getUserList).toHaveBeenNthCalledWith(2, {
+      page: 1,
+      size: 10,
+      userType: '4',
+      status: '1',
+    })
+    expect((wrapper.vm as unknown as { userList: Array<{ id: number }> }).userList).toEqual([
+      { id: 3, username: 'gamma', userType: 4, status: 1 },
+    ])
+    wrapper.unmount()
+  })
+
+  it('keeps server total counts authoritative after filtered responses', async () => {
+    vi.mocked(getUserList)
+      .mockResolvedValueOnce({
+        items: [{ id: 1, username: 'alpha', userType: 1, status: 1 }],
+        total: 40,
+      })
+      .mockResolvedValueOnce({
+        items: [{ id: 2, username: 'beta', userType: 2, status: 0 }],
+        total: 7,
+      })
+
+    const wrapper = mountComponent()
+    await flushPromises()
+
+    const selects = wrapper.findAll('select')
+    await selects[1].setValue('0')
+    await wrapper.find('button').trigger('click')
+    await flushPromises()
+
+    expect((wrapper.vm as unknown as { total: number }).total).toBe(7)
     wrapper.unmount()
   })
 
@@ -121,6 +177,27 @@ describe('SystemUsers.vue', () => {
     const selects = wrapper.findAll('select')
     expect(selects[1]?.attributes('data-placeholder')).toBe('systemUsers.typeAll')
 
+    wrapper.unmount()
+  })
+
+  it('updates user status and reloads the backend list after confirmation', async () => {
+    vi.mocked(getUserList).mockResolvedValueOnce({
+      items: [{ id: 5, username: 'disabled-user', userType: 1, status: 0 }],
+      total: 1,
+    })
+
+    const wrapper = mountComponent()
+    await flushPromises()
+
+    await (wrapper.vm as unknown as {
+      handleStatusToggle: (row: { id: number; status: number }) => Promise<void>
+    }).handleStatusToggle({ id: 5, status: 0 })
+    await flushPromises()
+
+    expect(ElMessageBox.confirm).toHaveBeenCalled()
+    expect(updateUserStatus).toHaveBeenCalledWith(5, 1)
+    expect(ElMessage.success).toHaveBeenCalledWith('systemUsers.enableSuccess')
+    expect(getUserList).toHaveBeenCalledTimes(2)
     wrapper.unmount()
   })
 })

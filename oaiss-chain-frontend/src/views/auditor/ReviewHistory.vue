@@ -3,11 +3,17 @@ import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useI18n } from 'vue-i18n'
 import { getReviewHistory } from '../../api/reviewer'
+import type { CarbonReportResponse } from '../../types'
 import { formatDateTime } from '../../utils/format'
 
 const { t } = useI18n()
 
-const tableData = ref<Record<string, any>[]>([])
+type ReviewHistoryRow = CarbonReportResponse & {
+  enterpriseName: string
+  reviewResult?: number
+}
+
+const tableData = ref<ReviewHistoryRow[]>([])
 const loading = ref(false)
 const currentPage = ref(1)
 const pageSize = ref(10)
@@ -26,12 +32,12 @@ const fetchData = async () => {
       pageNum: currentPage.value,
       pageSize: pageSize.value,
     })
-    tableData.value = (response.items || []).map((row: Record<string, any>) => ({
+    tableData.value = response.items.map((row) => ({
       ...row,
       enterpriseName: row.enterpriseName || '-',
       reviewResult: normalizeReviewResult(row.reviewResult ?? row.status),
     }))
-    total.value = response.total || 0
+    total.value = response.total
   } catch {
     ElMessage.error(t('reviewHistory.loadFailed'))
   } finally {

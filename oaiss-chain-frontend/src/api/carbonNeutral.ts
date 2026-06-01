@@ -1,7 +1,13 @@
 import request from './request'
-import type { CarbonNeutralProjectRequest, CarbonNeutralProjectResponse, ProjectVerificationRequest, PageRequest } from '../types'
+import type {
+  CarbonNeutralProjectRequest,
+  CarbonNeutralProjectResponse,
+  ProjectVerificationRequest,
+  PageRequest,
+  PagedItems,
+} from '../types'
 
-export function getProjects(params?: PageRequest): Promise<unknown> {
+export function getProjects(params?: PageRequest): Promise<PagedItems<CarbonNeutralProjectResponse>> {
   return request.get('/carbon-neutral/search', { params })
 }
 
@@ -41,7 +47,7 @@ export function terminateProject(projectId: number, data: { reason: string }): P
   return request.post(`/carbon-neutral/${projectId}/terminate`, data)
 }
 
-export function getMyProjects(params?: PageRequest): Promise<unknown> {
+export function getMyProjects(params?: PageRequest): Promise<PagedItems<CarbonNeutralProjectResponse>> {
   return request.get('/carbon-neutral/my', { params })
 }
 
@@ -65,6 +71,6 @@ export function completeCertification(projectId: number): Promise<void> {
   return request.post(`/carbon-neutral/${projectId}/certify`)
 }
 
-export function getPendingVerification(params?: PageRequest): Promise<unknown> {
+export function getPendingVerification(params?: PageRequest): Promise<PagedItems<CarbonNeutralProjectResponse>> {
   return request.get('/carbon-neutral/pending-verification', { params })
 }

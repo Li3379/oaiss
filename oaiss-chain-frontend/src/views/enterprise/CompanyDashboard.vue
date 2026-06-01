@@ -8,8 +8,15 @@ import { getMyTrades } from '../../api/trade'
 import { getMyScore } from '../../api/credit'
 import { getMyAccount } from '../../api/carbonCoin'
 import { getMyEnterpriseAdmission, getQuotaInfo } from '../../api/enterprise'
+import type { CarbonReportResponse, EnterpriseAdmissionResponse, EnterpriseQuotaResponse, TradeResponse } from '../../types'
 
 const { t } = useI18n()
+
+type DashboardAsset = {
+  assetNo: string
+  other: string
+  keyword: string
+}
 
 const loading = ref(false)
 const queryForm = reactive({
@@ -26,22 +33,22 @@ const appliedFilters = ref({
 
 const timeDimension = ref('month')
 
-const assetPool = ref([])
+const assetPool = ref<DashboardAsset[]>([])
 const creditScore = ref(0)
 const quotaTotal = ref(0)
 const carbonCoinTotal = ref(0)
-const tradeData = ref([])
-const carbonReports = ref([])
-const admissionStatus = ref<Record<string, unknown> | null>(null)
+const tradeData = ref<TradeResponse[]>([])
+const carbonReports = ref<CarbonReportResponse[]>([])
+const admissionStatus = ref<EnterpriseAdmissionResponse | null>(null)
 
-const chartTradeBarRef = ref(null)
-const chartTrendLineRef = ref(null)
-const chartSuggestBarRef = ref(null)
-const chartEmissionPieRef = ref(null)
-const chartTradePieRef = ref(null)
-const chartCreditLineRef = ref(null)
+const chartTradeBarRef = ref<HTMLElement | null>(null)
+const chartTrendLineRef = ref<HTMLElement | null>(null)
+const chartSuggestBarRef = ref<HTMLElement | null>(null)
+const chartEmissionPieRef = ref<HTMLElement | null>(null)
+const chartTradePieRef = ref<HTMLElement | null>(null)
+const chartCreditLineRef = ref<HTMLElement | null>(null)
 
-const chartInstances = []
+const chartInstances: Array<ReturnType<typeof echarts.init> | undefined> = []
 
 const filteredAssets = computed(() => {
   const f = appliedFilters.value
@@ -57,11 +64,18 @@ const filteredAssets = computed(() => {
   })
 })
 
-const filteredFactor = computed(() => {
-  if (filteredAssets.value.length === 0) {
-    return 0
-  }
-  return filteredAssets.value.length / (assetPool.value.length || 1)
+const matchedAssetNumbers = computed(() => new Set(filteredAssets.value.map((item) => item.assetNo)))
+
+const filteredReports = computed(() =>
+  carbonReports.value.filter((report) => {
+    const assetNo = report.assetNo || report.reportNo
+    return Boolean(assetNo) && matchedAssetNumbers.value.has(assetNo)
+  }),
+)
+
+const filteredTrades = computed(() => {
+  const reportIds = new Set(filteredReports.value.map((report) => report.id))
+  return tradeData.value.filter((trade) => reportIds.has(trade.reportId))
 })
 
 const toTimeBucket = (input: string | undefined, dimension: string) => {
@@ -78,7 +92,7 @@ const toTimeBucket = (input: string | undefined, dimension: string) => {
   return `${year}-${month}`
 }
 
-const aggregateSeries = <T>(
+const aggregateSeries = <T,>(
   rows: T[],
   getDate: (row: T) => string | undefined,
   getValue: (row: T) => number,
@@ -99,11 +113,10 @@ const aggregateSeries = <T>(
 }
 
 const currentData = computed(() => {
-  const factor = filteredFactor.value
-  const round = (n) => Math.round(n)
+  const round = (n: number) => Math.round(n)
   const dimension = timeDimension.value
-  const trades = tradeData.value || []
-  const reports = carbonReports.value || []
+  const trades = filteredTrades.value
+  const reports = filteredReports.value
 
   const tradeSeries = aggregateSeries(
     trades,
@@ -132,35 +145,29 @@ const currentData = computed(() => {
     return Math.max(0, creditScore.value - delta)
   })
 
-  const summary = {
-    carbonCoinTotal: carbonCoinTotal.value,
-    carbonQuotaTotal: quotaTotal.value,
-    creditScore: creditScore.value,
-  }
-
   return {
     tradeLabels: tradeSeries.labels,
-    tradeCount: tradeSeries.values.map((v) => round(v * factor)),
+    tradeCount: tradeSeries.values.map((value) => round(value)),
     reportLabels: reportTrendSeries.labels,
-    aiTrend: reportTrendSeries.values.map((v) => round(v * factor)),
-    aiSuggest: reportSuggestSeries.values.map((v) => round(v * factor)),
+    aiTrend: reportTrendSeries.values.map((value) => round(value)),
+    aiSuggest: reportSuggestSeries.values.map((value) => round(value)),
     creditLabels: tradeSeries.labels.length ? tradeSeries.labels : reportTrendSeries.labels,
-    creditTrend: creditTrend.map((v) => round(v * (0.9 + factor * 0.1))),
-    summary,
+    creditTrend: creditTrend.map((value) => round(value)),
+    summary: {
+      carbonCoinTotal: carbonCoinTotal.value,
+      carbonQuotaTotal: quotaTotal.value,
+      creditScore: creditScore.value,
+    },
     emissionPie: [
-      { name: t('companyDashboard.pieGasEmission'), value: reports.reduce((sum, r) => sum + Number(r.scope1Emission || 0), 0) },
-      { name: t('companyDashboard.pieWaterEmission'), value: reports.reduce((sum, r) => sum + Number(r.scope2Emission || 0), 0) },
-      { name: t('companyDashboard.pieSolidEmission'), value: reports.reduce((sum, r) => sum + Number(r.scope3Emission || 0), 0) },
-      { name: t('companyDashboard.piePredictedEmission'), value: reports.reduce((sum, r) => sum + Number(r.totalEmission || 0) * 0.1, 0) },
-      { name: t('companyDashboard.pieRatedEmission'), value: reports.reduce((sum, r) => sum + Number(r.totalEmission || 0), 0) },
-    ].filter(item => item.value > 0),
+      { name: t('companyDashboard.pieGasEmission'), value: reports.reduce((sum, report) => sum + Number(report.scope1Emission || 0), 0) },
+      { name: t('companyDashboard.pieWaterEmission'), value: reports.reduce((sum, report) => sum + Number(report.scope2Emission || 0), 0) },
+      { name: t('companyDashboard.pieSolidEmission'), value: reports.reduce((sum, report) => sum + Number(report.scope3Emission || 0), 0) },
+      { name: t('companyDashboard.pieRatedEmission'), value: reports.reduce((sum, report) => sum + Number(report.totalEmission || 0), 0) },
+    ].filter((item) => item.value > 0),
     tradePie: [
-      { name: t('companyDashboard.pieTransactionExpense'), value: trades.reduce((sum, t) => sum + Number(t.totalAmount || 0), 0) },
-      { name: t('companyDashboard.pieCarbonCoinConvert'), value: trades.reduce((sum, t) => sum + Number(t.quantity || 0) * 0.5, 0) },
-      { name: t('companyDashboard.pieBlockchainGenerate'), value: trades.reduce((sum, t) => sum + Number(t.quantity || 0) * 0.3, 0) },
-      { name: t('companyDashboard.pieOriginal'), value: trades.reduce((sum, t) => sum + Number(t.quantity || 0) * 0.15, 0) },
-      { name: t('companyDashboard.pieQuotaPurchase'), value: trades.reduce((sum, t) => sum + Number(t.quantity || 0) * 0.05, 0) },
-    ].filter(item => item.value > 0),
+      { name: t('companyDashboard.pieTransactionExpense'), value: trades.reduce((sum, trade) => sum + Number(trade.totalAmount || 0), 0) },
+      { name: t('companyDashboard.pieTradeQuantity'), value: trades.reduce((sum, trade) => sum + Number(trade.quantity || 0), 0) },
+    ].filter((item) => item.value > 0),
   }
 })
 
@@ -170,17 +177,17 @@ const overviewCards = computed(() => [
   { label: t('companyDashboard.cardCreditScore'), value: currentData.value.summary.creditScore },
 ])
 
-const percentFormatter = (params, sourceArr) => {
-  const total = sourceArr.reduce((sum, n) => sum + n, 0) || 1
+const percentFormatter = (params: { name: string; value: number }, sourceArr: number[]) => {
+  const total = sourceArr.reduce((sum, value) => sum + value, 0) || 1
   const percent = ((params.value / total) * 100).toFixed(2)
-  return `${params.name}<br/>${t('companyDashboard.tooltipValue')}：${params.value}<br/>${t('companyDashboard.tooltipRatio')}：${percent}%`
+  return `${params.name}<br/>${t('companyDashboard.tooltipValue')}: ${params.value}<br/>${t('companyDashboard.tooltipRatio')}: ${percent}%`
 }
 
-const buildBarOption = (title, labels, data, color) => ({
+const buildBarOption = (title: string, labels: string[], data: number[], color: string) => ({
   title: { text: title, left: 'center', textStyle: { fontSize: 14, fontWeight: 600 } },
   tooltip: {
     trigger: 'axis',
-    formatter: (params) => percentFormatter(params[0], data),
+    formatter: (params: Array<{ name: string; value: number }>) => percentFormatter(params[0], data),
   },
   grid: { left: 50, right: 24, top: 50, bottom: 28 },
   xAxis: { type: 'category', data: labels },
@@ -198,11 +205,11 @@ const buildBarOption = (title, labels, data, color) => ({
   ],
 })
 
-const buildLineOption = (title, labels, data, color) => ({
+const buildLineOption = (title: string, labels: string[], data: number[], color: string) => ({
   title: { text: title, left: 'center', textStyle: { fontSize: 14, fontWeight: 600 } },
   tooltip: {
     trigger: 'axis',
-    formatter: (params) => percentFormatter(params[0], data),
+    formatter: (params: Array<{ name: string; value: number }>) => percentFormatter(params[0], data),
   },
   grid: { left: 50, right: 24, top: 50, bottom: 28 },
   xAxis: { type: 'category', data: labels },
@@ -225,11 +232,11 @@ const buildLineOption = (title, labels, data, color) => ({
   ],
 })
 
-const buildPieOption = (title, data) => ({
+const buildPieOption = (title: string, data: Array<{ name: string; value: number }>) => ({
   title: { text: title, left: 'center', textStyle: { fontSize: 14, fontWeight: 600 } },
   tooltip: {
     trigger: 'item',
-    formatter: `{b}<br/>${t('companyDashboard.tooltipValue')}：{c}<br/>${t('companyDashboard.tooltipRatio')}：{d}%`,
+    formatter: `{b}<br/>${t('companyDashboard.tooltipValue')}: {c}<br/>${t('companyDashboard.tooltipRatio')}: {d}%`,
   },
   legend: {
     bottom: 4,
@@ -285,15 +292,13 @@ const renderCharts = async () => {
 
   configs.forEach(({ ref: domRef, option }, index) => {
     const dom = domRef.value
-    if (!dom) {
-      return
-    }
+    if (!dom) return
 
     if (!chartInstances[index]) {
       chartInstances[index] = echarts.init(dom)
     }
 
-    chartInstances[index].setOption(option, true)
+    chartInstances[index]?.setOption(option, true)
   })
 }
 
@@ -301,7 +306,7 @@ const fetchCreditScore = async () => {
   try {
     const result = await getMyScore()
     creditScore.value = Number(result?.score || result?.creditScore || 0)
-  } catch (error) {
+  } catch {
     ElMessage.error(t('companyDashboard.loadUserFailed'))
     creditScore.value = 0
   }
@@ -309,8 +314,8 @@ const fetchCreditScore = async () => {
 
 const fetchQuotaSummary = async () => {
   try {
-    const result = await getQuotaInfo()
-    quotaTotal.value = Number((result as Record<string, unknown>)?.totalQuota || 0)
+    const result: EnterpriseQuotaResponse = await getQuotaInfo()
+    quotaTotal.value = Number(result.totalQuota || 0)
   } catch {
     quotaTotal.value = 0
   }
@@ -330,10 +335,9 @@ const fetchTradeData = async () => {
     const result = await getMyTrades({
       pageNum: 1,
       pageSize: 100,
-      timeDimension: timeDimension.value,
     })
     tradeData.value = result?.items || []
-  } catch (error) {
+  } catch {
     ElMessage.error(t('companyDashboard.loadTradeFailed'))
     tradeData.value = []
   }
@@ -344,16 +348,16 @@ const fetchCarbonReports = async () => {
     const result = await getMyReports({
       pageNum: 1,
       pageSize: 100,
-      timeDimension: timeDimension.value,
     })
     carbonReports.value = result?.items || []
-
-    assetPool.value = (result?.items || []).map((report, index) => ({
-      assetNo: report.assetNo || report.reportNo || 'AST-' + (1001 + index),
-      other: report.category || report.reportType || '',
-      keyword: report.region || report.accountingPeriod || '',
-    }))
-  } catch (error) {
+    assetPool.value = (result?.items || [])
+      .filter((report) => Boolean(report.assetNo || report.reportNo))
+      .map((report) => ({
+        assetNo: report.assetNo || report.reportNo,
+        other: String(report.category || report.reportType || ''),
+        keyword: String(report.region || report.accountingPeriod || ''),
+      }))
+  } catch {
     ElMessage.error(t('companyDashboard.loadEmissionFailed'))
     carbonReports.value = []
     assetPool.value = []
@@ -362,9 +366,8 @@ const fetchCarbonReports = async () => {
 
 const fetchAdmissionStatus = async () => {
   try {
-    const res = await getMyEnterpriseAdmission()
-    const list = Array.isArray(res) ? res : ((res as Record<string, unknown>)?.items as unknown[] || [])
-    admissionStatus.value = list.length > 0 ? list[0] as Record<string, unknown> : null
+    const list = await getMyEnterpriseAdmission()
+    admissionStatus.value = list[0] || null
   } catch {
     admissionStatus.value = null
   }
@@ -399,14 +402,12 @@ const onSearch = () => {
 
 const onResize = () => {
   chartInstances.forEach((instance) => {
-    if (instance) {
-      instance.resize()
-    }
+    instance?.resize()
   })
 }
 
 watch(timeDimension, () => {
-  loadDashboardData()
+  renderCharts()
 })
 
 watch(filteredAssets, () => {
@@ -421,9 +422,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   window.removeEventListener('resize', onResize)
   chartInstances.forEach((instance) => {
-    if (instance) {
-      instance.dispose()
-    }
+    instance?.dispose()
   })
 })
 </script>
@@ -443,11 +442,11 @@ onBeforeUnmount(() => {
           <el-input v-model="queryForm.assetNo" :placeholder="t('companyDashboard.searchAssetNo')" clearable />
           <el-input v-model="queryForm.otherCondition" :placeholder="t('companyDashboard.searchCategory')" clearable />
           <el-input v-model="queryForm.keyword" :placeholder="t('companyDashboard.searchPeriodRegion')" clearable />
-          <el-button type="primary" @click="onSearch" :loading="loading">{{ t('common.search') }}</el-button>
+          <el-button :loading="loading" type="primary" @click="onSearch">{{ t('common.search') }}</el-button>
         </div>
 
         <div class="search-right">
-          <span class="dimension-label">{{ t('companyDashboard.timeDimension') }}：</span>
+          <span class="dimension-label">{{ t('companyDashboard.timeDimension') }}:</span>
           <el-radio-group v-model="timeDimension">
             <el-radio-button value="day">{{ t('companyDashboard.timeDay') }}</el-radio-button>
             <el-radio-button value="month">{{ t('companyDashboard.timeMonth') }}</el-radio-button>

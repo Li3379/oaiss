@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { mount, flushPromises } from '@vue/test-utils'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { ref } from 'vue'
 
@@ -11,13 +11,27 @@ vi.mock('vue-i18n', () => ({
 }))
 
 vi.mock('../../api/user', () => ({
-  getProfile: vi.fn(() => Promise.resolve({ data: {} })),
-  updateProfile: vi.fn(() => Promise.resolve()),
-  changePassword: vi.fn(() => Promise.resolve()),
+  getProfile: vi.fn(),
+  updateProfile: vi.fn(),
+  changePassword: vi.fn(),
+}))
+
+vi.mock('../../api/enterprise', () => ({
+  getMyEnterpriseAdmission: vi.fn(),
+}))
+
+vi.mock('../../api/signature', () => ({
+  getKeyPair: vi.fn(),
+  generateKeyPair: vi.fn(() => Promise.resolve({})),
+  deleteKeyPair: vi.fn(() => Promise.resolve()),
+}))
+
+vi.mock('../../utils/auth', () => ({
+  getAccessToken: vi.fn(() => 'test-access-token'),
 }))
 
 vi.mock('element-plus', async (importOriginal) => {
-  const actual = await importOriginal()
+  const actual = await importOriginal<typeof import('element-plus')>()
   return {
     ...actual,
     ElMessage: { success: vi.fn(), error: vi.fn(), warning: vi.fn() },
@@ -26,63 +40,81 @@ vi.mock('element-plus', async (importOriginal) => {
 })
 
 import UserProfile from '../enterprise/UserProfile.vue'
-import { getProfile, updateProfile, changePassword } from '../../api/user'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { getMyEnterpriseAdmission } from '../../api/enterprise'
+import { changePassword, getProfile, updateProfile } from '../../api/user'
+import { getKeyPair } from '../../api/signature'
+import { ElMessage } from 'element-plus'
+
+const profileResponse = {
+  userId: 7,
+  username: 'green-enterprise',
+  realName: 'Alice',
+  phone: '13800138000',
+  email: 'alice@example.com',
+  avatar: '',
+  company: 'Green Corp',
+  address: 'Suzhou',
+  userType: 1,
+  userTypeDesc: 'ENTERPRISE',
+  status: 1,
+  lastLoginAt: '2026-05-31T10:00:00',
+  lastLoginIp: '127.0.0.1',
+  createdAt: '2026-05-01T08:00:00',
+}
+
+const updatedProfileResponse = {
+  ...profileResponse,
+  realName: 'Alice Updated',
+  company: 'Green Corp Updated',
+}
+
+const admissionResponse = [
+  {
+    id: 1,
+    enterpriseId: 22,
+    certificateNo: 'CERT-2026-001',
+    issuedDate: '2026-05-20',
+    expiryDate: '2027-05-20',
+    status: 1,
+    createdAt: '2026-05-20T10:00:00',
+    updatedAt: '2026-05-20T10:00:00',
+  },
+]
+
+const keyPairNotFoundError = Object.assign(new Error('no key pair'), {
+  businessCode: 5015,
+  response: { data: { code: 5015, message: 'no active key pair' } },
+})
 
 const stubs = {
-  'el-card': { template: '<div class="el-card"><slot /></div>' },
-  'el-breadcrumb': { template: '<div class="el-breadcrumb"><slot /></div>' },
-  'el-breadcrumb-item': { template: '<span class="el-breadcrumb-item"><slot /></span>' },
+  PageContainer: { template: '<div><slot /></div>', props: ['title', 'description'] },
+  'el-card': { template: '<div class="el-card"><slot /><slot name="header" /></div>' },
+  'el-space': { template: '<div class="el-space"><slot /></div>' },
   'el-form': {
     template: '<form @submit.prevent><slot /></form>',
     methods: {
       validate() { return Promise.resolve(true) },
+      validateField() { return Promise.resolve(true) },
       resetFields() {},
     },
   },
   'el-form-item': { template: '<div class="el-form-item"><slot /></div>', props: ['label', 'prop'] },
   'el-input': {
     template: '<input :value="modelValue" @input="$emit(\'update:modelValue\', $event.target.value)" />',
-    props: ['modelValue', 'type', 'placeholder', 'showPassword', 'clearable', 'rows'],
+    props: ['modelValue', 'type', 'placeholder', 'showPassword', 'disabled', 'rows', 'readonly', 'resize'],
     emits: ['update:modelValue'],
   },
   'el-button': {
     template: '<button :disabled="loading" @click="$emit(\'click\')"><slot /></button>',
-    props: ['type', 'size', 'loading', 'link', 'plain'],
+    props: ['type', 'size', 'loading', 'plain'],
     emits: ['click'],
   },
-  'el-table': {
-    template: '<table><slot /><slot name="append" /></table>',
-    props: ['data', 'border', 'emptyText'],
-  },
-  'el-table-column': {
-    template: '<td><slot :row="{}" :$index="0" /></td>',
-    props: ['prop', 'label', 'minWidth', 'width', 'fixed', 'showOverflowTooltip'],
-  },
   'el-tag': { template: '<span class="el-tag"><slot /></span>', props: ['type'] },
-  'el-pagination': {
-    template: '<div class="el-pagination"></div>',
-    props: ['currentPage', 'pageSize', 'background', 'pageSizes', 'layout', 'total'],
-    emits: ['size-change', 'current-change', 'update:current-page', 'update:page-size'],
-  },
-  'el-dialog': {
-    template: '<div class="el-dialog" v-if="modelValue"><slot /><slot name="footer" /></div>',
-    props: ['modelValue', 'title', 'width', 'destroyOnClose'],
-    emits: ['update:modelValue'],
-  },
-  'el-select': {
-    template: '<select :value="modelValue" @change="$emit(\'update:modelValue\', $event.target.value)"><slot /></select>',
-    props: ['modelValue', 'placeholder', 'style', 'clearable'],
-    emits: ['update:modelValue'],
-  },
-  'el-option': {
-    template: '<option :value="value"><slot /></option>',
-    props: ['label', 'value'],
-  },
-  'el-descriptions': { template: '<div class="el-descriptions"><slot /></div>', props: ['column', 'border'] },
-  'el-descriptions-item': { template: '<div class="el-descriptions-item"><slot /></div>', props: ['label'] },
   'el-tabs': { template: '<div class="el-tabs"><slot /></div>', props: ['modelValue'] },
   'el-tab-pane': { template: '<div class="el-tab-pane"><slot /></div>', props: ['label', 'name'] },
+  'el-descriptions': { template: '<div class="el-descriptions"><slot /></div>', props: ['column', 'border'] },
+  'el-descriptions-item': { template: '<div class="el-descriptions-item"><slot /></div>', props: ['label', 'span'] },
+  'el-empty': { template: '<div class="el-empty">{{ description }}</div>', props: ['description', 'imageSize'] },
 }
 
 function mountComponent() {
@@ -98,36 +130,95 @@ describe('UserProfile.vue', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     setActivePinia(createPinia())
+    vi.mocked(getProfile).mockResolvedValue(profileResponse)
+    vi.mocked(updateProfile).mockResolvedValue(updatedProfileResponse)
+    vi.mocked(changePassword).mockResolvedValue()
+    vi.mocked(getMyEnterpriseAdmission).mockResolvedValue(admissionResponse)
+    vi.mocked(getKeyPair).mockRejectedValue(keyPairNotFoundError)
   })
 
-  it('组件正确渲染', () => {
-    const wrapper = mountComponent()
-    expect(wrapper.exists()).toBe(true)
-    wrapper.unmount()
-  })
-
-  it('页面加载时调用API', async () => {
-    const wrapper = mountComponent()
-    await flushPromises()
-    expect(getProfile).toHaveBeenCalled()
-    wrapper.unmount()
-  })
-
-  it('API调用失败显示错误消息', async () => {
-    getProfile.mockRejectedValueOnce(new Error('network error'))
+  it('loads profile and admission data on mount', async () => {
     const wrapper = mountComponent()
     await flushPromises()
-    expect(ElMessage.error).toHaveBeenCalled()
+
+    expect(getProfile).toHaveBeenCalledTimes(1)
+    expect(getMyEnterpriseAdmission).toHaveBeenCalledTimes(1)
+    expect(wrapper.vm.profile).toEqual(profileResponse)
+    expect(wrapper.vm.editForm.realName).toBe('Alice')
+    expect(wrapper.vm.editForm.company).toBe('Green Corp')
+    expect(wrapper.vm.admissionStatus?.certificateNo).toBe('CERT-2026-001')
+
     wrapper.unmount()
   })
 
-  it('组件渲染数据', async () => {
-    getProfile.mockResolvedValueOnce({
-      data: { username: 'testuser', email: 'test@example.com' },
+  it('treats business code 5015 as an empty signature state without a duplicate error toast', async () => {
+    const wrapper = mountComponent()
+    await flushPromises()
+
+    expect(getKeyPair).toHaveBeenCalledTimes(1)
+    expect(wrapper.vm.signatureLoaded).toBe(true)
+    expect(wrapper.vm.signatureKeyPair).toBeNull()
+    expect(ElMessage.error).not.toHaveBeenCalledWith('userProfile.loadSignatureFailed')
+
+    wrapper.unmount()
+  })
+
+  it('saves the profile through the typed update contract', async () => {
+    const wrapper = mountComponent()
+    await flushPromises()
+
+    wrapper.vm.editForm.realName = 'Alice Updated'
+    wrapper.vm.editForm.company = 'Green Corp Updated'
+
+    await wrapper.vm.onSaveProfile()
+    await flushPromises()
+
+    expect(updateProfile).toHaveBeenCalledWith({
+      realName: 'Alice Updated',
+      email: 'alice@example.com',
+      phone: '13800138000',
+      company: 'Green Corp Updated',
+      address: 'Suzhou',
     })
+    expect(wrapper.vm.profile?.realName).toBe('Alice Updated')
+    expect(ElMessage.success).toHaveBeenCalledWith('userProfile.updateSuccess')
+
+    wrapper.unmount()
+  })
+
+  it('submits password changes and resets the form on success', async () => {
     const wrapper = mountComponent()
     await flushPromises()
-    expect(getProfile).toHaveBeenCalled()
+
+    wrapper.vm.pwdForm.oldPassword = 'old-password'
+    wrapper.vm.pwdForm.newPassword = 'new-password'
+    wrapper.vm.pwdForm.confirmPassword = 'new-password'
+
+    await wrapper.vm.onChangePassword()
+    await flushPromises()
+
+    expect(changePassword).toHaveBeenCalledWith({
+      oldPassword: 'old-password',
+      newPassword: 'new-password',
+      confirmPassword: 'new-password',
+    })
+    expect(wrapper.vm.pwdForm).toEqual({
+      oldPassword: '',
+      newPassword: '',
+      confirmPassword: '',
+    })
+    expect(ElMessage.success).toHaveBeenCalledWith('userProfile.passwordChangeSuccess')
+
+    wrapper.unmount()
+  })
+
+  it('shows an error when profile loading fails', async () => {
+    vi.mocked(getProfile).mockRejectedValueOnce(new Error('network error'))
+
+    const wrapper = mountComponent()
+    await flushPromises()
+
+    expect(ElMessage.error).toHaveBeenCalledWith('userProfile.loadUserFailed')
     wrapper.unmount()
   })
 })

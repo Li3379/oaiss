@@ -187,6 +187,11 @@ router.beforeEach((to) => {
   const appStore = useAppStore(pinia)
 
   if (to.name === 'NotFound') return true
+  if (appStore.loggedIn && !appStore.role) {
+    appStore.logout()
+    if (to.meta.public) return true
+    return { path: '/login', query: { redirect: to.fullPath } }
+  }
   if (to.meta.public && appStore.loggedIn && !to.meta.keepWhenLoggedIn) {
     return appStore.homePath
   }

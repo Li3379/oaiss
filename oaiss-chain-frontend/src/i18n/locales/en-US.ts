@@ -98,6 +98,7 @@ export default {
     captchaLoadFailed: 'Failed to load captcha',
     incompleteForm: 'Please fill in all fields',
     loginSuccess: 'Login successful',
+    invalidSession: 'Login session is invalid. Please sign in again.',
     captchaPlaceholder: 'Click to load',
   },
   layout: {

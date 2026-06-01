@@ -5,6 +5,7 @@ import { createPinia, setActivePinia } from 'pinia'
 vi.mock('../../api/credit', () => ({
   getMyScore: vi.fn(() => Promise.resolve({ data: { score: 85 } })),
   getScoreHistory: vi.fn(() => Promise.resolve({ items: [], total: 0 })),
+  getScoreRanking: vi.fn(() => Promise.resolve({ items: [], total: 0 })),
 }))
 
 vi.mock('element-plus', async (importOriginal) => {
@@ -17,8 +18,8 @@ vi.mock('element-plus', async (importOriginal) => {
 })
 
 import CreditScore from '../enterprise/CreditScore.vue'
-import { getMyScore, getScoreHistory } from '../../api/credit'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { getMyScore, getScoreHistory, getScoreRanking } from '../../api/credit'
+import { ElMessage } from 'element-plus'
 
 const stubs = {
   'el-card': { template: '<div class="el-card"><slot /></div>' },
@@ -97,6 +98,8 @@ describe('CreditScore.vue', () => {
     const wrapper = mountComponent()
     await flushPromises()
     expect(getMyScore).toHaveBeenCalled()
+    expect(getScoreHistory).toHaveBeenCalled()
+    expect(getScoreRanking).toHaveBeenCalled()
     wrapper.unmount()
   })
 

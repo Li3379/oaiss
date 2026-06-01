@@ -3,9 +3,10 @@ import { mount, flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 
 vi.mock('../../api/trade', () => ({
-  getMyTrades: vi.fn(() => Promise.resolve({ items: [], total: 0 })),
+  getMyTrades: vi.fn(() => Promise.resolve({ items: [], total: 0, page: 0, size: 10, totalPages: 0 })),
   createP2PTrade: vi.fn(() => Promise.resolve()),
   cancelTrade: vi.fn(() => Promise.resolve()),
+  confirmTrade: vi.fn(() => Promise.resolve()),
 }))
 
 vi.mock('element-plus', async (importOriginal) => {
@@ -18,8 +19,8 @@ vi.mock('element-plus', async (importOriginal) => {
 })
 
 import TradingP2P from '../enterprise/TradingP2P.vue'
-import { getMyTrades, createP2PTrade, cancelTrade } from '../../api/trade'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { getMyTrades } from '../../api/trade'
+import { ElMessage } from 'element-plus'
 
 const stubs = {
   'el-card': { template: '<div class="el-card"><slot /></div>' },
@@ -88,34 +89,93 @@ describe('TradingP2P.vue', () => {
     setActivePinia(createPinia())
   })
 
-  it('组件正确渲染', () => {
+  it('renders successfully', () => {
     const wrapper = mountComponent()
     expect(wrapper.exists()).toBe(true)
     wrapper.unmount()
   })
 
-  it('页面加载时调用API', async () => {
+  it('loads p2p trades from backend on mount', async () => {
     const wrapper = mountComponent()
     await flushPromises()
-    expect(getMyTrades).toHaveBeenCalled()
+
+    expect(getMyTrades).toHaveBeenCalledWith({
+      pageNum: 1,
+      pageSize: 10,
+      tradeType: 2,
+      tradeNo: undefined,
+      keyword: undefined,
+      identity: undefined,
+    })
+
     wrapper.unmount()
   })
 
-  it('API调用失败显示错误消息', async () => {
-    getMyTrades.mockRejectedValueOnce(new Error('network error'))
+  it('passes keyword, trade number and identity filters to backend', async () => {
     const wrapper = mountComponent()
     await flushPromises()
+    vi.mocked(getMyTrades).mockClear()
+
+    const inputs = wrapper.findAll('input')
+    await inputs[0].setValue('Buyer Co')
+    await inputs[1].setValue('TRX-42')
+    await wrapper.find('select').setValue('buyer')
+    await wrapper.find('button').trigger('click')
+    await flushPromises()
+
+    expect(getMyTrades).toHaveBeenLastCalledWith({
+      pageNum: 1,
+      pageSize: 10,
+      tradeType: 2,
+      tradeNo: 'TRX-42',
+      keyword: 'Buyer Co',
+      identity: 'buyer',
+    })
+
+    wrapper.unmount()
+  })
+
+  it('shows an error message when the query fails', async () => {
+    vi.mocked(getMyTrades).mockRejectedValueOnce(new Error('network error'))
+
+    const wrapper = mountComponent()
+    await flushPromises()
+
     expect(ElMessage.error).toHaveBeenCalled()
     wrapper.unmount()
   })
 
-  it('组件渲染数据', async () => {
-    getMyTrades.mockResolvedValueOnce({
-      items: [{ id: 1, amount: 50, status: 'pending' }],
+  it('renders returned trade data', async () => {
+    vi.mocked(getMyTrades).mockResolvedValueOnce({
+      items: [{
+        id: 1,
+        tradeNo: 'TRX-1',
+        tradeType: 2,
+        tradeTypeText: 'P2P',
+        sellerId: 1,
+        sellerName: 'Seller',
+        buyerId: 2,
+        buyerName: 'Buyer',
+        quantity: 50,
+        unitPrice: 10,
+        totalAmount: 500,
+        reportId: 0,
+        status: 0,
+        statusText: 'Pending',
+        remark: '',
+        blockchainTxHash: '',
+        completedAt: '',
+        createdAt: '2026-05-31 12:00:00',
+      }],
       total: 1,
+      page: 0,
+      size: 10,
+      totalPages: 1,
     })
+
     const wrapper = mountComponent()
     await flushPromises()
+
     expect(getMyTrades).toHaveBeenCalled()
     wrapper.unmount()
   })

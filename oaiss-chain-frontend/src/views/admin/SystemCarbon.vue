@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { getReportList } from '../../api/carbon'
+import type { CarbonReportResponse } from '../../types'
 
 const { t } = useI18n()
 
@@ -10,21 +11,7 @@ const searchForm = reactive({
   keyword: '',
 })
 
-const tableData = ref([])
-const filteredTableData = computed(() => {
-  const keyword = searchForm.keyword.trim().toLowerCase()
-  if (!keyword) return tableData.value
-
-  return tableData.value.filter((row) => {
-    const fields = [row.reportNo, row.enterpriseName, row.title, row.reviewerName, row.statusText]
-      .filter(Boolean)
-      .map((value) => String(value).toLowerCase())
-    return fields.some((value) => value.includes(keyword))
-  })
-})
-const displayTotal = computed(() => {
-  return searchForm.keyword.trim() ? filteredTableData.value.length : total.value
-})
+const tableData = ref<CarbonReportResponse[]>([])
 const loading = ref(false)
 const currentPage = ref(1)
 const pageSize = ref(10)
@@ -36,11 +23,12 @@ const fetchData = async () => {
     const params = {
       pageNum: currentPage.value,
       pageSize: pageSize.value,
+      keyword: searchForm.keyword.trim() || undefined,
     }
     const response = await getReportList(params)
     tableData.value = response.items || []
     total.value = response.total || 0
-  } catch (error) {
+  } catch {
     ElMessage.error(t('systemCarbon.loadFailed'))
   } finally {
     loading.value = false
@@ -52,19 +40,19 @@ const onQuery = () => {
   fetchData()
 }
 
-const onSizeChange = (size) => {
+const onSizeChange = (size: number) => {
   pageSize.value = size
   currentPage.value = 1
   fetchData()
 }
 
-const onCurrentChange = (page) => {
+const onCurrentChange = (page: number) => {
   currentPage.value = page
   fetchData()
 }
 
-const getStatusType = (status) => {
-  const statusMap = {
+const getStatusType = (status: number) => {
+  const statusMap: Record<number, string> = {
     0: 'info',
     1: 'warning',
     2: 'success',
@@ -101,7 +89,7 @@ onMounted(() => {
     </el-card>
 
     <el-card class="section-card" shadow="never">
-      <el-table :data="filteredTableData" border v-loading="loading">
+      <el-table :data="tableData" border v-loading="loading">
         <el-table-column prop="reportNo" :label="t('systemCarbon.colReportNo')" min-width="140" />
         <el-table-column prop="enterpriseName" :label="t('systemCarbon.colEnterpriseName')" min-width="180" />
         <el-table-column prop="title" :label="t('systemCarbon.colReportTitle')" min-width="200" show-overflow-tooltip />
@@ -126,7 +114,7 @@ onMounted(() => {
           background
           :page-sizes="[10, 20, 50]"
           layout="total, sizes, prev, pager, next, jumper"
-          :total="displayTotal"
+          :total="total"
           @size-change="onSizeChange"
           @current-change="onCurrentChange"
         />

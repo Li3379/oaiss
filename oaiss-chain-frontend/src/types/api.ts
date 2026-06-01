@@ -56,3 +56,12 @@ export interface PageResponse<T> {
   isFirst: boolean
   isLast: boolean
 }
+
+/** Frontend-normalized paged result returned by the request interceptor. */
+export interface PagedItems<T> {
+  items: T[]
+  total: number
+  page: number
+  size: number
+  totalPages: number
+}

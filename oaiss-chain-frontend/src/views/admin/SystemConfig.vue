@@ -3,6 +3,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { getConfig } from '../../api/admin'
+import type { AdminConfigResponse } from '../../types'
 
 const { t } = useI18n()
 
@@ -30,7 +31,7 @@ function normalizeValue(value: unknown) {
   return String(value)
 }
 
-function buildRows(config: Record<string, unknown>): ConfigRow[] {
+function buildRows(config: Partial<AdminConfigResponse>): ConfigRow[] {
   const mapping: Array<{ key: string; name: string; description: string }> = [
     { key: 'systemName', name: 'systemName', description: t('systemConfig.descSystemName') },
     { key: 'enableBlockChain', name: 'enableBlockChain', description: t('systemConfig.descEnableBlockchain') },
@@ -72,7 +73,7 @@ const pagedData = computed(() => {
 const loadConfigs = async () => {
   try {
     loading.value = true
-    const result = await getConfig() as Record<string, unknown>
+    const result = await getConfig()
     configList.value = buildRows(result)
   } catch {
     ElMessage.error(t('systemConfig.loadFailed'))

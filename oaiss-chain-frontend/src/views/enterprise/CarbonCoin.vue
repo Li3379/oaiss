@@ -4,14 +4,14 @@ import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { getMyAccount, getTransactions, transferCoins } from '../../api/carbonCoin'
 import PageContainer from '../../components/PageContainer.vue'
-import type { CarbonCoinAccountResponse } from '../../types'
+import type { CarbonCoinAccountResponse, CarbonCoinTransaction } from '../../types'
 
 const { t } = useI18n()
 
 const accountData = ref<CarbonCoinAccountResponse | null>(null)
 const accountLoading = ref(false)
 
-const transactionData = ref([])
+const transactionData = ref<CarbonCoinTransaction[]>([])
 const transactionLoading = ref(false)
 const currentPage = ref(1)
 const pageSize = ref(10)
@@ -100,18 +100,18 @@ const handleTransfer = async () => {
   }
 }
 
-const onSizeChange = (size) => {
+const onSizeChange = (size: number) => {
   pageSize.value = size
   currentPage.value = 1
   loadTransactions()
 }
 
-const onCurrentChange = (page) => {
+const onCurrentChange = (page: number) => {
   currentPage.value = page
   loadTransactions()
 }
 
-const getTransactionTypeTag = (type) => {
+const getTransactionTypeTag = (type: number) => {
   const map = {
     1: 'success',
     2: 'success',
@@ -125,7 +125,7 @@ const getTransactionTypeTag = (type) => {
   return map[type] || 'info'
 }
 
-const getTransactionTypeText = (type) => {
+const getTransactionTypeText = (type: number) => {
   const map = {
     1: t('carbonCoin.txTypeRecharge'),
     2: t('carbonCoin.txTypeTransferIn'),
@@ -146,12 +146,12 @@ const getAccountStatusText = (status?: number) => (
 )
 
 
-const getAmountClass = (type) => {
+const getAmountClass = (type: number) => {
   const positiveTypes = [1, 2, 6]
   return positiveTypes.includes(type) ? 'amount-positive' : 'amount-negative'
 }
 
-const formatAmount = (type, amount) => {
+const formatAmount = (type: number, amount: number) => {
   const positiveTypes = [1, 2, 6]
   const prefix = positiveTypes.includes(type) ? '+' : ''
   return prefix + amount

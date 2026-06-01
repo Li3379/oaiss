@@ -1,5 +1,5 @@
 import request from './request'
-import type { LoginRequest, LoginResponse } from '../types'
+import type { JwtUserDetails, LoginRequest, LoginResponse, RegisterRequest } from '../types'
 import { t } from '@/i18n'
 
 export function login(data: LoginRequest): Promise<LoginResponse> {
@@ -10,16 +10,16 @@ export function logout(): Promise<void> {
   return request.post('/auth/logout')
 }
 
-export function register(data: { username: string; password: string; email: string; role: string }): Promise<unknown> {
+export function register(data: RegisterRequest): Promise<LoginResponse> {
   if (!data?.username) return Promise.reject(new Error(t('auth.usernameRequired')))
   if (!data?.password) return Promise.reject(new Error(t('auth.passwordRequired')))
   return request.post('/auth/register', data)
 }
 
-export function checkIp(): Promise<unknown> {
+export function checkIp(): Promise<boolean> {
   return request.get('/auth/check-ip')
 }
 
-export function getCurrentUser(): Promise<unknown> {
+export function getCurrentUser(): Promise<JwtUserDetails> {
   return request.get('/auth/me')
 }

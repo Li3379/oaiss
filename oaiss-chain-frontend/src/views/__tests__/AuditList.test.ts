@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { mount, flushPromises } from '@vue/test-utils'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { ref } from 'vue'
 
@@ -15,8 +15,8 @@ vi.mock('../../api/carbon', () => ({
 }))
 
 vi.mock('../../api/reviewer', () => ({
-  getPendingReports: vi.fn(() => Promise.resolve({ items: [], total: 0 })),
-  getReviewHistory: vi.fn(() => Promise.resolve({ items: [], total: 0 })),
+  getPendingReports: vi.fn(() => Promise.resolve({ items: [], total: 0, page: 0, size: 10, totalPages: 0 })),
+  getReviewHistory: vi.fn(() => Promise.resolve({ items: [], total: 0, page: 0, size: 10, totalPages: 0 })),
   getMyReviewerQualification: vi.fn(() => Promise.resolve([])),
   getReviewerInfo: vi.fn(() => Promise.resolve(null)),
   getStatistics: vi.fn(() => Promise.resolve(null)),
@@ -32,7 +32,14 @@ vi.mock('element-plus', async (importOriginal) => {
 })
 
 import AuditList from '../auditor/AuditList.vue'
-import { getPendingReports, getReviewHistory, getMyReviewerQualification, getReviewerInfo, getStatistics } from '../../api/reviewer'
+import { reviewReport } from '../../api/carbon'
+import {
+  getMyReviewerQualification,
+  getPendingReports,
+  getReviewHistory,
+  getReviewerInfo,
+  getStatistics,
+} from '../../api/reviewer'
 import { ElMessage } from 'element-plus'
 
 const stubs = {
@@ -59,12 +66,12 @@ const stubs = {
     emits: ['click'],
   },
   'el-table': {
-    template: '<table><slot /><slot name="append" /></table>',
+    template: '<table><slot /><slot :row="data[0] || {}" :$index="0" /><slot name="append" /></table>',
     props: ['data', 'border', 'emptyText'],
   },
   'el-table-column': {
-    template: '<td><slot :row="{}" :$index="0" /></td>',
-    props: ['prop', 'label', 'minWidth', 'width', 'fixed', 'showOverflowTooltip'],
+    template: '<td><slot :row="row ?? {}" :$index="$index ?? 0" /></td>',
+    props: ['prop', 'label', 'minWidth', 'width', 'fixed', 'showOverflowTooltip', 'row', '$index'],
   },
   'el-tag': { template: '<span class="el-tag"><slot /></span>', props: ['type'] },
   'el-pagination': {
@@ -109,6 +116,34 @@ function mountComponent() {
   })
 }
 
+const baseReport = {
+  id: 10,
+  reportNo: 'RPT-010',
+  enterpriseId: 5,
+  enterpriseName: '',
+  accountingPeriod: '2026-Q1',
+  title: 'Emission Report',
+  reportType: 1,
+  emissionData: '{}',
+  totalEmission: 78,
+  scope1Emission: 20,
+  scope2Emission: 30,
+  scope3Emission: 28,
+  calculationMethod: 'GB/T',
+  status: 1,
+  statusText: '',
+  reviewerId: 7,
+  reviewerName: 'Auditor',
+  reviewComment: '',
+  reviewedAt: '',
+  signatureData: '',
+  blockchainTxHash: '',
+  onChainAt: '',
+  attachments: '',
+  createdAt: '2026-05-31 09:00:00',
+  updatedAt: '2026-05-31 09:30:00',
+}
+
 describe('AuditList.vue', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -133,6 +168,74 @@ describe('AuditList.vue', () => {
     wrapper.unmount()
   })
 
+  it('normalizes reviewer rows, statistics, and identity metadata from backend responses', async () => {
+    vi.mocked(getPendingReports).mockResolvedValueOnce({
+      items: [{ ...baseReport, status: '1' } as unknown as typeof baseReport],
+      total: 12,
+      page: 0,
+      size: 10,
+      totalPages: 2,
+    })
+    vi.mocked(getMyReviewerQualification).mockResolvedValueOnce([
+      {
+        id: 3,
+        reviewerId: 7,
+        qualificationType: 'Carbon Audit',
+        certificateNo: 'QUAL-001',
+        issuingAuthority: 'Board',
+        issuedDate: '2025-01-01',
+        expiryDate: '2027-01-01',
+        status: 1,
+        createdAt: '2025-01-01',
+        updatedAt: '2025-01-01',
+      },
+    ])
+    vi.mocked(getReviewerInfo).mockResolvedValueOnce({
+      id: 7,
+      userId: 9,
+      qualificationNo: 'RV-001',
+      level: 2,
+      organization: 'Climate Org',
+      reviewableIndustries: '[]',
+      completedReviews: 5,
+      status: 1,
+      name: 'Li Reviewer',
+    })
+    vi.mocked(getStatistics).mockResolvedValueOnce({
+      completedReviews: 8,
+      passedCount: 6,
+      rejectedCount: 2,
+    })
+
+    const wrapper = mountComponent()
+    await flushPromises()
+
+    const vm = wrapper.vm as unknown as {
+      tableData: Array<{ enterpriseName: string; status: number; statusText: string }>
+      total: number
+      qualificationStatus: { certificateNo: string } | null
+      reviewerIdentityLine: string
+      normalizedStatistics: { totalReviews: number; approvedCount: number; rejectedCount: number; approvalRate: string }
+    }
+
+    expect(vm.tableData[0]).toMatchObject({
+      enterpriseName: 'Enterprise #5',
+      status: 1,
+      statusText: 'Submitted',
+    })
+    expect(vm.total).toBe(12)
+    expect(vm.qualificationStatus?.certificateNo).toBe('QUAL-001')
+    expect(vm.reviewerIdentityLine).toContain('Li Reviewer')
+    expect(vm.reviewerIdentityLine).toContain('Climate Org')
+    expect(vm.normalizedStatistics).toMatchObject({
+      totalReviews: 8,
+      approvedCount: 6,
+      rejectedCount: 2,
+      approvalRate: '75.0%',
+    })
+    wrapper.unmount()
+  })
+
   it('shows an error message when pending report loading fails', async () => {
     vi.mocked(getPendingReports).mockRejectedValueOnce(new Error('network error'))
 
@@ -147,11 +250,45 @@ describe('AuditList.vue', () => {
     const wrapper = mountComponent()
     await flushPromises()
 
-    ;(wrapper.vm as any).activeTab = 'all'
-    await (wrapper.vm as any).onTabChange('all')
+    ;(wrapper.vm as unknown as { activeTab: string }).activeTab = 'all'
+    ;(wrapper.vm as unknown as { onTabChange: () => void }).onTabChange()
     await flushPromises()
 
     expect(getReviewHistory).toHaveBeenCalledWith({ pageNum: 1, pageSize: 10 })
+    wrapper.unmount()
+  })
+
+  it('submits reviews and refreshes pending data plus statistics', async () => {
+    vi.mocked(getPendingReports).mockResolvedValue({
+      items: [baseReport],
+      total: 1,
+      page: 0,
+      size: 10,
+      totalPages: 1,
+    })
+
+    const wrapper = mountComponent()
+    await flushPromises()
+
+    const vm = wrapper.vm as unknown as {
+      openReviewDialog: (row: typeof baseReport) => void
+      reviewForm: { reportId: number | null; approved: boolean; comment: string }
+      submitReview: () => Promise<void>
+    }
+
+    vm.openReviewDialog(baseReport)
+    vm.reviewForm.comment = 'Looks good'
+    await vm.submitReview()
+    await flushPromises()
+
+    expect(reviewReport).toHaveBeenCalledWith({
+      reportId: 10,
+      approved: true,
+      comment: 'Looks good',
+    })
+    expect(ElMessage.success).toHaveBeenCalledWith('auditList.approveSuccess')
+    expect(getPendingReports).toHaveBeenCalledTimes(2)
+    expect(getStatistics).toHaveBeenCalledTimes(2)
     wrapper.unmount()
   })
 })

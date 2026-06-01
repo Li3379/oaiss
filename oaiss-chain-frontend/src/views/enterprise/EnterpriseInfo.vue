@@ -4,12 +4,13 @@ import { ElMessage } from 'element-plus'
 import { useI18n } from 'vue-i18n'
 import { getEnterpriseInfo, getQuotaInfo, updateContact } from '../../api/enterprise'
 import { getMyAccount } from '../../api/carbonCoin'
+import type { EnterpriseQuotaResponse, EnterpriseResponse } from '../../types'
 
 const { t } = useI18n()
 
 const loading = ref(false)
-const enterpriseInfo = ref<Record<string, unknown> | null>(null)
-const quotaInfo = ref<Record<string, unknown> | null>(null)
+const enterpriseInfo = ref<EnterpriseResponse | null>(null)
+const quotaInfo = ref<EnterpriseQuotaResponse | null>(null)
 const carbonCoinBalance = ref<number | null>(null)
 
 const enterpriseName = computed(() => {
@@ -42,14 +43,14 @@ const fetchInfo = async () => {
       getQuotaInfo(),
       getMyAccount(),
     ])
-    enterpriseInfo.value = info as Record<string, unknown>
-    quotaInfo.value = quota as Record<string, unknown>
+    enterpriseInfo.value = info
+    quotaInfo.value = quota
     carbonCoinBalance.value = Number((account as { balance?: number })?.balance || 0)
-    if ((info as Record<string, unknown>).contactPerson) {
-      contactForm.value.contactPerson = (info as Record<string, unknown>).contactPerson as string
+    if (info.contactPerson) {
+      contactForm.value.contactPerson = info.contactPerson
     }
-    if ((info as Record<string, unknown>).contactPhone) {
-      contactForm.value.contactPhone = (info as Record<string, unknown>).contactPhone as string
+    if (info.contactPhone) {
+      contactForm.value.contactPhone = info.contactPhone
     }
   } catch {
     ElMessage.error(t('enterpriseInfo.loadFailed'))

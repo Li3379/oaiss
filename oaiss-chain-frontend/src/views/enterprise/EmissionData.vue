@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useI18n } from 'vue-i18n'
-import { getMyRating, getIndustryRankings, predictEmission } from '../../api/emission'
+import { getIndustryRankings, getMyRating, predictEmission } from '../../api/emission'
 import { getEnterpriseInfo } from '../../api/enterprise'
-import type { EmissionRating, CarbonPredictionResponse } from '../../types'
+import type { CarbonPredictionResponse, EmissionRating, EnterpriseResponse } from '../../types'
 import PageContainer from '../../components/PageContainer.vue'
 
 const { t } = useI18n()
@@ -37,10 +37,12 @@ const latestPrediction = computed(() => {
   return predictions.length > 0 ? predictions[predictions.length - 1] : null
 })
 
+const predictionHint = computed(() => t('emissionData.description'))
+
 const loadEnterpriseContext = async () => {
   try {
-    const enterprise = await getEnterpriseInfo() as { id?: number }
-    if (enterprise?.id) {
+    const enterprise: EnterpriseResponse = await getEnterpriseInfo()
+    if (enterprise.id) {
       predictForm.value.enterpriseId = String(enterprise.id)
     }
   } catch {
@@ -51,10 +53,10 @@ const loadEnterpriseContext = async () => {
 const loadRatings = async () => {
   try {
     ratingsLoading.value = true
-    const result = await getMyRating()
-    ratings.value = Array.isArray(result) ? result : []
+    ratings.value = await getMyRating()
   } catch {
     ElMessage.error(t('emissionData.loadRatingFailed'))
+    ratings.value = []
   } finally {
     ratingsLoading.value = false
   }
@@ -63,10 +65,10 @@ const loadRatings = async () => {
 const loadRankings = async () => {
   try {
     rankingsLoading.value = true
-    const result = await getIndustryRankings(Number(rankingsYear.value))
-    rankings.value = Array.isArray(result) ? result : (result?.items || [])
+    rankings.value = await getIndustryRankings(Number(rankingsYear.value))
   } catch {
     ElMessage.error(t('emissionData.loadRankingFailed'))
+    rankings.value = []
   } finally {
     rankingsLoading.value = false
   }
@@ -80,11 +82,10 @@ const onPredict = async () => {
 
   try {
     predictLoading.value = true
-    const predictionResult = await predictEmission({
+    predictResult.value = await predictEmission({
       enterpriseId: enterpriseIdNumber.value,
       predictMonths: predictForm.value.predictMonths,
     })
-    predictResult.value = predictionResult
     ElMessage.success(t('emissionData.predictionComplete'))
   } catch {
     ElMessage.error(t('emissionData.predictionFailed'))
@@ -96,6 +97,11 @@ const onPredict = async () => {
 const getRatingTag = (level?: string) => {
   const map: Record<string, string> = { A: 'success', B: 'primary', C: 'warning', D: 'danger' }
   return level ? (map[level] || 'info') : 'info'
+}
+
+function getRankingEnterpriseLabel(row: RankingRow) {
+  if (row.enterpriseName) return row.enterpriseName
+  return `Enterprise ID ${row.enterpriseId}`
 }
 
 onMounted(() => {
@@ -131,7 +137,7 @@ onMounted(() => {
 
           <el-tab-pane :label="t('emissionData.tabRanking')" name="rankings">
             <div class="toolbar-row">
-              <span>{{ t('emissionData.yearPicker') }}：</span>
+              <span>{{ t('emissionData.yearPicker') }}:</span>
               <el-date-picker
                 v-model="rankingsYear"
                 type="year"
@@ -145,7 +151,7 @@ onMounted(() => {
                 <template #default="scope">{{ scope.$index + 1 }}</template>
               </el-table-column>
               <el-table-column prop="enterpriseId" :label="t('emissionData.colEnterpriseName')" min-width="200">
-                <template #default="{ row }">{{ row.enterpriseName || `企业ID ${row.enterpriseId}` }}</template>
+                <template #default="{ row }">{{ getRankingEnterpriseLabel(row) }}</template>
               </el-table-column>
               <el-table-column prop="totalEmission" :label="t('emissionData.colTotalEmission')" min-width="140" />
               <el-table-column prop="ratingLevel" :label="t('emissionData.colRating')" min-width="80">
@@ -160,8 +166,8 @@ onMounted(() => {
           <el-tab-pane :label="t('emissionData.tabPrediction')" name="predict">
             <div class="predict-panel">
               <el-form label-width="140px">
-                <el-form-item label="企业ID">
-                  <el-input v-model="predictForm.enterpriseId" placeholder="请输入企业ID" />
+                <el-form-item label="Enterprise ID">
+                  <el-input v-model="predictForm.enterpriseId" placeholder="Enter enterprise ID" />
                 </el-form-item>
                 <el-form-item :label="t('emissionData.predictionMonths')">
                   <el-input-number v-model="predictForm.predictMonths" :min="1" :max="24" />
@@ -172,7 +178,7 @@ onMounted(() => {
               </el-form>
 
               <el-alert
-                title="当前预测接口仅使用企业ID和预测月份，历史数据仅作页面说明"
+                :title="predictionHint"
                 type="info"
                 :closable="false"
                 show-icon
@@ -186,15 +192,15 @@ onMounted(() => {
                 border
                 class="prediction-result"
               >
-                <el-descriptions-item label="企业ID">{{ predictResult.enterpriseId }}</el-descriptions-item>
+                <el-descriptions-item label="Enterprise ID">{{ predictResult.enterpriseId }}</el-descriptions-item>
                 <el-descriptions-item :label="t('emissionData.confidence')">{{ predictResult.confidence }}%</el-descriptions-item>
-                <el-descriptions-item label="预测说明" :span="2">
+                <el-descriptions-item label="Prediction Summary" :span="2">
                   {{ predictResult.message || '-' }}
                 </el-descriptions-item>
                 <el-descriptions-item :label="t('emissionData.predictedEmission')">
                   {{ latestPrediction ? `${latestPrediction.predictedEmission} tCO2e` : '-' }}
                 </el-descriptions-item>
-                <el-descriptions-item label="生成时间">
+                <el-descriptions-item label="Generated At">
                   {{ predictResult.generatedAt || '-' }}
                 </el-descriptions-item>
               </el-descriptions>
@@ -205,7 +211,7 @@ onMounted(() => {
                 border
                 class="prediction-table"
               >
-                <el-table-column prop="period" label="预测周期" min-width="140" />
+                <el-table-column prop="period" label="Prediction Period" min-width="140" />
                 <el-table-column prop="predictedEmission" :label="t('emissionData.predictedEmission')" min-width="180">
                   <template #default="{ row }">{{ row.predictedEmission }} tCO2e</template>
                 </el-table-column>

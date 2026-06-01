@@ -1,12 +1,24 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getUserList, updateUserStatus } from '../../api/admin'
 
 const { t } = useI18n()
 
-const searchForm = reactive({
+type UserRow = {
+  id: number
+  username?: string
+  email?: string
+  userType: number
+  status: number
+  createdAt?: string
+}
+
+const searchForm = reactive<{
+  userType: '' | number
+  status: '' | number
+}>({
   userType: '',
   status: '',
 })
@@ -25,33 +37,13 @@ const statusOptions = [
   { label: t('systemUsers.statusDisabled'), value: 0 },
 ]
 
-const userList = ref([])
-const displayList = computed(() => {
-  const userType = searchForm.userType === '' ? '' : Number(searchForm.userType)
-  const status = searchForm.status === '' ? '' : Number(searchForm.status)
-
-  return userList.value.filter((row) => {
-    if (userType !== '' && row.userType !== userType) {
-      return false
-    }
-
-    if (status !== '' && row.status !== status) {
-      return false
-    }
-
-    return true
-  })
-})
-const displayTotal = computed(() => {
-  const hasFilter = searchForm.userType !== '' || searchForm.status !== ''
-  return hasFilter ? displayList.value.length : total.value
-})
+const userList = ref<UserRow[]>([])
 const loading = ref(false)
 const currentPage = ref(1)
 const pageSize = ref(10)
 const total = ref(0)
 
-const userTypeMap = {
+const userTypeMap: Record<number, string> = {
   1: t('systemUsers.typeEnterprise'),
   2: t('systemUsers.typeAuditor'),
   3: t('systemUsers.typeThirdParty'),
@@ -70,7 +62,7 @@ const fetchData = async () => {
     const response = await getUserList(params)
     userList.value = response.items || []
     total.value = response.total || 0
-  } catch (error) {
+  } catch {
     ElMessage.error(t('systemUsers.loadFailed'))
   } finally {
     loading.value = false
@@ -82,20 +74,19 @@ const onQuery = () => {
   fetchData()
 }
 
-const onSizeChange = (size) => {
+const onSizeChange = (size: number) => {
   pageSize.value = size
   currentPage.value = 1
   fetchData()
 }
 
-const onCurrentChange = (page) => {
+const onCurrentChange = (page: number) => {
   currentPage.value = page
   fetchData()
 }
 
-const handleStatusToggle = async (row) => {
+const handleStatusToggle = async (row: UserRow) => {
   const newStatus = row.status === 1 ? 0 : 1
-  const statusText = newStatus === 1 ? t('systemUsers.statusEnabled') : t('systemUsers.statusDisabled')
 
   try {
     await ElMessageBox.confirm(
@@ -105,28 +96,24 @@ const handleStatusToggle = async (row) => {
         confirmButtonText: t('common.confirm'),
         cancelButtonText: t('common.cancel'),
         type: 'warning',
-      }
+      },
     )
 
     await updateUserStatus(row.id, newStatus)
     ElMessage.success(newStatus === 1 ? t('systemUsers.enableSuccess') : t('systemUsers.disableSuccess'))
     fetchData()
   } catch (error) {
-    // 错误消息已由 axios 拦截器统一处理，此处仅处理取消确认的情况
     if (error === 'cancel') {
-      // 用户取消确认，不显示错误消息
+      return
     }
-    // 其他错误由 request.ts 拦截器处理，不再重复显示
   }
 }
 
-const getStatusType = (status) => {
-  return status === 1 ? 'success' : 'danger'
-}
+const getStatusType = (status: number) => (status === 1 ? 'success' : 'danger')
 
-const getStatusText = (status) => {
-  return status === 1 ? t('systemUsers.statusEnabled') : t('systemUsers.statusDisabled')
-}
+const getStatusText = (status: number) => (
+  status === 1 ? t('systemUsers.statusEnabled') : t('systemUsers.statusDisabled')
+)
 
 onMounted(() => {
   fetchData()
@@ -163,7 +150,7 @@ onMounted(() => {
     </el-card>
 
     <el-card class="section-card" shadow="never">
-      <el-table :data="displayList" border v-loading="loading">
+      <el-table :data="userList" border v-loading="loading">
         <el-table-column prop="username" :label="t('systemUsers.colUsername')" min-width="120" />
         <el-table-column prop="email" :label="t('systemUsers.colEmail')" min-width="180" />
         <el-table-column prop="userType" :label="t('systemUsers.colUserType')" min-width="120">
@@ -195,7 +182,7 @@ onMounted(() => {
           background
           :page-sizes="[10, 20, 50]"
           layout="total, sizes, prev, pager, next, jumper"
-          :total="displayTotal"
+          :total="total"
           @size-change="onSizeChange"
           @current-change="onCurrentChange"
         />

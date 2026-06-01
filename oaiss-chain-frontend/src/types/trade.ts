@@ -9,6 +9,20 @@ export interface TradeRequest {
   remark?: string
 }
 
+export type TradeIdentityFilter = 'buyer' | 'seller'
+
+export interface MyTradesQuery {
+  pageNum?: number
+  pageSize?: number
+  tradeType?: number
+  status?: number
+  tradeNo?: string
+  keyword?: string
+  identity?: TradeIdentityFilter
+  startTime?: string
+  endTime?: string
+}
+
 /** 交易响应 */
 export interface TradeResponse {
   id: number
@@ -29,4 +43,12 @@ export interface TradeResponse {
   blockchainTxHash: string
   completedAt: string
   createdAt: string
+}
+
+export interface TradePageResult {
+  items: TradeResponse[]
+  total: number
+  page: number
+  size: number
+  totalPages: number
 }

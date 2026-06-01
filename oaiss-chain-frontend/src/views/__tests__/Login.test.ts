@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { nextTick } from 'vue'
@@ -12,15 +12,15 @@ vi.mock('../../api/captcha', () => ({
 }))
 
 const mockRouterReplace = vi.fn()
-const mockRouteQuery = {}
+const mockRouteQuery: Record<string, unknown> = {}
 
 vi.mock('vue-router', () => ({
   useRoute: vi.fn(() => ({ query: mockRouteQuery })),
-  useRouter: vi.fn(() => ({ replace: mockRouterReplace, query: mockRouteQuery })),
+  useRouter: vi.fn(() => ({ replace: mockRouterReplace })),
 }))
 
 vi.mock('element-plus', async (importOriginal) => {
-  const actual = await importOriginal()
+  const actual = await importOriginal<typeof import('element-plus')>()
   return {
     ...actual,
     ElMessage: { success: vi.fn(), error: vi.fn(), warning: vi.fn() },
@@ -32,23 +32,39 @@ import { login } from '../../api/auth'
 import { generateCaptcha } from '../../api/captcha'
 import { ElMessage } from 'element-plus'
 
+function createJwt(
+  payload: Record<string, unknown>,
+  header: Record<string, unknown> = { alg: 'HS256' },
+) {
+  const encode = (value: Record<string, unknown>) =>
+    Buffer.from(JSON.stringify(value)).toString('base64url')
+
+  return `${encode(header)}.${encode(payload)}.signature`
+}
+
 const stubGlobal = {
   stubs: {
     'el-card': { template: '<div class="el-card"><slot /></div>' },
     'el-form': {
       template: '<form @submit.prevent><slot /></form>',
       methods: {
-        validate() { return Promise.resolve(true) },
+        validate() {
+          return Promise.resolve(true)
+        },
       },
     },
-    'el-form-item': { template: '<div class="el-form-item"><slot /></div>', props: ['label', 'prop'] },
+    'el-form-item': {
+      template: '<div class="el-form-item"><slot /></div>',
+      props: ['label', 'prop'],
+    },
     'el-input': {
       template: '<input :value="modelValue" @input="$emit(\'update:modelValue\', $event.target.value)" />',
       props: ['modelValue', 'type', 'placeholder', 'showPassword', 'clearable'],
       emits: ['update:modelValue'],
     },
     'el-checkbox': {
-      template: '<label><input type="checkbox" :checked="modelValue" @change="$emit(\'update:modelValue\', $event.target.checked)" /><slot /></label>',
+      template:
+        '<label><input type="checkbox" :checked="modelValue" @change="$emit(\'update:modelValue\', $event.target.checked)" /><slot /></label>',
       props: ['modelValue'],
       emits: ['update:modelValue'],
     },
@@ -75,11 +91,12 @@ describe('Login.vue', () => {
     vi.clearAllMocks()
     setActivePinia(createPinia())
     localStorage.clear()
+    sessionStorage.clear()
+    mockRouterReplace.mockReset()
 
-    // Reset route query
-    Object.keys(mockRouteQuery).forEach(k => delete mockRouteQuery[k])
+    Object.keys(mockRouteQuery).forEach((key) => delete mockRouteQuery[key])
 
-    generateCaptcha.mockResolvedValue({
+    vi.mocked(generateCaptcha).mockResolvedValue({
       captchaKey: 'test-key-123',
       captchaImage: 'data:image/png;base64,abc123',
     })
@@ -89,25 +106,26 @@ describe('Login.vue', () => {
     it('calls generateCaptcha on mount', async () => {
       mountLogin()
       await flush()
+
       expect(generateCaptcha).toHaveBeenCalledTimes(1)
     })
 
     it('renders captcha image when loaded', async () => {
       const wrapper = mountLogin()
       await flush()
-      const img = wrapper.find('.captcha-image')
-      expect(img.exists()).toBe(true)
+
+      expect(wrapper.find('.captcha-image').exists()).toBe(true)
     })
 
-    it('handles captcha load failure gracefully', async () => {
-      generateCaptcha.mockRejectedValue(new Error('fail'))
+    it('shows a fallback placeholder when captcha loading fails', async () => {
+      vi.mocked(generateCaptcha).mockRejectedValue(new Error('fail'))
+
       const wrapper = mountLogin()
       await flush()
-      // Component should not crash; no captcha image rendered
-      const img = wrapper.find('img.captcha-image')
-      expect(img.exists()).toBe(false)
-      // The div placeholder with "点击加载" text should be present
-      expect(wrapper.html()).toContain('点击加载')
+
+      expect(wrapper.find('img.captcha-image').exists()).toBe(false)
+      expect(wrapper.text()).toContain('点击加载')
+      expect(ElMessage.error).toHaveBeenCalledWith('获取验证码失败')
     })
   })
 
@@ -115,40 +133,49 @@ describe('Login.vue', () => {
     it('renders account, password, and captcha inputs', () => {
       const wrapper = mountLogin()
       const inputs = wrapper.findAll('input')
-      // account, password, captcha, rememberPassword checkbox
+
       expect(inputs.length).toBeGreaterThanOrEqual(3)
     })
 
     it('renders remember password checkbox', () => {
       const wrapper = mountLogin()
+
       expect(wrapper.find('label').exists()).toBe(true)
     })
 
     it('renders submit button', () => {
       const wrapper = mountLogin()
-      const btn = wrapper.find('button')
-      expect(btn.exists()).toBe(true)
+
+      expect(wrapper.find('button').exists()).toBe(true)
     })
   })
 
   describe('login success', () => {
-    it('calls login API with form data', async () => {
-      login.mockResolvedValue({
-        accessToken: 'access-token-123',
-        refreshToken: 'refresh-token-456',
-      })
-
-      const wrapper = mountLogin()
-      await flush()
-
+    async function submitForm(wrapper: ReturnType<typeof mountLogin>) {
       const inputs = wrapper.findAll('input')
       await inputs[0].setValue('testuser')
       await inputs[1].setValue('password123')
       await inputs[2].setValue('ABC1')
 
-      const btn = wrapper.find('button')
-      await btn.trigger('click')
+      await wrapper.find('button').trigger('click')
       await flush()
+    }
+
+    it('calls login API with form data', async () => {
+      vi.mocked(login).mockResolvedValue({
+        accessToken: createJwt({ sub: 'enterprise-user', roles: ['ENTERPRISE'], exp: 9999999999 }),
+        refreshToken: 'refresh-token-456',
+        tokenType: 'Bearer',
+        expiresIn: 3600,
+        userId: 11,
+        username: 'testuser',
+        userType: 1,
+        realName: '企业用户',
+      })
+
+      const wrapper = mountLogin()
+      await flush()
+      await submitForm(wrapper)
 
       expect(login).toHaveBeenCalledWith({
         username: 'testuser',
@@ -159,22 +186,20 @@ describe('Login.vue', () => {
     })
 
     it('shows success message on login', async () => {
-      login.mockResolvedValue({
-        accessToken: 'token',
+      vi.mocked(login).mockResolvedValue({
+        accessToken: createJwt({ sub: 'enterprise-user', roles: ['ENTERPRISE'], exp: 9999999999 }),
         refreshToken: 'refresh',
+        tokenType: 'Bearer',
+        expiresIn: 3600,
+        userId: 12,
+        username: 'user',
+        userType: 1,
+        realName: '测试用户',
       })
 
       const wrapper = mountLogin()
       await flush()
-
-      const inputs = wrapper.findAll('input')
-      await inputs[0].setValue('user')
-      await inputs[1].setValue('pass')
-      await inputs[2].setValue('code')
-
-      const btn = wrapper.find('button')
-      await btn.trigger('click')
-      await flush()
+      await submitForm(wrapper)
 
       expect(ElMessage.success).toHaveBeenCalledWith('登录成功')
     })
@@ -182,53 +207,68 @@ describe('Login.vue', () => {
     it('navigates to redirect path on success', async () => {
       mockRouteQuery.redirect = '/dashboard'
 
-      login.mockResolvedValue({
-        accessToken: 'token',
+      vi.mocked(login).mockResolvedValue({
+        accessToken: createJwt({ sub: 'reviewer-user', roles: ['REVIEWER'], exp: 9999999999 }),
         refreshToken: 'refresh',
+        tokenType: 'Bearer',
+        expiresIn: 3600,
+        userId: 13,
+        username: 'reviewer',
+        userType: 2,
+        realName: '审核员',
       })
 
       const wrapper = mountLogin()
       await flush()
-
-      const inputs = wrapper.findAll('input')
-      await inputs[0].setValue('user')
-      await inputs[1].setValue('pass')
-      await inputs[2].setValue('code')
-
-      const btn = wrapper.find('button')
-      await btn.trigger('click')
-      await flush()
+      await submitForm(wrapper)
 
       expect(mockRouterReplace).toHaveBeenCalledWith('/dashboard')
     })
 
-    it('navigates to homePath when no redirect', async () => {
-      login.mockResolvedValue({
-        accessToken: 'token',
+    it('navigates to the role home path when no redirect is provided', async () => {
+      vi.mocked(login).mockResolvedValue({
+        accessToken: createJwt({ sub: 'reviewer-user', roles: ['REVIEWER'], exp: 9999999999 }),
         refreshToken: 'refresh',
+        tokenType: 'Bearer',
+        expiresIn: 3600,
+        userId: 14,
+        username: 'reviewer',
+        userType: 2,
+        realName: '审核员',
       })
 
       const wrapper = mountLogin()
       await flush()
+      await submitForm(wrapper)
 
-      const inputs = wrapper.findAll('input')
-      await inputs[0].setValue('user')
-      await inputs[1].setValue('pass')
-      await inputs[2].setValue('code')
+      expect(mockRouterReplace).toHaveBeenCalledWith('/auditor/audit/list')
+    })
 
-      const btn = wrapper.find('button')
-      await btn.trigger('click')
+    it('shows an error and stays on the login page when the token has no resolvable role', async () => {
+      vi.mocked(login).mockResolvedValue({
+        accessToken: createJwt({ sub: 'broken-user', userId: 7, exp: 9999999999 }),
+        refreshToken: 'refresh',
+        tokenType: 'Bearer',
+        expiresIn: 3600,
+        userId: 7,
+        username: 'broken-user',
+        userType: 0,
+        realName: '异常用户',
+      })
+
+      const wrapper = mountLogin()
       await flush()
+      await submitForm(wrapper)
 
-      // Default homePath is '/enterprise/carbon/upload'
-      expect(mockRouterReplace).toHaveBeenCalledWith('/enterprise/carbon/upload')
+      expect(ElMessage.error).toHaveBeenCalledWith('登录状态异常，请重新登录')
+      expect(mockRouterReplace).not.toHaveBeenCalled()
     })
   })
 
   describe('login failure', () => {
     it('refreshes captcha on login failure', async () => {
-      login.mockRejectedValue(new Error('Invalid credentials'))
-      generateCaptcha.mockResolvedValue({
+      vi.mocked(login).mockRejectedValue(new Error('Invalid credentials'))
+      vi.mocked(generateCaptcha).mockResolvedValue({
         captchaKey: 'new-key',
         captchaImage: 'data:image/png;base64,xyz',
       })
@@ -241,16 +281,14 @@ describe('Login.vue', () => {
       await inputs[0].setValue('user')
       await inputs[1].setValue('wrong')
       await inputs[2].setValue('code')
-
-      const btn = wrapper.find('button')
-      await btn.trigger('click')
+      await wrapper.find('button').trigger('click')
       await flush()
 
       expect(generateCaptcha).toHaveBeenCalled()
     })
 
     it('clears captcha input on failure', async () => {
-      login.mockRejectedValue(new Error('fail'))
+      vi.mocked(login).mockRejectedValue(new Error('fail'))
 
       const wrapper = mountLogin()
       await flush()
@@ -259,21 +297,24 @@ describe('Login.vue', () => {
       await inputs[0].setValue('user')
       await inputs[1].setValue('pass')
       await inputs[2].setValue('code')
-
-      const btn = wrapper.find('button')
-      await btn.trigger('click')
+      await wrapper.find('button').trigger('click')
       await flush()
 
-      // captchaInput should be cleared
-      expect(inputs[2].element.value).toBe('')
+      expect((wrapper.findAll('input')[2].element as HTMLInputElement).value).toBe('')
     })
   })
 
   describe('remember password', () => {
-    it('saves form to localStorage when rememberPassword is true', async () => {
-      login.mockResolvedValue({
-        accessToken: 'token',
+    it('saves the account to localStorage when rememberPassword is enabled', async () => {
+      vi.mocked(login).mockResolvedValue({
+        accessToken: createJwt({ sub: 'enterprise-user', roles: ['ENTERPRISE'], exp: 9999999999 }),
         refreshToken: 'refresh',
+        tokenType: 'Bearer',
+        expiresIn: 3600,
+        userId: 15,
+        username: 'myuser',
+        userType: 1,
+        realName: '企业用户',
       })
 
       const wrapper = mountLogin()
@@ -283,26 +324,28 @@ describe('Login.vue', () => {
       await inputs[0].setValue('myuser')
       await inputs[1].setValue('mypass')
       await inputs[2].setValue('code')
-
-      const btn = wrapper.find('button')
-      await btn.trigger('click')
+      await wrapper.find('button').trigger('click')
       await flush()
 
-      const saved = JSON.parse(localStorage.getItem('carbon-admin-login-form'))
-      expect(saved).toEqual({ account: 'myuser', rememberPassword: true })
+      expect(JSON.parse(localStorage.getItem('carbon-admin-login-form') || 'null')).toEqual({
+        account: 'myuser',
+        rememberPassword: true,
+      })
     })
 
-    it('restores account from localStorage on mount', async () => {
-      localStorage.setItem('carbon-admin-login-form', JSON.stringify({
-        account: 'saved-user',
-        rememberPassword: true,
-      }))
+    it('restores the account from localStorage on mount', async () => {
+      localStorage.setItem(
+        'carbon-admin-login-form',
+        JSON.stringify({
+          account: 'saved-user',
+          rememberPassword: true,
+        }),
+      )
 
       const wrapper = mountLogin()
       await flush()
 
-      const inputs = wrapper.findAll('input')
-      expect(inputs[0].element.value).toBe('saved-user')
+      expect((wrapper.findAll('input')[0].element as HTMLInputElement).value).toBe('saved-user')
     })
   })
 })

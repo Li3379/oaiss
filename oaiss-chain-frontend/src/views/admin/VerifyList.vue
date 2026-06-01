@@ -112,12 +112,21 @@ import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { certifyReport, getReportList } from '../../api/carbon'
 import { getStatus } from '../../api/blockchain'
+import type { CarbonReportResponse } from '../../types'
 import { formatDateTime } from '../../utils/format'
 import PageContainer from '../../components/PageContainer.vue'
 
 const { t } = useI18n()
 
-type ReportRow = Record<string, any>
+type ReportRow = CarbonReportResponse
+
+type VerifyActionError = Error & {
+  response?: {
+    data?: {
+      message?: string
+    }
+  }
+}
 
 const reports = ref<ReportRow[]>([])
 const loading = ref(false)
@@ -133,11 +142,6 @@ const statsLoading = ref(false)
 
 const detailVisible = ref(false)
 const currentReport = ref<ReportRow | null>(null)
-
-const blockchainHealthy = computed(() => {
-  const normalized = blockchainStatus.value.trim().toLowerCase()
-  return normalized === '' || normalized === 'normal' || normalized === 'online' || normalized === 'healthy' || normalized === '姝ｅ父'
-})
 
 const STATUS_LABEL_MAP: Record<number, string> = {
   0: 'statusDraft',
@@ -166,22 +170,29 @@ const STATUS_TYPE_MAP: Record<number, string> = {
   5: 'success',
 }
 
-const getStatusLabel = (status?: number) => {
+const HEALTHY_BLOCKCHAIN_STATUSES = new Set(['', 'normal', 'online', 'healthy'])
+
+const blockchainHealthy = computed(() => HEALTHY_BLOCKCHAIN_STATUSES.has(blockchainStatus.value.trim().toLowerCase()))
+
+function getStatusLabel(status?: number): string {
   const key = typeof status === 'number' ? STATUS_LABEL_MAP[status] : ''
   if (!key) return String(status ?? '-')
+
   const translated = t(`verifyList.${key}`)
   return translated === `verifyList.${key}`
     ? (typeof status === 'number' ? STATUS_FALLBACK_LABEL_MAP[status] : translated)
     : translated
 }
 
-const getStatusType = (status?: number) => {
+function getStatusType(status?: number): string {
   return typeof status === 'number' ? (STATUS_TYPE_MAP[status] || 'info') : 'info'
 }
 
-const canCertify = (row: ReportRow) => Number(row.status) === 3
+function canCertify(row: ReportRow): boolean {
+  return Number(row.status) === 3
+}
 
-const recomputeStats = (rows: ReportRow[]) => {
+function recomputeStats(rows: ReportRow[]): void {
   stats.value = {
     pending: rows.filter((row) => Number(row.status) === 3).length,
     approved: rows.filter((row) => Number(row.status) === 5).length,
@@ -189,17 +200,18 @@ const recomputeStats = (rows: ReportRow[]) => {
   }
 }
 
-const loadReports = async () => {
+async function loadReports(): Promise<void> {
   loading.value = true
   try {
     const result = await getReportList({
-      page: currentPage.value,
-      size: pageSize.value,
+      pageNum: currentPage.value,
+      pageSize: pageSize.value,
       keyword: keyword.value || undefined,
       status: statusFilter.value === '' ? undefined : Number(statusFilter.value),
-    })
-    reports.value = result?.items || []
-    total.value = result?.total || 0
+    } as Parameters<typeof getReportList>[0] & { status?: number })
+
+    reports.value = result.items
+    total.value = result.total
     recomputeStats(reports.value)
   } catch {
     ElMessage.error(t('verifyList.loadFailed'))
@@ -208,7 +220,7 @@ const loadReports = async () => {
   }
 }
 
-const loadBlockchainStatus = async () => {
+async function loadBlockchainStatus(): Promise<void> {
   statsLoading.value = true
   try {
     const result = await getStatus()
@@ -220,13 +232,23 @@ const loadBlockchainStatus = async () => {
   }
 }
 
-const viewDetail = (row: ReportRow) => {
+function viewDetail(row: ReportRow): void {
   currentReport.value = row
   detailVisible.value = true
 }
 
-const onVerify = async (row: ReportRow, approved: boolean) => {
+function isCancelAction(error: unknown): boolean {
+  return error === 'cancel' || error === 'close'
+}
+
+function getActionErrorMessage(error: unknown): string {
+  const candidate = error as VerifyActionError | undefined
+  return candidate?.response?.data?.message || candidate?.message || ''
+}
+
+async function onVerify(row: ReportRow, approved: boolean): Promise<void> {
   const actionText = approved ? t('verifyList.btnApprove') : t('verifyList.btnReject')
+
   try {
     await ElMessageBox.confirm(
       t(approved ? 'verifyList.confirmApprove' : 'verifyList.confirmReject'),
@@ -237,27 +259,30 @@ const onVerify = async (row: ReportRow, approved: boolean) => {
         type: 'warning',
       },
     )
+
     await certifyReport({
       reportId: Number(row.id),
       approved,
       comment: approved ? t('verifyList.approveSuccess') : t('verifyList.rejectSuccess'),
     })
+
     ElMessage.success(actionText)
     await loadReports()
-  } catch (error: any) {
-    if (error !== 'cancel') {
-      ElMessage.error(`${t('verifyList.operationFailed')}: ${error?.message || ''}`)
+  } catch (error: unknown) {
+    if (!isCancelAction(error)) {
+      const message = getActionErrorMessage(error)
+      ElMessage.error(message ? `${t('verifyList.operationFailed')}: ${message}` : t('verifyList.operationFailed'))
     }
   }
 }
 
-const onSizeChange = (size: number) => {
+function onSizeChange(size: number): void {
   pageSize.value = size
   currentPage.value = 1
   void loadReports()
 }
 
-const onCurrentChange = (page: number) => {
+function onCurrentChange(page: number): void {
   currentPage.value = page
   void loadReports()
 }

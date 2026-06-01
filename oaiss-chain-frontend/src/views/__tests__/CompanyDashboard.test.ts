@@ -58,6 +58,7 @@ import { getMyScore } from '../../api/credit'
 import { getMyAccount } from '../../api/carbonCoin'
 import { getQuotaInfo } from '../../api/enterprise'
 import { ElMessage } from 'element-plus'
+import echarts from '../../utils/echarts'
 
 const stubs = {
   'el-card': { template: '<div class="el-card"><slot /></div>' },
@@ -146,8 +147,8 @@ describe('CompanyDashboard.vue', () => {
   it('calls dashboard APIs on mount', async () => {
     const wrapper = mountComponent()
     await flushPromises()
-    expect(getMyReports).toHaveBeenCalled()
-    expect(getMyTrades).toHaveBeenCalled()
+    expect(getMyReports).toHaveBeenCalledWith({ pageNum: 1, pageSize: 100 })
+    expect(getMyTrades).toHaveBeenCalledWith({ pageNum: 1, pageSize: 100 })
     expect(getMyScore).toHaveBeenCalled()
     expect(getMyAccount).toHaveBeenCalled()
     expect(getQuotaInfo).toHaveBeenCalled()
@@ -193,6 +194,137 @@ describe('CompanyDashboard.vue', () => {
     await flushPromises()
 
     expect(wrapper.findAll('.chart-box')).toHaveLength(6)
+    wrapper.unmount()
+  })
+
+  it('builds chart data from real fields without synthetic ratio slices', async () => {
+    const initMock = vi.mocked(echarts.init)
+    const chartInstance = {
+      setOption: vi.fn(),
+      resize: vi.fn(),
+      dispose: vi.fn(),
+    }
+    initMock.mockReturnValue(chartInstance as never)
+
+    getMyReports.mockResolvedValueOnce({
+      items: [{
+        id: 11,
+        assetNo: 'RPT-001',
+        reportNo: 'CR-001',
+        category: 'Power',
+        region: 'CN',
+        accountingPeriod: '2026-05',
+        createdAt: '2026-05-01T00:00:00Z',
+        scope1Emission: 10,
+        scope2Emission: 20,
+        scope3Emission: 5,
+        totalEmission: 35,
+      }],
+      total: 1,
+    })
+    getMyTrades.mockResolvedValueOnce({
+      items: [{
+        reportId: 11,
+        quantity: 8,
+        totalAmount: 100,
+        createdAt: '2026-05-22T00:00:00Z',
+      }],
+      total: 1,
+    })
+
+    const wrapper = mountComponent()
+    await flushPromises()
+
+    const options = chartInstance.setOption.mock.calls.map((call) => call[0])
+    const emissionPieOption = options.find((option) => option.title?.text === 'companyDashboard.chartEmissionPie')
+    const tradePieOption = options.find((option) => option.title?.text === 'companyDashboard.chartTransactionPie')
+
+    expect(emissionPieOption.series[0].data).toEqual([
+      { name: 'companyDashboard.pieGasEmission', value: 10 },
+      { name: 'companyDashboard.pieWaterEmission', value: 20 },
+      { name: 'companyDashboard.pieSolidEmission', value: 5 },
+      { name: 'companyDashboard.pieRatedEmission', value: 35 },
+    ])
+    expect(tradePieOption.series[0].data).toEqual([
+      { name: 'companyDashboard.pieTransactionExpense', value: 100 },
+      { name: 'companyDashboard.pieTradeQuantity', value: 8 },
+    ])
+    wrapper.unmount()
+  })
+
+  it('filters charts by real asset identifiers instead of fallback asset numbers', async () => {
+    const initMock = vi.mocked(echarts.init)
+    const chartInstance = {
+      setOption: vi.fn(),
+      resize: vi.fn(),
+      dispose: vi.fn(),
+    }
+    initMock.mockReturnValue(chartInstance as never)
+
+    getMyReports.mockResolvedValueOnce({
+      items: [
+        {
+          id: 11,
+          assetNo: 'AST-REAL-1',
+          reportNo: 'CR-001',
+          category: 'Power',
+          region: 'CN',
+          accountingPeriod: '2026-05',
+          createdAt: '2026-05-01T00:00:00Z',
+          scope1Emission: 10,
+          scope2Emission: 20,
+          scope3Emission: 5,
+          totalEmission: 35,
+        },
+        {
+          id: 12,
+          reportNo: 'CR-002',
+          category: 'Steel',
+          region: 'US',
+          accountingPeriod: '2026-05',
+          createdAt: '2026-05-02T00:00:00Z',
+          scope1Emission: 30,
+          scope2Emission: 10,
+          scope3Emission: 0,
+          totalEmission: 40,
+        },
+      ],
+      total: 2,
+    })
+    getMyTrades.mockResolvedValueOnce({
+      items: [
+        {
+          reportId: 11,
+          quantity: 8,
+          totalAmount: 100,
+          createdAt: '2026-05-22T00:00:00Z',
+        },
+        {
+          reportId: 12,
+          quantity: 5,
+          totalAmount: 60,
+          createdAt: '2026-05-23T00:00:00Z',
+        },
+      ],
+      total: 2,
+    })
+
+    const wrapper = mountComponent()
+    await flushPromises()
+
+    const inputs = wrapper.findAll('input')
+    await inputs[0].setValue('AST-REAL-1')
+    await wrapper.find('button').trigger('click')
+    await flushPromises()
+
+    const options = chartInstance.setOption.mock.calls.map((call) => call[0])
+    const latestTradePie = options.filter((option) => option.title?.text === 'companyDashboard.chartTransactionPie').at(-1)
+
+    expect(latestTradePie.series[0].data).toEqual([
+      { name: 'companyDashboard.pieTransactionExpense', value: 100 },
+      { name: 'companyDashboard.pieTradeQuantity', value: 8 },
+    ])
+    expect(ElMessage.success).toHaveBeenCalledWith('companyDashboard.filterComplete')
     wrapper.unmount()
   })
 })

@@ -4,19 +4,23 @@ import { ElMessage } from 'element-plus'
 import { useI18n } from 'vue-i18n'
 import { getPendingVerification, verifyProject } from '../../api/carbonNeutral'
 import { deductPoints } from '../../api/credit'
+import type { CarbonNeutralProjectResponse } from '../../types'
 import { formatDateTime } from '../../utils/format'
 
 const { t } = useI18n()
 
-type ProjectReviewRow = {
-  id?: number
+type ProjectReviewRow = CarbonNeutralProjectResponse & {
   enterpriseId?: number
-  ownerId?: number
-  expectedReduction?: number | string
-  monitoringData?: string
-  status?: number
-  verificationStatus?: number
-  [key: string]: unknown
+}
+
+type BackendErrorPayload = {
+  response?: {
+    data?: {
+      data?: unknown
+      message?: string
+    }
+  }
+  message?: string
 }
 
 const tableData = ref<ProjectReviewRow[]>([])
@@ -40,6 +44,25 @@ const deductDialogVisible = ref(false)
 const deductForm = ref({ enterpriseId: null as number | null, eventType: 1, description: '' })
 const deductLoading = ref(false)
 
+const getBackendErrorMessage = (error: unknown) => {
+  const candidate = error as BackendErrorPayload | undefined
+  const payload = candidate?.response?.data?.data
+
+  if (Array.isArray(payload) && typeof payload[0] === 'string' && payload[0].trim()) {
+    return payload[0]
+  }
+
+  if (typeof candidate?.response?.data?.message === 'string' && candidate.response.data.message.trim()) {
+    return candidate.response.data.message
+  }
+
+  if (typeof candidate?.message === 'string' && candidate.message.trim()) {
+    return candidate.message
+  }
+
+  return ''
+}
+
 const fetchData = async () => {
   loading.value = true
   try {
@@ -47,12 +70,12 @@ const fetchData = async () => {
       pageNum: currentPage.value,
       pageSize: pageSize.value,
     })
-    tableData.value = (response.items || []).map((row: ProjectReviewRow) => ({
+    tableData.value = response.items.map((row) => ({
       ...row,
       status: Number(row.status ?? 0),
       verificationStatus: Number(row.verificationStatus ?? 0),
     }))
-    total.value = response.total || 0
+    total.value = response.total
   } catch {
     ElMessage.error(t('projectReview.loadFailed'))
   } finally {
@@ -74,10 +97,10 @@ const onCurrentChange = (page: number) => {
 const openVerifyDialog = (row: ProjectReviewRow) => {
   verifyErrorMessage.value = ''
   verifyForm.value = {
-    projectId: row.id as number,
+    projectId: row.id,
     verifiedReduction: String(row.expectedReduction ?? ''),
     verificationReport: '',
-    monitoringData: typeof row.monitoringData === 'string' ? row.monitoringData : '',
+    monitoringData: row.monitoringData || '',
     remark: '',
   }
   verifyDialogVisible.value = true
@@ -107,8 +130,8 @@ const submitVerify = async () => {
     ElMessage.success(t('projectReview.verifyPassed'))
     verifyDialogVisible.value = false
     fetchData()
-  } catch (error: any) {
-    const backendMessage = error?.response?.data?.data?.[0] || error?.response?.data?.message || error?.message
+  } catch (error: unknown) {
+    const backendMessage = getBackendErrorMessage(error)
     verifyErrorMessage.value = backendMessage || t('projectReview.verifySubmitFailed')
     ElMessage.error(backendMessage || t('projectReview.verifySubmitFailed'))
   } finally {
@@ -142,8 +165,8 @@ const submitDeduct = async () => {
     })
     ElMessage.success(t('projectReview.deductSuccess'))
     deductDialogVisible.value = false
-  } catch (error: any) {
-    const backendMessage = error?.response?.data?.data?.[0] || error?.response?.data?.message || error?.message
+  } catch (error: unknown) {
+    const backendMessage = getBackendErrorMessage(error)
     ElMessage.error(backendMessage || t('projectReview.deductFailed'))
   } finally {
     deductLoading.value = false

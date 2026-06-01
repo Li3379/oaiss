@@ -1,39 +1,52 @@
 <script setup lang="ts">
-import { reactive, ref, onMounted } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import { submitBuyOrder, submitSellOrder, getAuctionOrders, getMyOrders, getMatchResults } from '../../api/auction'
+import { ElMessage } from 'element-plus'
+import type { FormInstance, FormRules } from 'element-plus'
+import {
+  getAuctionOrders,
+  getMatchResults,
+  getMyOrders,
+  submitBuyOrder,
+  submitSellOrder,
+} from '../../api/auction'
+import type { AuctionOrderRequest, AuctionOrderResponse, MatchingResultResponse } from '../../types'
 
 const { t } = useI18n()
 
-const searchKeyword = ref('')
-const selectedRows = ref([])
+interface TradingMarketForm {
+  direction: number | null
+  quantity: string
+  price: string
+}
+
+const selectedRows = ref<AuctionOrderResponse[]>([])
 
 const page = ref(1)
 const pageSize = ref(10)
 const total = ref(0)
 
 const dialogVisible = ref(false)
-const formRef = ref()
+const formRef = ref<FormInstance>()
 
-const activeTab = ref('all')
+const activeTab = ref<'all' | 'my' | 'match'>('all')
 const tableLoading = ref(false)
 
-const formModel = reactive({
-  direction: '',
+const formModel = reactive<TradingMarketForm>({
+  direction: null,
   quantity: '',
   price: '',
 })
 
-const tableData = ref([])
+const tableData = ref<AuctionOrderResponse[]>([])
 
-const matchData = ref([])
+const matchData = ref<MatchingResultResponse[]>([])
 const matchLoading = ref(false)
 const matchPage = ref(1)
 const matchPageSize = ref(10)
 const matchTotal = ref(0)
 
-const formRules = {
+const formRules: FormRules<TradingMarketForm> = {
   direction: [{ required: true, message: t('tradingMarket.selectDirection'), trigger: 'change' }],
   quantity: [{ required: true, message: t('tradingMarket.enterQuantity'), trigger: 'blur' }],
   price: [{ required: true, message: t('tradingMarket.enterPrice'), trigger: 'blur' }],
@@ -49,15 +62,16 @@ const fetchData = async () => {
     await fetchMatchResults()
     return
   }
+
   tableLoading.value = true
   try {
     const response = activeTab.value === 'my'
       ? await getMyOrders({ pageNum: page.value, pageSize: pageSize.value })
       : await getAuctionOrders({ pageNum: page.value, pageSize: pageSize.value })
 
-    tableData.value = response.items || []
-    total.value = response.total || 0
-  } catch (error) {
+    tableData.value = response.items
+    total.value = response.total
+  } catch {
     ElMessage.error(t('tradingMarket.fetchDataFailed'))
     tableData.value = []
     total.value = 0
@@ -73,9 +87,9 @@ const fetchMatchResults = async () => {
       pageNum: matchPage.value,
       pageSize: matchPageSize.value,
     })
-    matchData.value = result?.items || []
-    matchTotal.value = result?.total || 0
-  } catch (error) {
+    matchData.value = result.items
+    matchTotal.value = result.total
+  } catch {
     ElMessage.error(t('tradingMarket.fetchMatchFailed'))
     matchData.value = []
     matchTotal.value = 0
@@ -84,13 +98,13 @@ const fetchMatchResults = async () => {
   }
 }
 
-const onMatchSizeChange = (size) => {
+const onMatchSizeChange = (size: number) => {
   matchPageSize.value = size
   matchPage.value = 1
   fetchMatchResults()
 }
 
-const onMatchPageChange = (current) => {
+const onMatchPageChange = (current: number) => {
   matchPage.value = current
   fetchMatchResults()
 }
@@ -106,23 +120,23 @@ const onQuery = () => {
   fetchData()
 }
 
-const onSelectionChange = (rows) => {
+const onSelectionChange = (rows: AuctionOrderResponse[]) => {
   selectedRows.value = rows
 }
 
-const onSizeChange = (size) => {
+const onSizeChange = (size: number) => {
   pageSize.value = size
   page.value = 1
   fetchData()
 }
 
-const onPageChange = (current) => {
+const onPageChange = (current: number) => {
   page.value = current
   fetchData()
 }
 
 const resetForm = () => {
-  formModel.direction = ''
+  formModel.direction = null
   formModel.quantity = ''
   formModel.price = ''
 }
@@ -132,16 +146,16 @@ const openAddDialog = () => {
   dialogVisible.value = true
 }
 
-const getDirectionLabel = (direction) => {
+const getDirectionLabel = (direction: number) => {
   return direction === 1 ? t('tradingMarket.buy') : t('tradingMarket.sell')
 }
 
-const getDirectionType = (direction) => {
+const getDirectionType = (direction: number) => {
   return direction === 1 ? 'success' : 'danger'
 }
 
-const getStatusLabel = (status) => {
-  const statusMap = {
+const getStatusLabel = (status: number) => {
+  const statusMap: Record<number, string> = {
     0: t('tradingMarket.statusPending'),
     1: t('tradingMarket.statusPartial'),
     2: t('tradingMarket.statusMatched'),
@@ -150,8 +164,8 @@ const getStatusLabel = (status) => {
   return statusMap[status] || t('tradingMarket.statusUnknown')
 }
 
-const getStatusType = (status) => {
-  const typeMap = {
+const getStatusType = (status: number) => {
+  const typeMap: Record<number, string> = {
     0: 'info',
     1: 'warning',
     2: 'success',
@@ -161,17 +175,17 @@ const getStatusType = (status) => {
 }
 
 const onSave = async () => {
-  const valid = await formRef.value.validate().catch(() => false)
-  if (!valid) {
+  const valid = await formRef.value?.validate().catch(() => false)
+  if (!valid || formModel.direction === null) {
     ElMessage.warning(t('tradingMarket.incompleteForm'))
     return
   }
 
   try {
-    const orderData = {
+    const orderData: AuctionOrderRequest = {
       direction: formModel.direction,
-      quantity: parseFloat(formModel.quantity),
-      price: parseFloat(formModel.price),
+      quantity: Number.parseFloat(formModel.quantity),
+      price: Number.parseFloat(formModel.price),
     }
 
     if (formModel.direction === 1) {
@@ -183,8 +197,8 @@ const onSave = async () => {
     }
 
     dialogVisible.value = false
-    fetchData()
-  } catch (error) {
+    await fetchData()
+  } catch {
     ElMessage.error(t('tradingMarket.submitFailed'))
   }
 }
@@ -198,6 +212,7 @@ onMounted(() => {
   fetchData()
 })
 </script>
+
 <template>
   <section class="market-page">
     <el-card class="section-card" shadow="never">
@@ -209,12 +224,6 @@ onMounted(() => {
 
     <el-card class="section-card" shadow="never">
       <div class="search-row">
-        <el-input
-          v-model="searchKeyword"
-          :placeholder="t('tradingMarket.searchPlaceholder')"
-          clearable
-          class="search-input"
-        />
         <el-button type="primary" @click="onQuery">{{ t('common.search') }}</el-button>
         <el-button type="success" plain @click="openAddDialog">{{ t('tradingMarket.dialogCreate') }}</el-button>
       </div>
@@ -288,8 +297,8 @@ onMounted(() => {
         <el-table-column prop="buyOrderId" :label="t('tradingMarket.colBuyId')" min-width="100" />
         <el-table-column prop="sellOrderId" :label="t('tradingMarket.colSellId')" min-width="100" />
         <el-table-column prop="matchedQuantity" :label="t('tradingMarket.colMatchQuantity')" min-width="130" />
-        <el-table-column prop="matchedPrice" :label="t('tradingMarket.colMatchPrice')" min-width="140" />
-        <el-table-column prop="matchedAt" :label="t('tradingMarket.colMatchTime')" min-width="180" />
+        <el-table-column prop="settlementPrice" :label="t('tradingMarket.colMatchPrice')" min-width="140" />
+        <el-table-column prop="settledAt" :label="t('tradingMarket.colMatchTime')" min-width="180" />
       </el-table>
 
       <div v-if="activeTab === 'match'" class="pager-row">
@@ -352,6 +361,7 @@ onMounted(() => {
     </el-dialog>
   </section>
 </template>
+
 <style scoped>
 .market-page {
   display: flex;
@@ -370,11 +380,6 @@ onMounted(() => {
   flex-wrap: wrap;
 }
 
-.search-input {
-  width: 420px;
-  max-width: 100%;
-}
-
 .table-tip {
   margin-bottom: 10px;
   color: var(--text-secondary);
@@ -386,5 +391,4 @@ onMounted(() => {
   display: flex;
   justify-content: flex-end;
 }
-
 </style>

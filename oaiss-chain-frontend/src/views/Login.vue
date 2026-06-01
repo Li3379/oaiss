@@ -4,7 +4,6 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '../store'
-import { ROLE_HOME } from '../config/menu'
 import { login } from '../api/auth'
 import { generateCaptcha } from '../api/captcha'
 
@@ -77,10 +76,16 @@ const onSubmit = async () => {
       captcha: form.captchaInput.trim(),
     })
 
-    appStore.login({
+    const loggedIn = appStore.login({
       accessToken: data.accessToken,
       refreshToken: data.refreshToken,
     })
+    if (!loggedIn) {
+      ElMessage.error(t('login.invalidSession'))
+      await refreshCaptcha()
+      form.captchaInput = ''
+      return
+    }
 
     if (form.rememberPassword) {
       localStorage.setItem(LOGIN_FORM_STORAGE_KEY, JSON.stringify({

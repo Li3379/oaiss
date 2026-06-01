@@ -1,18 +1,39 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { mount } from '@vue/test-utils'
-import { nextTick } from 'vue'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { flushPromises, mount } from '@vue/test-utils'
+import { ref } from 'vue'
+
+vi.mock('vue-i18n', () => ({
+  useI18n: () => ({
+    t: (key: string, params?: { count?: number }) => {
+      if (key === 'common.total') return `common.total:${params?.count ?? ''}`
+      return key
+    },
+    locale: ref('zh-CN'),
+  }),
+}))
+
+vi.mock('../../api/admin', () => ({
+  getConfig: vi.fn(() => Promise.resolve({
+    systemName: 'OAISS CHAIN',
+    version: '1.0.0',
+    maxUploadSize: '10MB',
+    sessionTimeout: 3600,
+    enableCaptcha: true,
+    enableBlockChain: false,
+  })),
+}))
 
 vi.mock('element-plus', async (importOriginal) => {
   const actual = await importOriginal()
   return {
     ...actual,
     ElMessage: { success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() },
-    ElMessageBox: { confirm: vi.fn(() => Promise.resolve()) },
   }
 })
 
 import SystemConfig from '../admin/SystemConfig.vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { getConfig } from '../../api/admin'
+import { ElMessage } from 'element-plus'
 
 const stubs = {
   'el-card': { template: '<div class="el-card"><slot /></div>' },
@@ -37,12 +58,12 @@ const stubs = {
     emits: ['click'],
   },
   'el-table': {
-    template: '<table><slot /><slot name="append" /></table>',
+    template: '<table><slot /><slot :row="data[0] || {}" :$index="0" /><slot name="append" /></table>',
     props: ['data', 'border', 'emptyText'],
   },
   'el-table-column': {
-    template: '<td><slot :row="{}" :$index="0" /></td>',
-    props: ['prop', 'label', 'minWidth', 'width', 'fixed', 'showOverflowTooltip'],
+    template: '<td><slot :row="row ?? {}" :$index="$index ?? 0" /></td>',
+    props: ['prop', 'label', 'minWidth', 'width', 'fixed', 'showOverflowTooltip', 'row', '$index'],
   },
   'el-tag': { template: '<span class="el-tag"><slot /></span>', props: ['type'] },
   'el-pagination': {
@@ -68,35 +89,72 @@ const stubs = {
 
 function mountSystemConfig() {
   return mount(SystemConfig, {
-    global: { stubs },
+    global: {
+      stubs,
+      directives: {
+        loading: {},
+      },
+    },
     attachTo: document.body,
   })
-}
-
-async function flush() {
-  await nextTick()
-  await nextTick()
 }
 
 describe('SystemConfig.vue', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    localStorage.clear()
   })
 
-  it('组件正确渲染', async () => {
+  it('renders shell and loads configuration on mount', async () => {
     const wrapper = mountSystemConfig()
-    await flush()
+    await flushPromises()
+
     expect(wrapper.find('.config-page').exists()).toBe(true)
-    expect(wrapper.find('.section-card').exists()).toBe(true)
+    expect(getConfig).toHaveBeenCalled()
+    expect((wrapper.vm as unknown as { configList: Array<{ id: string }> }).configList).toHaveLength(6)
     wrapper.unmount()
   })
 
-  it('配置表单存在', async () => {
+  it('normalizes boolean and numeric config values into display rows', async () => {
     const wrapper = mountSystemConfig()
-    await flush()
-    expect(wrapper.find('.search-form').exists()).toBe(true)
-    expect(wrapper.find('.el-pagination').exists()).toBe(true)
+    await flushPromises()
+
+    expect((wrapper.vm as unknown as { configList: Array<{ id: string; value: string }> }).configList).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: 'enableCaptcha', value: 'true' }),
+        expect.objectContaining({ id: 'enableBlockChain', value: 'false' }),
+        expect.objectContaining({ id: 'sessionTimeout', value: '3600' }),
+      ]),
+    )
+    wrapper.unmount()
+  })
+
+  it('filters config rows by description and name', async () => {
+    const wrapper = mountSystemConfig()
+    await flushPromises()
+
+    const vm = wrapper.vm as unknown as {
+      searchForm: { description: string; name: string }
+      filteredData: Array<{ id: string }>
+      onQuery: () => void
+    }
+
+    vm.searchForm.name = 'version'
+    vm.onQuery()
+    await flushPromises()
+
+    expect(vm.filteredData).toEqual([
+      expect.objectContaining({ id: 'version' }),
+    ])
+    wrapper.unmount()
+  })
+
+  it('shows translated load failure when config query fails', async () => {
+    vi.mocked(getConfig).mockRejectedValueOnce(new Error('network error'))
+
+    const wrapper = mountSystemConfig()
+    await flushPromises()
+
+    expect(ElMessage.error).toHaveBeenCalledWith('systemConfig.loadFailed')
     wrapper.unmount()
   })
 })

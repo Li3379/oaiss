@@ -1,17 +1,17 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { mount, flushPromises } from '@vue/test-utils'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 
 vi.mock('../../api/auction', () => ({
-  submitBuyOrder: vi.fn(() => Promise.resolve()),
-  submitSellOrder: vi.fn(() => Promise.resolve()),
-  getAuctionOrders: vi.fn(() => Promise.resolve({ items: [], total: 0 })),
-  getMyOrders: vi.fn(() => Promise.resolve({ items: [], total: 0 })),
-  getMatchResults: vi.fn(() => Promise.resolve({ items: [], total: 0 })),
+  submitBuyOrder: vi.fn(),
+  submitSellOrder: vi.fn(),
+  getAuctionOrders: vi.fn(),
+  getMyOrders: vi.fn(),
+  getMatchResults: vi.fn(),
 }))
 
 vi.mock('element-plus', async (importOriginal) => {
-  const actual = await importOriginal()
+  const actual = await importOriginal<typeof import('element-plus')>()
   return {
     ...actual,
     ElMessage: { success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() },
@@ -20,8 +20,56 @@ vi.mock('element-plus', async (importOriginal) => {
 })
 
 import TradingMarket from '../enterprise/TradingMarket.vue'
-import { getAuctionOrders, getMyOrders, getMatchResults, submitBuyOrder, submitSellOrder } from '../../api/auction'
+import { getAuctionOrders, getMatchResults, getMyOrders, submitBuyOrder, submitSellOrder } from '../../api/auction'
 import { ElMessage } from 'element-plus'
+
+const orderRows = [
+  {
+    id: 1,
+    orderNo: 'AUC-001',
+    userId: 7,
+    direction: 1,
+    directionText: 'BUY',
+    quantity: 10,
+    price: 88,
+    matchedQuantity: 2,
+    remainingQuantity: 8,
+    status: 0,
+    statusText: 'Pending',
+    settlementPrice: 0,
+    matchedAt: '2026-05-31T08:30:00',
+    createdAt: '2026-05-31T08:00:00',
+  },
+]
+
+const myOrderRows = [
+  {
+    ...orderRows[0],
+    id: 2,
+    orderNo: 'AUC-MY-001',
+  },
+]
+
+const matchingRows = [
+  {
+    id: 11,
+    matchNo: 'MATCH-001',
+    buyOrderId: 100,
+    sellOrderId: 101,
+    buyerId: 7,
+    sellerId: 9,
+    buyerName: 'Buyer Co',
+    sellerName: 'Seller Co',
+    matchedQuantity: 6,
+    settlementPrice: 90,
+    totalAmount: 540,
+    status: 1,
+    statusText: 'Matched',
+    transactionId: 5001,
+    settledAt: '2026-05-31T09:00:00',
+    createdAt: '2026-05-31T08:50:00',
+  },
+]
 
 const stubs = {
   'el-card': { template: '<div class="el-card"><slot /></div>' },
@@ -46,13 +94,16 @@ const stubs = {
     emits: ['click'],
   },
   'el-table': {
-    template: '<table><slot /><slot name="append" /></table>',
+    template: '<table><slot /></table>',
     props: ['data', 'border', 'emptyText', 'loading'],
     emits: ['selection-change'],
   },
   'el-table-column': {
-    template: '<td><slot :row="{}" :$index="0" /></td>',
+    template: '<td><slot :row="row" :$index="0" /></td>',
     props: ['type', 'prop', 'label', 'minWidth', 'width', 'fixed', 'showOverflowTooltip'],
+    data() {
+      return { row: orderRows[0] }
+    },
   },
   'el-tag': { template: '<span class="el-tag"><slot /></span>', props: ['type'] },
   'el-pagination': {
@@ -66,7 +117,7 @@ const stubs = {
     emits: ['update:modelValue'],
   },
   'el-select': {
-    template: '<select :value="modelValue" @change="$emit(\'update:modelValue\', $event.target.value)"><slot /></select>',
+    template: '<select :value="modelValue" @change="$emit(\'update:modelValue\', Number($event.target.value))"><slot /></select>',
     props: ['modelValue', 'placeholder', 'style'],
     emits: ['update:modelValue'],
   },
@@ -98,37 +149,125 @@ describe('TradingMarket.vue', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     setActivePinia(createPinia())
-  })
-
-  it('组件正确渲染', () => {
-    const wrapper = mountComponent()
-    expect(wrapper.exists()).toBe(true)
-    wrapper.unmount()
-  })
-
-  it('页面加载时获取拍卖订单列表', async () => {
-    const wrapper = mountComponent()
-    await flushPromises()
-    expect(getAuctionOrders).toHaveBeenCalled()
-    wrapper.unmount()
-  })
-
-  it('获取订单失败显示错误消息', async () => {
-    getAuctionOrders.mockRejectedValueOnce(new Error('network error'))
-    const wrapper = mountComponent()
-    await flushPromises()
-    expect(ElMessage.error).toHaveBeenCalled()
-    wrapper.unmount()
-  })
-
-  it('组件渲染订单列表数据', async () => {
-    getAuctionOrders.mockResolvedValueOnce({
-      items: [{ id: 1, orderNo: 'ORD001', status: 'pending' }],
+    vi.mocked(getAuctionOrders).mockResolvedValue({
+      items: orderRows,
       total: 1,
+      page: 1,
+      size: 10,
+      totalPages: 1,
     })
+    vi.mocked(getMyOrders).mockResolvedValue({
+      items: myOrderRows,
+      total: 1,
+      page: 1,
+      size: 10,
+      totalPages: 1,
+    })
+    vi.mocked(getMatchResults).mockResolvedValue({
+      items: matchingRows,
+      total: 1,
+      page: 1,
+      size: 10,
+      totalPages: 1,
+    })
+    vi.mocked(submitBuyOrder).mockResolvedValue(orderRows[0])
+    vi.mocked(submitSellOrder).mockResolvedValue({
+      ...orderRows[0],
+      direction: 2,
+      directionText: 'SELL',
+    })
+  })
+
+  it('loads auction orders on mount using the paged backend contract', async () => {
     const wrapper = mountComponent()
     await flushPromises()
-    expect(getAuctionOrders).toHaveBeenCalled()
+
+    expect(getAuctionOrders).toHaveBeenCalledWith({ pageNum: 1, pageSize: 10 })
+    expect(wrapper.vm.tableData).toEqual(orderRows)
+    expect(wrapper.vm.total).toBe(1)
+
+    wrapper.unmount()
+  })
+
+  it('switches to my orders and matched results using the correct backend endpoints', async () => {
+    const wrapper = mountComponent()
+    await flushPromises()
+
+    wrapper.vm.activeTab = 'my'
+    await wrapper.vm.onTabChange()
+    await flushPromises()
+    expect(getMyOrders).toHaveBeenCalledWith({ pageNum: 1, pageSize: 10 })
+    expect(wrapper.vm.tableData).toEqual(myOrderRows)
+
+    wrapper.vm.activeTab = 'match'
+    await wrapper.vm.onTabChange()
+    await flushPromises()
+    expect(getMatchResults).toHaveBeenCalledWith({ pageNum: 1, pageSize: 10 })
+    expect(wrapper.vm.matchData).toEqual(matchingRows)
+    expect(wrapper.vm.matchTotal).toBe(1)
+
+    wrapper.unmount()
+  })
+
+  it('submits a buy order and refreshes the backend list', async () => {
+    const wrapper = mountComponent()
+    await flushPromises()
+
+    wrapper.vm.formRef = {
+      validate: vi.fn(() => Promise.resolve(true)),
+    }
+    wrapper.vm.formModel.direction = 1
+    wrapper.vm.formModel.quantity = '12.5'
+    wrapper.vm.formModel.price = '87.6'
+
+    await wrapper.vm.onSave()
+    await flushPromises()
+
+    expect(submitBuyOrder).toHaveBeenCalledWith({
+      direction: 1,
+      quantity: 12.5,
+      price: 87.6,
+    })
+    expect(ElMessage.success).toHaveBeenCalledWith('买单提交成功')
+    expect(getAuctionOrders).toHaveBeenCalledTimes(2)
+
+    wrapper.unmount()
+  })
+
+  it('submits a sell order when the form direction is sell', async () => {
+    const wrapper = mountComponent()
+    await flushPromises()
+
+    wrapper.vm.formRef = {
+      validate: vi.fn(() => Promise.resolve(true)),
+    }
+    wrapper.vm.formModel.direction = 2
+    wrapper.vm.formModel.quantity = '6'
+    wrapper.vm.formModel.price = '99'
+
+    await wrapper.vm.onSave()
+    await flushPromises()
+
+    expect(submitSellOrder).toHaveBeenCalledWith({
+      direction: 2,
+      quantity: 6,
+      price: 99,
+    })
+    expect(ElMessage.success).toHaveBeenCalledWith('卖单提交成功')
+
+    wrapper.unmount()
+  })
+
+  it('shows an error when loading auction orders fails', async () => {
+    vi.mocked(getAuctionOrders).mockRejectedValueOnce(new Error('network error'))
+
+    const wrapper = mountComponent()
+    await flushPromises()
+
+    expect(ElMessage.error).toHaveBeenCalledWith('获取数据失败')
+    expect(wrapper.vm.tableData).toEqual([])
+    expect(wrapper.vm.total).toBe(0)
+
     wrapper.unmount()
   })
 })

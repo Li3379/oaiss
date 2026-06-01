@@ -3,8 +3,20 @@ import { mount, flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 
 vi.mock('../../api/blockchain', () => ({
+  getStatus: vi.fn(() => Promise.resolve({
+    connected: true,
+    mode: 'FABRIC',
+    channel: 'carbon-channel',
+    peers: 1,
+    orderers: 1,
+  })),
   getLatestBlocks: vi.fn(() => Promise.resolve({ items: [], total: 0 })),
   getTransactions: vi.fn(() => Promise.resolve({ items: [], total: 0 })),
+  queryTransaction: vi.fn(() => Promise.resolve({
+    txHash: 'tx-001',
+    status: 'VALID',
+    timestamp: '2026-05-31T10:00:00',
+  })),
 }))
 
 vi.mock('element-plus', async (importOriginal) => {
@@ -17,33 +29,14 @@ vi.mock('element-plus', async (importOriginal) => {
 })
 
 import Blockchain from '../enterprise/Blockchain.vue'
-import { getLatestBlocks, getTransactions } from '../../api/blockchain'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { getLatestBlocks, getStatus, getTransactions, queryTransaction } from '../../api/blockchain'
+import { ElMessage } from 'element-plus'
 
 const stubs = {
+  'page-container': { template: '<div class="page-container"><slot /></div>', props: ['title', 'description'] },
   'el-card': { template: '<div class="el-card"><slot /></div>' },
-  'el-breadcrumb': { template: '<div class="el-breadcrumb"><slot /></div>' },
-  'el-breadcrumb-item': { template: '<span class="el-breadcrumb-item"><slot /></span>' },
-  'el-form': {
-    template: '<form @submit.prevent><slot /></form>',
-    methods: {
-      validate() { return Promise.resolve(true) },
-      resetFields() {},
-    },
-  },
-  'el-form-item': { template: '<div class="el-form-item"><slot /></div>', props: ['label', 'prop'] },
-  'el-input': {
-    template: '<input :value="modelValue" @input="$emit(\'update:modelValue\', $event.target.value)" />',
-    props: ['modelValue', 'type', 'placeholder', 'showPassword', 'clearable', 'rows'],
-    emits: ['update:modelValue'],
-  },
-  'el-button': {
-    template: '<button :disabled="loading" @click="$emit(\'click\')"><slot /></button>',
-    props: ['type', 'size', 'loading', 'link', 'plain'],
-    emits: ['click'],
-  },
   'el-table': {
-    template: '<table><slot /><slot name="append" /></table>',
+    template: '<table><slot /></table>',
     props: ['data', 'border', 'emptyText'],
   },
   'el-table-column': {
@@ -51,25 +44,24 @@ const stubs = {
     props: ['prop', 'label', 'minWidth', 'width', 'fixed', 'showOverflowTooltip'],
   },
   'el-tag': { template: '<span class="el-tag"><slot /></span>', props: ['type'] },
+  'el-tabs': { template: '<div class="el-tabs"><slot /></div>', props: ['modelValue'], emits: ['update:modelValue'] },
+  'el-tab-pane': { template: '<div class="el-tab-pane"><slot /></div>', props: ['label', 'name'] },
   'el-pagination': {
     template: '<div class="el-pagination"></div>',
     props: ['currentPage', 'pageSize', 'background', 'pageSizes', 'layout', 'total'],
     emits: ['size-change', 'current-change', 'update:current-page', 'update:page-size'],
   },
-  'el-dialog': {
-    template: '<div class="el-dialog" v-if="modelValue"><slot /><slot name="footer" /></div>',
-    props: ['modelValue', 'title', 'width', 'destroyOnClose'],
-    emits: ['update:modelValue'],
+  'el-input': {
+    template: '<input :value="modelValue" @input="$emit(\'update:modelValue\', $event.target.value)" @keyup.enter="$emit(\'keyup.enter\')" />',
+    props: ['modelValue', 'placeholder', 'clearable'],
+    emits: ['update:modelValue', 'keyup.enter'],
   },
-  'el-select': {
-    template: '<select :value="modelValue" @change="$emit(\'update:modelValue\', $event.target.value)"><slot /></select>',
-    props: ['modelValue', 'placeholder', 'style', 'clearable'],
-    emits: ['update:modelValue'],
+  'el-button': {
+    template: '<button :disabled="loading" @click="$emit(\'click\')"><slot /></button>',
+    props: ['type', 'loading'],
+    emits: ['click'],
   },
-  'el-option': {
-    template: '<option :value="value"><slot /></option>',
-    props: ['label', 'value'],
-  },
+  'el-alert': { template: '<div class="el-alert">{{ title }}</div>', props: ['type', 'closable', 'title'] },
 }
 
 function mountComponent() {
@@ -87,35 +79,60 @@ describe('Blockchain.vue', () => {
     setActivePinia(createPinia())
   })
 
-  it('组件正确渲染', () => {
-    const wrapper = mountComponent()
-    expect(wrapper.exists()).toBe(true)
-    wrapper.unmount()
-  })
-
-  it('页面加载时调用API', async () => {
+  it('loads blockchain status, blocks, and transactions on mount', async () => {
     const wrapper = mountComponent()
     await flushPromises()
+
+    expect(getStatus).toHaveBeenCalled()
     expect(getLatestBlocks).toHaveBeenCalled()
-    wrapper.unmount()
-  })
-
-  it('API调用失败显示错误消息', async () => {
-    getLatestBlocks.mockRejectedValueOnce(new Error('network error'))
-    const wrapper = mountComponent()
-    await flushPromises()
-    expect(ElMessage.error).toHaveBeenCalled()
-    wrapper.unmount()
-  })
-
-  it('组件渲染数据', async () => {
-    getLatestBlocks.mockResolvedValueOnce({
-      items: [{ hash: '0xabc', blockNumber: 1, timestamp: '2024-01-01' }],
-      total: 1,
+    expect(getTransactions).toHaveBeenCalled()
+    expect(wrapper.vm.chainStatus).toMatchObject({
+      connected: true,
+      mode: 'FABRIC',
+      channel: 'carbon-channel',
     })
+
+    wrapper.unmount()
+  })
+
+  it('shows an error when status loading fails', async () => {
+    getStatus.mockRejectedValueOnce(new Error('status failed'))
+
     const wrapper = mountComponent()
     await flushPromises()
-    expect(getLatestBlocks).toHaveBeenCalled()
+
+    expect(ElMessage.error).toHaveBeenCalled()
+    expect(wrapper.vm.chainStatus).toBeNull()
+
+    wrapper.unmount()
+  })
+
+  it('requires a transaction hash before querying', async () => {
+    const wrapper = mountComponent()
+    await flushPromises()
+
+    wrapper.vm.txHashQuery = '   '
+    await wrapper.vm.submitTxQuery()
+
+    expect(queryTransaction).not.toHaveBeenCalled()
+    expect(wrapper.vm.txQueryError).toBeTruthy()
+
+    wrapper.unmount()
+  })
+
+  it('parses transaction query responses into structured result data', async () => {
+    const wrapper = mountComponent()
+    await flushPromises()
+
+    wrapper.vm.txHashQuery = 'tx-001'
+    await wrapper.vm.submitTxQuery()
+
+    expect(queryTransaction).toHaveBeenCalledWith('tx-001')
+    expect(wrapper.vm.txQueryResult).toMatchObject({
+      txHash: 'tx-001',
+      status: 'VALID',
+    })
+
     wrapper.unmount()
   })
 })

@@ -1,32 +1,35 @@
 import request from './request'
-import type { UserInfoResponse, UserProfileUpdateRequest, PasswordChangeRequest } from '../types'
+import type { PasswordChangeRequest } from '../types/auth'
+import type { UserInfoResponse, UserProfileUpdateRequest } from '../types/user'
 
 export function getProfile(): Promise<UserInfoResponse> {
   return request.get('/user/profile')
 }
 
-export function updateProfile(data: UserProfileUpdateRequest): Promise<void> {
-  if (!data) return Promise.reject(new Error('更新数据不能为空'))
+export function updateProfile(data: UserProfileUpdateRequest): Promise<UserInfoResponse> {
+  if (!data) return Promise.reject(new Error('Profile update payload is required'))
   return request.put('/user/profile', data)
 }
 
 export function changePassword(data: PasswordChangeRequest): Promise<void> {
-  if (!data?.oldPassword) return Promise.reject(new Error('请输入当前密码'))
-  if (!data?.newPassword || data.newPassword.length < 6) return Promise.reject(new Error('新密码至少6位'))
+  if (!data?.oldPassword) return Promise.reject(new Error('Current password is required'))
+  if (!data?.newPassword || data.newPassword.length < 6) {
+    return Promise.reject(new Error('New password must be at least 6 characters'))
+  }
   return request.put('/user/password', data)
 }
 
-export function getUserById(userId: number): Promise<unknown> {
-  if (!userId) return Promise.reject(new Error('用户ID不能为空'))
+export function getUserById(userId: number): Promise<UserInfoResponse> {
+  if (!userId) return Promise.reject(new Error('User ID is required'))
   return request.get(`/user/${userId}`)
 }
 
-export function checkUsername(username: string): Promise<unknown> {
-  if (!username) return Promise.reject(new Error('用户名不能为空'))
+export function checkUsername(username: string): Promise<boolean> {
+  if (!username) return Promise.reject(new Error('Username is required'))
   return request.get('/user/check-username', { params: { username } })
 }
 
-export function checkEmail(email: string): Promise<unknown> {
-  if (!email) return Promise.reject(new Error('邮箱不能为空'))
+export function checkEmail(email: string): Promise<boolean> {
+  if (!email) return Promise.reject(new Error('Email is required'))
   return request.get('/user/check-email', { params: { email } })
 }

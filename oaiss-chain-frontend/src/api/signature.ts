@@ -5,8 +5,8 @@ export function generateKeyPair(): Promise<RsaKeyPairResponse> {
   return request.post('/signature/keypair/generate')
 }
 
-export function getKeyPair(): Promise<RsaKeyPairResponse> {
-  return request.get('/signature/keypair')
+export function getKeyPair(options?: { suppressErrorMessage?: boolean }): Promise<RsaKeyPairResponse> {
+  return request.get('/signature/keypair', options)
 }
 
 export function deleteKeyPair(): Promise<void> {

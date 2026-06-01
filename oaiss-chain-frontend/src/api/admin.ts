@@ -1,7 +1,18 @@
 import request from './request'
-import type { PageRequest } from '../types'
+import type {
+  AdminConfigResponse,
+  AdminDashboardResponse,
+  AdminPermissionResponse,
+  AdminStatisticsResponse,
+  AdminUserPage,
+  EnterpriseAdmissionPage,
+  EnterpriseAdmissionResponse,
+  PageRequest,
+  ReviewerQualificationPage,
+  ReviewerQualificationResponse,
+} from '../types'
 
-export function getUserList(params?: PageRequest): Promise<unknown> {
+export function getUserList(params?: PageRequest): Promise<AdminUserPage> {
   return request.get('/admin/users', { params })
 }
 
@@ -9,17 +20,17 @@ export function updateUserStatus(userId: number, status: number): Promise<void> 
   return request.put(`/admin/users/${userId}/status`, null, { params: { status } })
 }
 
-export function getStatistics(): Promise<unknown> {
+export function getStatistics(): Promise<AdminStatisticsResponse> {
   return request.get('/admin/statistics')
 }
 
 // ============ Enterprise Admission (准入证书) ============
 
-export function getEnterpriseAdmissionList(params?: PageRequest): Promise<unknown> {
+export function getEnterpriseAdmissionList(params?: PageRequest): Promise<EnterpriseAdmissionPage> {
   return request.get('/admin/enterprise-admission', { params })
 }
 
-export function issueEnterpriseAdmission(enterpriseId: number): Promise<unknown> {
+export function issueEnterpriseAdmission(enterpriseId: number): Promise<EnterpriseAdmissionResponse> {
   return request.post(`/admin/enterprise-admission/${enterpriseId}/issue`)
 }
 
@@ -29,11 +40,11 @@ export function revokeEnterpriseAdmission(enterpriseId: number): Promise<void> {
 
 // ============ Reviewer Qualification (审核员资格证) ============
 
-export function getReviewerQualificationList(params?: PageRequest): Promise<unknown> {
+export function getReviewerQualificationList(params?: PageRequest): Promise<ReviewerQualificationPage> {
   return request.get('/admin/reviewer-qualification', { params })
 }
 
-export function issueReviewerQualification(reviewerId: number): Promise<unknown> {
+export function issueReviewerQualification(reviewerId: number): Promise<ReviewerQualificationResponse> {
   return request.post(`/admin/reviewer-qualification/${reviewerId}/issue`)
 }
 
@@ -41,14 +52,14 @@ export function revokeReviewerQualification(reviewerId: number): Promise<void> {
   return request.delete(`/admin/reviewer-qualification/${reviewerId}`)
 }
 
-export function getDashboard(): Promise<unknown> {
+export function getDashboard(): Promise<AdminDashboardResponse> {
   return request.get('/admin/dashboard')
 }
 
-export function getConfig(): Promise<unknown> {
+export function getConfig(): Promise<AdminConfigResponse> {
   return request.get('/admin/config')
 }
 
-export function getPermissions(): Promise<unknown> {
+export function getPermissions(): Promise<AdminPermissionResponse[]> {
   return request.get('/admin/permissions')
 }

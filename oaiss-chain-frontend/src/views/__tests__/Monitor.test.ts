@@ -1,10 +1,29 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { mount, flushPromises } from '@vue/test-utils'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
+
+vi.mock('vue-i18n', () => ({
+  useI18n: () => ({
+    t: (key: string) => key,
+  }),
+}))
 
 vi.mock('../../api/thirdParty', () => ({
   getCarbonReports: vi.fn(() => Promise.resolve({ items: [], total: 0 })),
-  getStatistics: vi.fn(() => Promise.resolve({ data: {} })),
+  getStatistics: vi.fn(() => Promise.resolve({
+    totalReports: 0,
+    pendingReports: 0,
+    approvedReports: 0,
+    rejectedReports: 0,
+  })),
+  getOrgInfo: vi.fn(() => Promise.resolve({
+    orgName: '监管机构A',
+    accessLevel: 2,
+    address: 'Shanghai',
+    contactPerson: 'Alice',
+    contactPhone: '13800138000',
+  })),
+  updateContact: vi.fn(() => Promise.resolve()),
 }))
 
 vi.mock('element-plus', async (importOriginal) => {
@@ -16,20 +35,13 @@ vi.mock('element-plus', async (importOriginal) => {
 })
 
 import Monitor from '../third-party/Monitor.vue'
-import { getCarbonReports, getStatistics } from '../../api/thirdParty'
+import { getCarbonReports, getOrgInfo, getStatistics, updateContact } from '../../api/thirdParty'
 import { ElMessage } from 'element-plus'
 
 const stubs = {
-  'el-card': { template: '<div class="el-card"><slot /></div>' },
-  'el-breadcrumb': { template: '<div class="el-breadcrumb"><slot /></div>' },
-  'el-breadcrumb-item': { template: '<span class="el-breadcrumb-item"><slot /></span>' },
-  'el-form': {
-    template: '<form @submit.prevent><slot /></form>',
-    methods: {
-      validate() { return Promise.resolve(true) },
-      resetFields() {},
-    },
-  },
+  'page-container': { template: '<div class="page-container"><slot /></div>', props: ['title', 'description'] },
+  'el-card': { template: '<div class="el-card"><slot /><slot name="header" /></div>' },
+  'el-form': { template: '<form @submit.prevent><slot /></form>' },
   'el-form-item': { template: '<div class="el-form-item"><slot /></div>', props: ['label', 'prop'] },
   'el-input': {
     template: '<input :value="modelValue" @input="$emit(\'update:modelValue\', $event.target.value)" />',
@@ -64,7 +76,6 @@ const stubs = {
     template: '<option :value="value"><slot /></option>',
     props: ['label', 'value'],
   },
-  'el-statistic': { template: '<div class="el-statistic"><slot /></div>', props: ['title', 'value'] },
 }
 
 function mountComponent() {
@@ -72,6 +83,9 @@ function mountComponent() {
     global: {
       plugins: [createPinia()],
       stubs,
+      directives: {
+        loading: {},
+      },
     },
   })
 }
@@ -82,35 +96,100 @@ describe('Monitor.vue', () => {
     setActivePinia(createPinia())
   })
 
-  it('组件正确渲染', () => {
-    const wrapper = mountComponent()
-    expect(wrapper.exists()).toBe(true)
-    wrapper.unmount()
-  })
-
-  it('页面加载时调用API', async () => {
+  it('loads reports, statistics, and org info on mount', async () => {
     const wrapper = mountComponent()
     await flushPromises()
-    expect(getCarbonReports).toHaveBeenCalled()
-    wrapper.unmount()
-  })
 
-  it('API调用失败显示错误消息', async () => {
-    getCarbonReports.mockRejectedValueOnce(new Error('network error'))
-    const wrapper = mountComponent()
-    await flushPromises()
-    expect(ElMessage.error).toHaveBeenCalled()
-    wrapper.unmount()
-  })
-
-  it('组件渲染数据', async () => {
-    getCarbonReports.mockResolvedValueOnce({
-      items: [{ id: 1, status: 'pending' }],
-      total: 1,
+    expect(getCarbonReports).toHaveBeenCalledWith({
+      pageNum: 1,
+      pageSize: 10,
+      enterpriseId: undefined,
+      keyword: undefined,
+      status: undefined,
     })
+    expect(getStatistics).toHaveBeenCalled()
+    expect(getOrgInfo).toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  it('forwards filter params to the backend report query', async () => {
     const wrapper = mountComponent()
     await flushPromises()
-    expect(getCarbonReports).toHaveBeenCalled()
+
+    const inputs = wrapper.findAll('input')
+    await inputs[2].setValue('12')
+    await inputs[3].setValue('annual')
+    await wrapper.find('select').setValue('3')
+    ;(wrapper.vm as unknown as { onSearch: () => void }).onSearch()
+    await flushPromises()
+
+    expect(getCarbonReports).toHaveBeenNthCalledWith(2, {
+      pageNum: 1,
+      pageSize: 10,
+      enterpriseId: 12,
+      keyword: 'annual',
+      status: '3',
+    })
+    wrapper.unmount()
+  })
+
+  it('hydrates org info and statistics into the page state', async () => {
+    vi.mocked(getStatistics).mockResolvedValueOnce({
+      totalReports: 20,
+      pendingReports: 5,
+      approvedReports: 12,
+      rejectedReports: 3,
+      orgName: '监管机构A',
+      accessLevel: 2,
+    })
+
+    const wrapper = mountComponent()
+    await flushPromises()
+
+    expect((wrapper.vm as unknown as { statistics: { totalReports: number } }).statistics.totalReports).toBe(20)
+    expect((wrapper.vm as unknown as { orgInfo: { orgName: string } | null }).orgInfo?.orgName).toBe('监管机构A')
+    wrapper.unmount()
+  })
+
+  it('saves contact info and refreshes org info on success', async () => {
+    const wrapper = mountComponent()
+    await flushPromises()
+
+    const inputs = wrapper.findAll('input')
+    await inputs[0].setValue('Bob')
+    await inputs[1].setValue('13900139000')
+    await wrapper.findAll('button')[0].trigger('click')
+    await flushPromises()
+
+    expect(updateContact).toHaveBeenCalledWith({
+      contactPerson: 'Bob',
+      contactPhone: '13900139000',
+    })
+    expect(ElMessage.success).toHaveBeenCalledWith('monitor.contactSaveSuccess')
+    expect(getOrgInfo).toHaveBeenCalledTimes(2)
+    wrapper.unmount()
+  })
+
+  it('shows an error message when report loading fails', async () => {
+    vi.mocked(getCarbonReports).mockRejectedValueOnce(new Error('network error'))
+    const wrapper = mountComponent()
+    await flushPromises()
+    expect(ElMessage.error).toHaveBeenCalledWith('monitor.loadFailed')
+    wrapper.unmount()
+  })
+
+  it('blocks invalid contact submissions before calling the backend', async () => {
+    const wrapper = mountComponent()
+    await flushPromises()
+
+    const inputs = wrapper.findAll('input')
+    await inputs[0].setValue('')
+    await inputs[1].setValue('abc')
+    await wrapper.findAll('button')[0].trigger('click')
+    await flushPromises()
+
+    expect(updateContact).not.toHaveBeenCalled()
+    expect(ElMessage.warning).toHaveBeenCalledWith('monitor.contactSaveFailed')
     wrapper.unmount()
   })
 })

@@ -4,41 +4,42 @@ import { ElMessage } from 'element-plus'
 import { useI18n } from 'vue-i18n'
 import { getLatestBlocks, getStatus, getTransactions, queryTransaction } from '../../api/blockchain'
 import PageContainer from '../../components/PageContainer.vue'
+import type { BlockchainBlockResponse, BlockchainStatusResponse, BlockchainTransactionResponse } from '../../types'
 
 const { t } = useI18n()
 
 const activeTab = ref('blocks')
 
-const chainStatus = ref<Record<string, unknown> | null>(null)
+const chainStatus = ref<BlockchainStatusResponse | null>(null)
 const statusLoading = ref(false)
 const txHashQuery = ref('')
 const txQueryLoading = ref(false)
-const txQueryResult = ref<Record<string, unknown> | null>(null)
+const txQueryResult = ref<BlockchainTransactionResponse | Record<string, unknown> | null>(null)
 const txQueryError = ref('')
 
-const blocks = ref([])
+const blocks = ref<BlockchainBlockResponse[]>([])
 const blocksLoading = ref(false)
 const blocksCurrentPage = ref(1)
 const blocksPageSize = ref(10)
 const blocksTotal = ref(0)
 
-const transactions = ref([])
+const transactions = ref<BlockchainTransactionResponse[]>([])
 const transactionsLoading = ref(false)
 const transactionsCurrentPage = ref(1)
 const transactionsPageSize = ref(10)
 const transactionsTotal = ref(0)
 
-const parseRecord = (value: unknown): Record<string, unknown> | null => {
+const parseRecord = <T extends Record<string, unknown>>(value: unknown): T | Record<string, unknown> | null => {
   if (!value) return null
   if (typeof value === 'string') {
     try {
-      return JSON.parse(value) as Record<string, unknown>
+      return JSON.parse(value) as T
     } catch {
       return { raw: value }
     }
   }
   if (typeof value === 'object') {
-    return value as Record<string, unknown>
+    return value as T
   }
   return { value }
 }
@@ -60,7 +61,20 @@ const statusTagType = (connected: unknown) => {
 const loadStatus = async () => {
   try {
     statusLoading.value = true
-    chainStatus.value = parseRecord(await getStatus())
+    const result = parseRecord<BlockchainStatusResponse>(await getStatus())
+    chainStatus.value = result && 'connected' in result
+      ? {
+          connected: Boolean(result.connected),
+          channel: typeof result.channel === 'string' ? result.channel : undefined,
+          peers: typeof result.peers === 'number' ? result.peers : undefined,
+          orderers: typeof result.orderers === 'number' ? result.orderers : undefined,
+          mode: typeof result.mode === 'string' ? result.mode : undefined,
+          mspId: typeof result.mspId === 'string' ? result.mspId : undefined,
+          chaincode: typeof result.chaincode === 'string' ? result.chaincode : undefined,
+          caEnabled: typeof result.caEnabled === 'boolean' ? result.caEnabled : undefined,
+          timestamp: typeof result.timestamp === 'string' ? result.timestamp : undefined,
+        }
+      : null
   } catch {
     chainStatus.value = null
     ElMessage.error(t('blockchain.loadStatusFailed'))
@@ -101,29 +115,29 @@ const loadTransactions = async () => {
   }
 }
 
-const onBlocksSizeChange = (size) => {
+const onBlocksSizeChange = (size: number) => {
   blocksPageSize.value = size
   blocksCurrentPage.value = 1
   loadBlocks()
 }
 
-const onBlocksCurrentChange = (page) => {
+const onBlocksCurrentChange = (page: number) => {
   blocksCurrentPage.value = page
   loadBlocks()
 }
 
-const onTransactionsSizeChange = (size) => {
+const onTransactionsSizeChange = (size: number) => {
   transactionsPageSize.value = size
   transactionsCurrentPage.value = 1
   loadTransactions()
 }
 
-const onTransactionsCurrentChange = (page) => {
+const onTransactionsCurrentChange = (page: number) => {
   transactionsCurrentPage.value = page
   loadTransactions()
 }
 
-const getBlockTypeTag = (type) => {
+const getBlockTypeTag = (type?: string) => {
   const map = {
     'GENESIS': 'danger',
     'REGULAR': 'primary',
@@ -132,7 +146,7 @@ const getBlockTypeTag = (type) => {
   return map[type] || 'info'
 }
 
-const getBlockTypeText = (type) => {
+const getBlockTypeText = (type?: string) => {
   const map = {
     'GENESIS': t('blockchain.blockTypeGenesis'),
     'REGULAR': t('blockchain.blockTypeRegular'),
@@ -141,7 +155,7 @@ const getBlockTypeText = (type) => {
   return map[type] || type
 }
 
-const getTransactionStatusTag = (status) => {
+const getTransactionStatusTag = (status?: string) => {
   const map = {
     'PENDING': 'warning',
     'CONFIRMED': 'success',
@@ -151,7 +165,7 @@ const getTransactionStatusTag = (status) => {
   return map[status] || 'info'
 }
 
-const getTransactionStatusText = (status) => {
+const getTransactionStatusText = (status?: string) => {
   const map = {
     'PENDING': t('blockchain.txStatusPending'),
     'CONFIRMED': t('blockchain.txStatusConfirmed'),
@@ -171,8 +185,8 @@ const submitTxQuery = async () => {
   try {
     txQueryLoading.value = true
     txQueryError.value = ''
-    const result = await queryTransaction(txHashQuery.value.trim())
-    txQueryResult.value = parseRecord(result)
+    const result = parseRecord<BlockchainTransactionResponse>(await queryTransaction(txHashQuery.value.trim()))
+    txQueryResult.value = result
   } catch (error) {
     txQueryResult.value = null
     txQueryError.value = error instanceof Error ? error.message : t('blockchain.queryTxFailed')

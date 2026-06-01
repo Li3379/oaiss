@@ -1,5 +1,5 @@
-import axios, { type InternalAxiosRequestConfig, type AxiosResponse } from 'axios'
-import { getAccessToken, getRefreshToken, setTokens, clearTokens, isTokenExpired } from '../utils/auth'
+import axios, { type AxiosRequestConfig, type InternalAxiosRequestConfig, type AxiosResponse } from 'axios'
+import { getAccessToken, getRefreshToken, clearTokens, isTokenExpired } from '../utils/auth'
 import router from '../router'
 import { ElMessage } from 'element-plus'
 import type { ApiResponse, SpringPage } from '../types'
@@ -10,7 +10,20 @@ const RETRY_BASE_DELAY_MS = 1000
 const REQUEST_TIMEOUT_MS = 15000
 const SUCCESS_CODES = [200, 0]
 
+const TOKEN_REFRESH_FAILED_MESSAGE = 'Token refresh failed'
+const INVALID_REFRESH_SESSION_MESSAGE = 'Refreshed session is invalid'
+const LOGIN_EXPIRED_MESSAGE = 'Login session expired, please sign in again'
+const REQUEST_FAILED_MESSAGE = 'Request failed'
+const SERVER_ERROR_MESSAGE = 'Server error'
+const FORBIDDEN_MESSAGE = 'You do not have permission to perform this action'
+const NOT_FOUND_MESSAGE = 'Requested resource was not found'
+const NETWORK_ERROR_MESSAGE = 'Network error, please check your connection'
+
 declare module 'axios' {
+  interface AxiosRequestConfig {
+    suppressErrorMessage?: boolean
+  }
+
   interface InternalAxiosRequestConfig {
     __retryCount?: number
     suppressErrorMessage?: boolean
@@ -38,12 +51,12 @@ function onTokenRefreshed(newToken: string): void {
 }
 
 function onTokenRefreshFailed(): void {
-  pendingRequests.forEach(({ reject }) => reject(new Error('Token 刷新失败')))
+  pendingRequests.forEach(({ reject }) => reject(new Error(TOKEN_REFRESH_FAILED_MESSAGE)))
   pendingRequests = []
 }
 
 request.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
-  // F8: 统一分页参数名 — 前端 pageNum/pageSize → 后端 page/size
+  // Normalize frontend paging params to backend Spring Data style.
   if (config.params) {
     const { pageNum, pageSize, ...rest } = config.params as Record<string, unknown>
     if (pageNum !== undefined || pageSize !== undefined) {
@@ -67,7 +80,13 @@ request.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
             {},
             { headers: { 'Refresh-Token': refreshToken } },
           )
-          setTokens(data.data!.accessToken, data.data!.refreshToken)
+          const refreshed = appStore.login({
+            accessToken: data.data!.accessToken,
+            refreshToken: data.data!.refreshToken,
+          })
+          if (!refreshed) {
+            throw new Error(INVALID_REFRESH_SESSION_MESSAGE)
+          }
           onTokenRefreshed(data.data!.accessToken)
           config.headers.Authorization = `Bearer ${data.data!.accessToken}`
         } catch {
@@ -75,7 +94,7 @@ request.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
           clearTokens()
           appStore.logout()
           router.push('/login')
-          return Promise.reject(new Error('Token 刷新失败，请重新登录'))
+          return Promise.reject(new Error(LOGIN_EXPIRED_MESSAGE))
         } finally {
           isRefreshing = false
         }
@@ -105,12 +124,34 @@ interface TransformedPage<T> {
   totalPages: number
 }
 
+interface BusinessApiError<T = unknown> extends Error {
+  businessCode: number
+  payload: ApiResponse<T>
+  response: AxiosResponse<ApiResponse<T>>
+}
+
+function createBusinessApiError<T>(response: AxiosResponse<ApiResponse<T>>): BusinessApiError<T> {
+  const payload = response.data
+  const error = new Error(payload.message || REQUEST_FAILED_MESSAGE) as BusinessApiError<T>
+  error.name = 'BusinessApiError'
+  error.businessCode = payload.code
+  error.payload = payload
+  error.response = response
+  return error
+}
+
 request.interceptors.response.use(
   (response: AxiosResponse) => {
     const { code, message, data } = response.data as ApiResponse<unknown>
     if (SUCCESS_CODES.includes(code)) {
-      // F9: Spring Data Page 格式转换 — 保留完整分页元数据
-      if (data && typeof data === 'object' && 'content' in data && Array.isArray((data as SpringPage<unknown>).content) && 'totalElements' in data) {
+      // Transform Spring Data Page responses into the frontend paging shape.
+      if (
+        data &&
+        typeof data === 'object' &&
+        'content' in data &&
+        Array.isArray((data as SpringPage<unknown>).content) &&
+        'totalElements' in data
+      ) {
         const page = data as SpringPage<unknown>
         return {
           items: page.content,
@@ -122,22 +163,25 @@ request.interceptors.response.use(
       }
       return data
     }
-    ElMessage.error(message || '请求失败')
-    return Promise.reject(new Error(message))
+    const config = response.config as AxiosRequestConfig
+    if (!config?.suppressErrorMessage) {
+      ElMessage.error(message || REQUEST_FAILED_MESSAGE)
+    }
+    return Promise.reject(createBusinessApiError(response as AxiosResponse<ApiResponse<unknown>>))
   },
   async (error) => {
     const config = error.config as InternalAxiosRequestConfig | undefined
     if (!config || (config.__retryCount ?? 0) >= RETRY_MAX_ATTEMPTS) {
-      // 超过重试次数或无配置，继续正常错误处理
+      // Fall through to standard error handling.
     } else if (!error.response && (error.code === 'ECONNABORTED' || error.message?.includes('Network Error'))) {
       config.__retryCount = (config.__retryCount || 0) + 1
-      await new Promise(r => setTimeout(r, RETRY_BASE_DELAY_MS * config.__retryCount!))
+      await new Promise((resolve) => setTimeout(resolve, RETRY_BASE_DELAY_MS * config.__retryCount!))
       return request(config)
     }
 
     if (error.response) {
       const { status, data } = error.response as AxiosResponse<ApiResponse<null>>
-      const msg = data?.message || '服务器错误'
+      const msg = data?.message || SERVER_ERROR_MESSAGE
 
       if (status === 401) {
         const isLoginRequest = error.config?.url?.includes('/auth/login')
@@ -146,25 +190,21 @@ request.interceptors.response.use(
           clearTokens()
           appStore.logout()
           router.push('/login')
-          ElMessage.error('登录已过期，请重新登录')
+          ElMessage.error(LOGIN_EXPIRED_MESSAGE)
         } else {
           ElMessage.error(msg)
         }
       } else if (status === 403) {
-        ElMessage.error('没有权限执行此操作')
+        ElMessage.error(FORBIDDEN_MESSAGE)
       } else if (status === 404) {
         if (!config?.suppressErrorMessage) {
-          ElMessage.error('请求的资源不存在')
+          ElMessage.error(NOT_FOUND_MESSAGE)
         }
-      } else {
-        if (!config?.suppressErrorMessage) {
-          ElMessage.error(msg)
-        }
+      } else if (!config?.suppressErrorMessage) {
+        ElMessage.error(msg)
       }
-    } else {
-      if (!config?.suppressErrorMessage) {
-        ElMessage.error('网络异常，请检查网络连接')
-      }
+    } else if (!config?.suppressErrorMessage) {
+      ElMessage.error(NETWORK_ERROR_MESSAGE)
     }
     return Promise.reject(error)
   },

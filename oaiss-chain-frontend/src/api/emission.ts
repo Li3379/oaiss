@@ -10,7 +10,7 @@ export function getEnterpriseRatings(enterpriseId: number): Promise<EmissionRati
   return request.get(`/emission/ratings/${enterpriseId}`)
 }
 
-export function getIndustryRankings(year: number, params?: PageRequest): Promise<unknown> {
+export function getIndustryRankings(year: number, params?: PageRequest): Promise<EmissionRating[]> {
   return request.get(`/emission/rankings/${year}`, { params })
 }
 

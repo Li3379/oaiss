@@ -177,7 +177,17 @@ export interface JwtPayload {
   sub?: string
   userId?: number
   userType?: number
+  roles?: string[]
+  enterpriseId?: number
   [key: string]: unknown
+}
+
+function decodeBase64UrlSegment(segment: string): string {
+  const normalized = segment.replace(/-/g, '+').replace(/_/g, '/')
+  const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=')
+  const binary = atob(padded)
+  const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0))
+  return new TextDecoder().decode(bytes)
 }
 
 /**
@@ -190,9 +200,9 @@ export function parseJwtPayload(token: string): JwtPayload | null {
   try {
     const parts = token.split('.')
     if (parts.length !== 3) return null
-    const header = JSON.parse(atob(parts[0]))
+    const header = JSON.parse(decodeBase64UrlSegment(parts[0]))
     if (header.alg === 'none') return null
-    return JSON.parse(atob(parts[1]))
+    return JSON.parse(decodeBase64UrlSegment(parts[1]))
   } catch {
     return null
   }

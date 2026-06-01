@@ -1,65 +1,33 @@
 <script setup lang="ts">
-import { computed, reactive, ref, onMounted } from "vue"
+import { reactive, ref, onMounted } from "vue"
 import { useI18n } from "vue-i18n"
 import { ElMessage, ElMessageBox } from "element-plus"
 import { getMyTrades, createP2PTrade, cancelTrade, confirmTrade } from "../../api/trade"
-import { useAppStore } from "../../store"
+import type { TradeIdentityFilter, TradeResponse } from "../../types"
 
 const { t } = useI18n()
-const appStore = useAppStore()
 
 const loading = ref(false)
-const searchForm = reactive({
-  name: "",
+const searchForm = reactive<{
+  keyword: string
+  identity: TradeIdentityFilter | ""
+  tradeNo: string
+}>({
+  keyword: "",
   identity: "",
-  orderNo: "",
+  tradeNo: "",
 })
 
-const identityOptions = ["tradingP2P.identityBuyer", "tradingP2P.identitySeller"]
+const identityOptions: Array<{ label: string; value: TradeIdentityFilter }> = [
+  { label: "tradingP2P.identityBuyer", value: "buyer" },
+  { label: "tradingP2P.identitySeller", value: "seller" },
+]
 
 const page = ref(1)
 const pageSize = ref(10)
 const total = ref(0)
 
-const tableData = ref([])
-
-const filteredTableData = computed(() => {
-  const keyword = searchForm.name.trim().toLowerCase()
-  const orderNo = searchForm.orderNo.trim().toLowerCase()
-
-  return tableData.value.filter((row) => {
-    if (keyword) {
-      const matchesKeyword = [row.buyerName, row.sellerName]
-        .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(keyword))
-
-      if (!matchesKeyword) {
-        return false
-      }
-    }
-
-    if (orderNo && !String(row.tradeNo || "").toLowerCase().includes(orderNo)) {
-      return false
-    }
-
-    if (searchForm.identity && appStore.userId) {
-      if (searchForm.identity === "tradingP2P.identityBuyer" && row.buyerId !== appStore.userId) {
-        return false
-      }
-
-      if (searchForm.identity === "tradingP2P.identitySeller" && row.sellerId !== appStore.userId) {
-        return false
-      }
-    }
-
-    return true
-  })
-})
-
-const displayTotal = computed(() => {
-  const hasLocalFilter = Boolean(searchForm.name || searchForm.orderNo || searchForm.identity)
-  return hasLocalFilter ? filteredTableData.value.length : total.value
-})
+const tableData = ref<TradeResponse[]>([])
 
 const dialogVisible = ref(false)
 const dialogFormRef = ref()
@@ -95,13 +63,19 @@ const getStatusTagType = (status) => {
   return statusMap[status] || "info"
 }
 
+const buildTradeQuery = () => ({
+  pageNum: page.value,
+  pageSize: pageSize.value,
+  tradeType: 2,
+  tradeNo: searchForm.tradeNo.trim() || undefined,
+  keyword: searchForm.keyword.trim() || undefined,
+  identity: searchForm.identity || undefined,
+})
+
 const loadTrades = async () => {
   loading.value = true
   try {
-    const result = await getMyTrades({
-      pageNum: page.value,
-      pageSize: pageSize.value,
-    })
+    const result = await getMyTrades(buildTradeQuery())
     tableData.value = result?.items || []
     total.value = result?.total || 0
   } catch (error) {
@@ -118,13 +92,13 @@ const onQuery = () => {
   loadTrades()
 }
 
-const onSizeChange = (size) => {
+const onSizeChange = (size: number) => {
   pageSize.value = size
   page.value = 1
   loadTrades()
 }
 
-const onPageChange = (val) => {
+const onPageChange = (val: number) => {
   page.value = val
   loadTrades()
 }
@@ -169,7 +143,7 @@ const onSave = async () => {
   }
 }
 
-const onCancelTrade = async (row) => {
+const onCancelTrade = async (row: TradeResponse) => {
   if (row.status !== 0) {
     ElMessage.warning(t("tradingP2P.canOnlyCancelPending"))
     return
@@ -194,7 +168,7 @@ const onCancelTrade = async (row) => {
   }
 }
 
-const onConfirmTrade = async (row) => {
+const onConfirmTrade = async (row: TradeResponse) => {
   if (row.status !== 0) {
     ElMessage.warning(t("tradingP2P.canOnlyConfirmPending"))
     return
@@ -236,17 +210,17 @@ onMounted(() => {
     <el-card class="section-card" shadow="never">
       <el-form :inline="true" class="search-form">
         <el-form-item :label="t('tradingP2P.colCounterpartyName')">
-          <el-input v-model="searchForm.name" :placeholder="t('common.enterKeyword')" clearable />
+          <el-input v-model="searchForm.keyword" :placeholder="t('common.enterKeyword')" clearable />
         </el-form-item>
 
         <el-form-item :label="t('tradingP2P.identityFilterLabel')">
           <el-select v-model="searchForm.identity" :placeholder="t('tradingP2P.identityFilterPlaceholder')" clearable>
-            <el-option v-for="item in identityOptions" :key="item" :label="t(item)" :value="item" />
+            <el-option v-for="item in identityOptions" :key="item.value" :label="t(item.label)" :value="item.value" />
           </el-select>
         </el-form-item>
 
         <el-form-item :label="t('tradingP2P.colTradeNo')">
-          <el-input v-model="searchForm.orderNo" :placeholder="t('common.enterKeyword')" clearable />
+          <el-input v-model="searchForm.tradeNo" :placeholder="t('common.enterKeyword')" clearable />
         </el-form-item>
 
         <el-form-item>
@@ -257,7 +231,7 @@ onMounted(() => {
     </el-card>
 
     <el-card class="section-card" shadow="never">
-      <el-table :data="filteredTableData" border v-loading="loading" :empty-text="t('tradingP2P.emptyText')">
+      <el-table :data="tableData" border v-loading="loading" :empty-text="t('tradingP2P.emptyText')">
         <el-table-column :label="t('tradingMarket.colIndex')" width="80">
           <template #default="scope">
             {{ (page - 1) * pageSize + scope.$index + 1 }}
@@ -293,7 +267,7 @@ onMounted(() => {
           background
           :page-sizes="[10, 20, 50]"
           layout="total, sizes, prev, pager, next, jumper"
-          :total="displayTotal"
+          :total="total"
           @size-change="onSizeChange"
           @current-change="onPageChange"
         />

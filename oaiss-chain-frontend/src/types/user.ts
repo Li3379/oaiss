@@ -1,4 +1,4 @@
-/** 用户信息响应 */
+/** User info returned by profile and user detail endpoints. */
 export interface UserInfoResponse {
   userId: number
   username: string
@@ -6,6 +6,8 @@ export interface UserInfoResponse {
   phone: string
   email: string
   avatar: string
+  company: string
+  address: string
   userType: number
   userTypeDesc: string
   status: number
@@ -14,15 +16,17 @@ export interface UserInfoResponse {
   createdAt: string
 }
 
-/** 用户资料更新请求 */
+/** Request payload for updating the current user profile. */
 export interface UserProfileUpdateRequest {
   realName?: string
   phone?: string
   email?: string
   avatar?: string
+  company?: string
+  address?: string
 }
 
-/** 用户实体 (Admin接口返回) */
+/** User entity returned by admin endpoints. */
 export interface User {
   id: number
   username: string
@@ -38,4 +42,34 @@ export interface User {
   createdAt: string
   updatedAt: string
   deleted: boolean
+}
+
+/** Enterprise profile returned by enterprise endpoints. */
+export interface EnterpriseResponse {
+  id: number
+  userId: number
+  enterpriseName: string
+  creditCode: string
+  address: string
+  contactPerson: string
+  contactPhone: string
+  industry: string
+  scale: string
+  carbonQuota: number | string
+  carbonUsed: number | string
+  carbonTradable: number | string
+  licenseUrl: string
+  certStatus: number
+  createdAt: string
+  updatedAt: string
+}
+
+/** Enterprise quota summary returned by `/enterprise/quota`. */
+export interface EnterpriseQuotaResponse {
+  totalQuota: number | string
+  usedQuota: number | string
+  tradableQuota: number | string
+  enterpriseName: string
+  remainingQuota: number | string
+  usageRate: number | string
 }

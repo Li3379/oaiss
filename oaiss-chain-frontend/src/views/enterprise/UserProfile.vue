@@ -1,12 +1,19 @@
 <script setup lang="ts">
-import { ref, onMounted, watch, computed } from 'vue'
-import { useI18n } from 'vue-i18n'
+import { computed, onMounted, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getProfile, updateProfile, changePassword } from '../../api/user'
+import type { FormInstance, FormRules } from 'element-plus'
+import { useI18n } from 'vue-i18n'
+import { changePassword, getProfile, updateProfile } from '../../api/user'
 import { getMyEnterpriseAdmission } from '../../api/enterprise'
-import { generateKeyPair, deleteKeyPair } from '../../api/signature'
+import { deleteKeyPair, generateKeyPair, getKeyPair } from '../../api/signature'
 import PageContainer from '../../components/PageContainer.vue'
-import type { ApiResponse, RsaKeyPairResponse, UserInfoResponse } from '../../types'
+import type {
+  EnterpriseAdmissionResponse,
+  PasswordChangeRequest,
+  RsaKeyPairResponse,
+  UserInfoResponse,
+  UserProfileUpdateRequest,
+} from '../../types'
 import { getAccessToken } from '../../utils/auth'
 import { formatDateTime } from '../../utils/format'
 
@@ -21,21 +28,21 @@ interface ProfileEditForm {
   address: string
 }
 
-type ProfileViewModel = UserInfoResponse & Partial<Pick<ProfileEditForm, 'company' | 'address'>>
+type PasswordForm = PasswordChangeRequest
 
 const activeTab = ref('info')
 const profileLoading = ref(false)
-const profile = ref<ProfileViewModel | null>(null)
+const profile = ref<UserInfoResponse | null>(null)
 
-const pwdFormRef = ref<any>(null)
+const pwdFormRef = ref<FormInstance>()
 const pwdLoading = ref(false)
-const pwdForm = ref({
+const pwdForm = ref<PasswordForm>({
   oldPassword: '',
   newPassword: '',
   confirmPassword: '',
 })
 
-const pwdRules = {
+const pwdRules: FormRules<PasswordForm> = {
   oldPassword: [{ required: true, message: t('userProfile.enterCurrentPassword'), trigger: 'blur' }],
   newPassword: [
     { required: true, message: t('userProfile.enterNewPassword'), trigger: 'blur' },
@@ -44,26 +51,25 @@ const pwdRules = {
   confirmPassword: [
     { required: true, message: t('userProfile.confirmNewPassword'), trigger: 'blur' },
     {
-      validator: (rule, value, callback) => {
+      validator: (_rule, value, callback) => {
         if (value !== pwdForm.value.newPassword) {
           callback(new Error(t('userProfile.passwordMismatch')))
-        } else {
-          callback()
+          return
         }
+        callback()
       },
       trigger: ['blur', 'change'],
     },
   ],
 }
 
-// 当新密码变更时，重新校验确认密码
 watch(() => pwdForm.value.newPassword, () => {
   if (pwdForm.value.confirmPassword) {
     pwdFormRef.value?.validateField('confirmPassword')
   }
 })
 
-const editFormRef = ref<any>(null)
+const editFormRef = ref<FormInstance>()
 const editLoading = ref(false)
 const editForm = ref<ProfileEditForm>({
   realName: '',
@@ -73,24 +79,28 @@ const editForm = ref<ProfileEditForm>({
   address: '',
 })
 
-const editRules = {
+const editRules: FormRules<ProfileEditForm> = {
   realName: [{ required: true, message: t('userProfile.enterRealName'), trigger: 'blur' }],
   email: [{ type: 'email', message: t('userProfile.invalidEmail'), trigger: 'blur' }],
+}
+
+function applyProfileToForm(result: UserInfoResponse) {
+  editForm.value = {
+    realName: result.realName || '',
+    email: result.email || '',
+    phone: result.phone || '',
+    company: result.company || '',
+    address: result.address || '',
+  }
 }
 
 const loadProfile = async () => {
   try {
     profileLoading.value = true
-    const result = await getProfile() as ProfileViewModel
+    const result = await getProfile()
     profile.value = result
-    editForm.value = {
-      realName: result?.realName || '',
-      email: result?.email || '',
-      phone: result?.phone || '',
-      company: result?.company || '',
-      address: result?.address || '',
-    }
-  } catch (error) {
+    applyProfileToForm(result)
+  } catch {
     ElMessage.error(t('userProfile.loadUserFailed'))
   } finally {
     profileLoading.value = false
@@ -98,15 +108,17 @@ const loadProfile = async () => {
 }
 
 const onSaveProfile = async () => {
-  const valid = await editFormRef.value.validate().catch(() => false)
+  const valid = await editFormRef.value?.validate().catch(() => false)
   if (!valid) return
 
   try {
     editLoading.value = true
-    await updateProfile(editForm.value)
+    const payload: UserProfileUpdateRequest = { ...editForm.value }
+    const result = await updateProfile(payload)
+    profile.value = result
+    applyProfileToForm(result)
     ElMessage.success(t('userProfile.updateSuccess'))
-    loadProfile()
-  } catch (error) {
+  } catch {
     ElMessage.error(t('userProfile.updateFailed'))
   } finally {
     editLoading.value = false
@@ -114,7 +126,7 @@ const onSaveProfile = async () => {
 }
 
 const onChangePassword = async () => {
-  const valid = await pwdFormRef.value.validate().catch(() => false)
+  const valid = await pwdFormRef.value?.validate().catch(() => false)
   if (!valid) return
 
   try {
@@ -126,14 +138,14 @@ const onChangePassword = async () => {
     })
     ElMessage.success(t('userProfile.passwordChangeSuccess'))
     pwdForm.value = { oldPassword: '', newPassword: '', confirmPassword: '' }
-  } catch (error) {
+  } catch {
     ElMessage.error(t('userProfile.passwordChangeFailed'))
   } finally {
     pwdLoading.value = false
   }
 }
 
-const admissionStatus = ref<Record<string, unknown> | null>(null)
+const admissionStatus = ref<EnterpriseAdmissionResponse | null>(null)
 const admissionLoading = ref(false)
 const signatureLoading = ref(false)
 const signatureActionLoading = ref(false)
@@ -143,9 +155,8 @@ const signatureKeyPair = ref<RsaKeyPairResponse | null>(null)
 const fetchAdmissionStatus = async () => {
   admissionLoading.value = true
   try {
-    const res = await getMyEnterpriseAdmission()
-    const list = Array.isArray(res) ? res : ((res as Record<string, unknown>)?.items as unknown[] || [])
-    admissionStatus.value = list.length > 0 ? list[0] as Record<string, unknown> : null
+    const list = await getMyEnterpriseAdmission()
+    admissionStatus.value = list[0] || null
   } catch {
     admissionStatus.value = null
   } finally {
@@ -204,28 +215,18 @@ async function fetchSignatureKeyPair(): Promise<RsaKeyPairResponse | null> {
   const token = getAccessToken()
   if (!token) return null
 
-  const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/signature/keypair`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  })
-
-  let payload: ApiResponse<RsaKeyPairResponse> | null = null
   try {
-    payload = await response.json()
-  } catch {
-    payload = null
+    return await getKeyPair({ suppressErrorMessage: true })
+  } catch (error) {
+    const businessCode = typeof error === 'object' && error
+      ? (error as { businessCode?: unknown; response?: { data?: { code?: unknown } } }).businessCode
+        ?? (error as { response?: { data?: { code?: unknown } } }).response?.data?.code
+      : null
+    if (businessCode === RSA_KEY_REVOKED_CODE) {
+      return null
+    }
+    throw error
   }
-
-  if (response.status === 404 || payload?.code === RSA_KEY_REVOKED_CODE) {
-    return null
-  }
-
-  if (!response.ok || !payload || ![200, 0].includes(payload.code)) {
-    throw new Error(payload?.message || 'Failed to load signature keypair')
-  }
-
-  return payload.data || null
 }
 
 const loadSignatureKeyPair = async () => {
@@ -361,7 +362,7 @@ onMounted(() => {
         <template #header>
           <span>{{ t('certificateManage.myAdmission') }}</span>
         </template>
-        <el-descriptions :column="2" border>
+        <el-descriptions :column="2" border v-loading="admissionLoading">
           <el-descriptions-item :label="t('certificateManage.certStatus')">
             <el-tag :type="admissionStatusType">{{ admissionStatusText }}</el-tag>
           </el-descriptions-item>
