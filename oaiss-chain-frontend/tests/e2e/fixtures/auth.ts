@@ -78,9 +78,15 @@ async function persistAuth(page: Page, accessToken: string, refreshToken: string
   await page.goto(BASE_URL)
   await page.evaluate(
     ({ accessToken: nextAccessToken, refreshToken: nextRefreshToken }) => {
+      sessionStorage.clear()
+      localStorage.clear()
+
       localStorage.setItem('access_token', nextAccessToken)
       localStorage.setItem('refresh_token', nextRefreshToken)
       localStorage.setItem('remember_me', 'true')
+      sessionStorage.setItem('access_token', nextAccessToken)
+      sessionStorage.setItem('refresh_token', nextRefreshToken)
+      sessionStorage.setItem('remember_me', 'true')
 
       try {
         const parts = nextAccessToken.split('.')
@@ -88,6 +94,7 @@ async function persistAuth(page: Page, accessToken: string, refreshToken: string
           const payload = JSON.parse(atob(parts[1]))
           if (payload.exp) {
             localStorage.setItem('token_expiry', String(payload.exp * 1000))
+            sessionStorage.setItem('token_expiry', String(payload.exp * 1000))
           }
         }
       } catch {
