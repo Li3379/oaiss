@@ -175,3 +175,4 @@ logback-console.xml
 # ----- AI Tool Artifacts -----
 .codex/
 .graphify_detect.json
+.cursor/
