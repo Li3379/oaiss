@@ -43,7 +43,22 @@ function warn(message) {
   console.warn(`ENV TEMPLATE VALIDATION WARNING: ${message}`)
 }
 
-const envFileArg = process.argv[2] ?? '.env.prod.example'
+function isPlaceholderValue(value) {
+  return /^(change_me|replace_with|placeholder|todo|dummy)/i.test(value)
+}
+
+const args = process.argv.slice(2)
+let requireRealSecrets = false
+let envFileArg = '.env.prod.example'
+
+for (const arg of args) {
+  if (arg === '--require-real-secrets') {
+    requireRealSecrets = true
+    continue
+  }
+  envFileArg = arg
+}
+
 const envFilePath = path.isAbsolute(envFileArg)
   ? envFileArg
   : path.join(root, envFileArg)
@@ -105,8 +120,111 @@ for (const key of criticalNoPlaceholder) {
     fail(`critical variable ${key} is blank`)
     continue
   }
-  if (/^(change_me|replace_with|placeholder|todo|dummy)/i.test(value)) {
-    warn(`critical variable ${key} still uses a placeholder value in ${path.basename(envFilePath)}`)
+  if (isPlaceholderValue(value)) {
+    const message = `critical variable ${key} still uses a placeholder value in ${path.basename(envFilePath)}`
+    if (requireRealSecrets) {
+      fail(message)
+    } else {
+      warn(message)
+    }
+  }
+}
+
+const requiredReleaseImages = [
+  'BACKEND_IMAGE',
+  'FRONTEND_IMAGE',
+  'ML_SERVICE_IMAGE',
+]
+
+if (requireRealSecrets) {
+  for (const key of requiredReleaseImages) {
+    const value = envMap.get(key)
+    if (!value) {
+      fail(`release image variable ${key} is blank`)
+      continue
+    }
+    if (isPlaceholderValue(value)) {
+      fail(`release image variable ${key} still uses a placeholder value in ${path.basename(envFilePath)}`)
+    }
+  }
+}
+
+const activeProfiles = envMap.get('SPRING_PROFILES_ACTIVE') ?? ''
+const profileList = activeProfiles
+  .split(',')
+  .map((value) => value.trim())
+  .filter(Boolean)
+const fabricEnabled = /^true$/i.test(envMap.get('FABRIC_ENABLED') ?? 'false')
+const isRemoteLike = profileList.some((profile) => ['prod', 'production', 'staging'].includes(profile))
+
+if (isRemoteLike && !profileList.includes('fabric')) {
+  fail('SPRING_PROFILES_ACTIVE must include fabric for staging/production deployments')
+}
+
+if (isRemoteLike && !fabricEnabled) {
+  fail('FABRIC_ENABLED must be true for staging/production deployments that require real blockchain data')
+}
+
+for (const key of ['BACKEND_LOG_DIR', 'FRONTEND_LOG_DIR', 'ML_LOG_DIR']) {
+  const value = envMap.get(key)
+  if (!value) {
+    fail(`${key} must be set so release deployments persist container logs`)
+  }
+}
+
+if (fabricEnabled) {
+  for (const key of ['FABRIC_SECRETS_DIR', 'FABRIC_SECRETS_MOUNT_PATH', 'FABRIC_PEER_TLS_CERT_PATH', 'FABRIC_CERT_PATH', 'FABRIC_KEY_PATH']) {
+    const value = envMap.get(key)
+    if (!value) {
+      fail(`${key} must be set when FABRIC_ENABLED=true`)
+    }
+  }
+}
+
+if (requireRealSecrets && /^true$/i.test(envMap.get('REQUIRE_OPS_SECRETS') ?? 'false')) {
+  const grafanaAdminPassword = envMap.get('GRAFANA_ADMIN_PASSWORD')
+  if (!grafanaAdminPassword) {
+    fail('GRAFANA_ADMIN_PASSWORD must be set when REQUIRE_OPS_SECRETS=true')
+  } else if (isPlaceholderValue(grafanaAdminPassword)) {
+    fail(`GRAFANA_ADMIN_PASSWORD still uses a placeholder value in ${path.basename(envFilePath)}`)
+  }
+
+  const alertSmtpHost = envMap.get('ALERT_SMTP_HOST') ?? ''
+  if (alertSmtpHost) {
+    const alertSmtpPassword = envMap.get('ALERT_SMTP_PASSWORD')
+    if (!alertSmtpPassword) {
+      fail('ALERT_SMTP_PASSWORD must be set when ALERT_SMTP_HOST is configured')
+    } else if (isPlaceholderValue(alertSmtpPassword)) {
+      fail(`ALERT_SMTP_PASSWORD still uses a placeholder value in ${path.basename(envFilePath)}`)
+    }
+  }
+
+  const alertWebhookUrl = envMap.get('ALERT_WEBHOOK_URL') ?? ''
+  if (alertWebhookUrl) {
+    const alertWebhookSecret = envMap.get('ALERT_WEBHOOK_SECRET')
+    if (!alertWebhookSecret) {
+      fail('ALERT_WEBHOOK_SECRET must be set when ALERT_WEBHOOK_URL is configured')
+    } else if (isPlaceholderValue(alertWebhookSecret)) {
+      fail(`ALERT_WEBHOOK_SECRET still uses a placeholder value in ${path.basename(envFilePath)}`)
+    }
+  }
+}
+
+if (requireRealSecrets && /^true$/i.test(envMap.get('FABRIC_CA_ENABLED') ?? 'false')) {
+  const fabricCaAdminPassword = envMap.get('FABRIC_CA_ADMIN_PASSWORD')
+  if (!fabricCaAdminPassword) {
+    fail('FABRIC_CA_ADMIN_PASSWORD must be set when FABRIC_CA_ENABLED=true')
+  } else if (isPlaceholderValue(fabricCaAdminPassword)) {
+    fail(`FABRIC_CA_ADMIN_PASSWORD still uses a placeholder value in ${path.basename(envFilePath)}`)
+  }
+}
+
+if (requireRealSecrets && fabricEnabled) {
+  const fabricCouchdbPassword = envMap.get('FABRIC_COUCHDB_PASSWORD')
+  if (!fabricCouchdbPassword) {
+    fail('FABRIC_COUCHDB_PASSWORD must be set when FABRIC_ENABLED=true')
+  } else if (isPlaceholderValue(fabricCouchdbPassword)) {
+    fail(`FABRIC_COUCHDB_PASSWORD still uses a placeholder value in ${path.basename(envFilePath)}`)
   }
 }
 

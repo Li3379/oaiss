@@ -5,16 +5,28 @@ setlocal enabledelayedexpansion
 :: OAISS CHAIN - Windows backend start script
 :: Usage: scripts\start-backend.bat [options]
 ::   --with-fabric    use local,fabric profiles
+::   --port <port>    override server.port for side-by-side verification
 :: =============================================
 
 set "PROJECT_ROOT=%~dp0.."
 cd /d "%PROJECT_ROOT%"
 
 set "WITH_FABRIC=false"
+set "SERVER_PORT="
 
 :parse_args
 if "%~1"=="" goto :args_done
 if "%~1"=="--with-fabric" ( set "WITH_FABRIC=true" & shift & goto :parse_args )
+if "%~1"=="--port" (
+    if "%~2"=="" (
+        echo [ERROR] 缺少 --port 的端口值
+        exit /b 1
+    )
+    set "SERVER_PORT=%~2"
+    shift
+    shift
+    goto :parse_args
+)
 echo [ERROR] 未知参数: %~1
 exit /b 1
 
@@ -37,15 +49,23 @@ if "%WITH_FABRIC%"=="true" (
     set "SPRING_ARGS=-Dspring-boot.run.profiles=local"
 )
 
+if not "%SERVER_PORT%"=="" (
+    set "SPRING_ARGS=%SPRING_ARGS% -Dspring-boot.run.arguments=--server.port=%SERVER_PORT%"
+)
+
 echo.
 echo ========================================
 echo  OAISS CHAIN Backend
 echo  Profiles: %SPRING_PROFILES_ACTIVE%
+if not "%SERVER_PORT%"=="" echo  Port: %SERVER_PORT%
 echo ========================================
 echo.
 
-for /f "tokens=5" %%p in ('netstat -ano ^| findstr ":8080" ^| findstr "LISTENING"') do (
-    echo [WARN] Port 8080 is already in use by PID %%p
+set "PORT_TO_CHECK=8080"
+if not "%SERVER_PORT%"=="" set "PORT_TO_CHECK=%SERVER_PORT%"
+
+for /f "tokens=5" %%p in ('netstat -ano ^| findstr ":%PORT_TO_CHECK%" ^| findstr "LISTENING"') do (
+    echo [WARN] Port %PORT_TO_CHECK% is already in use by PID %%p
     echo [WARN] Run scripts\stop-backend.bat first, then retry.
     endlocal
     exit /b 1

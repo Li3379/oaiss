@@ -329,10 +329,12 @@ RESP=$(curl -s -X POST "$BASE_URL/auction/buy" \
 TEST_ID=$((TEST_ID + 1))
 if echo "$RESP" | grep -q '"code"'; then
     if echo "$RESP" | grep -qE '"code":200[,}]'; then
-        echo "  [WARN] Test $TEST_ID: Negative price accepted (no server-side validation) — code gap"
+        echo "  [FAIL] Test $TEST_ID: Negative price was accepted"
+        FAIL=$((FAIL + 1))
+    else
+        echo "  [PASS] Test $TEST_ID: Negative price rejected with valid error response"
+        PASS=$((PASS + 1))
     fi
-    echo "  [PASS] Test $TEST_ID: Negative price handled (no crash)"
-    PASS=$((PASS + 1))
 else
     echo "  [FAIL] Test $TEST_ID: Negative price caused unexpected response"
     FAIL=$((FAIL + 1))
@@ -345,8 +347,13 @@ RESP=$(curl -s -X POST "$BASE_URL/auction/buy" \
     -d '{"direction":1,"quantity":0,"price":10}')
 TEST_ID=$((TEST_ID + 1))
 if echo "$RESP" | grep -q '"code"'; then
-    echo "  [PASS] Test $TEST_ID: Zero quantity handled (no crash)"
-    PASS=$((PASS + 1))
+    if echo "$RESP" | grep -qE '"code":200[,}]'; then
+        echo "  [FAIL] Test $TEST_ID: Zero quantity was accepted"
+        FAIL=$((FAIL + 1))
+    else
+        echo "  [PASS] Test $TEST_ID: Zero quantity rejected with valid error response"
+        PASS=$((PASS + 1))
+    fi
 else
     echo "  [FAIL] Test $TEST_ID: Zero quantity caused unexpected response"
     FAIL=$((FAIL + 1))
@@ -359,8 +366,13 @@ RESP=$(curl -s -X POST "$BASE_URL/auction/buy" \
     -d '{"direction":1,"quantity":-5,"price":10}')
 TEST_ID=$((TEST_ID + 1))
 if echo "$RESP" | grep -q '"code"'; then
-    echo "  [PASS] Test $TEST_ID: Negative quantity handled (no crash)"
-    PASS=$((PASS + 1))
+    if echo "$RESP" | grep -qE '"code":200[,}]'; then
+        echo "  [FAIL] Test $TEST_ID: Negative quantity was accepted"
+        FAIL=$((FAIL + 1))
+    else
+        echo "  [PASS] Test $TEST_ID: Negative quantity rejected with valid error response"
+        PASS=$((PASS + 1))
+    fi
 else
     echo "  [FAIL] Test $TEST_ID: Negative quantity caused unexpected response"
     FAIL=$((FAIL + 1))
