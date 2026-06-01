@@ -22,6 +22,10 @@
    - `.env.staging.example`
 5. 主机层准备状态已按以下清单核查：
    - `docs/remote-host-preflight-checklist.md`
+6. 远程主机已执行初始化脚本：
+   - `scripts/bootstrap-remote-release-host.sh --target-dir /opt/oaiss-chain-staging --deploy-user deploy`
+7. 真实 Fabric 文件已放入：
+   - `/opt/oaiss-chain-staging/secrets/fabric`
 
 ## 步骤 1：本地校验模板
 
@@ -62,6 +66,19 @@ powershell -ExecutionPolicy Bypass -File .\scripts\prod-compose.ps1 -EnvFile .en
 
 这三个值都应指向步骤 2 中实际发布成功的镜像。
 
+并确认以下值已经填写正确：
+
+- `SPRING_PROFILES_ACTIVE=staging,fabric`
+- `FABRIC_ENABLED=true`
+- `BACKEND_LOG_DIR=./runtime-logs/backend`
+- `FRONTEND_LOG_DIR=./runtime-logs/frontend`
+- `ML_LOG_DIR=./runtime-logs/ml-service`
+- `FABRIC_SECRETS_DIR=./secrets/fabric`
+- `FABRIC_SECRETS_MOUNT_PATH=/run/secrets/fabric`
+- `FABRIC_PEER_TLS_CERT_PATH=/run/secrets/fabric/peer-tls-ca.crt`
+- `FABRIC_CERT_PATH=/run/secrets/fabric/user-cert.pem`
+- `FABRIC_KEY_PATH=/run/secrets/fabric/user-key.pem`
+
 ## 步骤 4：部署到远程 staging
 
 运行 `deploy-release.yml`，并设置：
@@ -85,6 +102,8 @@ powershell -ExecutionPolicy Bypass -File .\scripts\prod-compose.ps1 -EnvFile .en
 6. 执行 `pull`
 7. 执行 `up -d`
 8. 检查前后端健康状态
+9. 若失败，自动抓取远程 `ps/logs` 并尝试回滚到上一份
+   env/compose/helper-script 备份
 
 ## 步骤 5：部署后检查
 
@@ -100,6 +119,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\prod-compose.ps1 -EnvFile .en
    - 打开报表详情
 6. 至少一个依赖 ML 的工作流返回成功响应
 7. 若启用了 Fabric，区块链状态类接口返回正常
+8. 检查远程 `runtime-logs` 目录中已有新日志写入
 
 ## 步骤 6：观察窗口
 
@@ -139,3 +159,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\prod-compose.ps1 -EnvFile .en
 - 部署后健康检查通过
 - 至少一条真实 staging 业务流验证通过
 - 至少一次回滚演练通过
+
+建议在完成后立即复制并填写：
+
+- `docs/external-execution-evidence-template.md`

@@ -1,19 +1,19 @@
-# AI-SPEC: Hyperledger Fabric Integration for OAISS CHAIN
+# OAISS CHAIN AI-SPEC：Hyperledger Fabric 集成规范
 
-> Framework: Hyperledger Fabric Gateway Java SDK v1.11.0
-> System Type: Blockchain Integration (Carbon Trading Platform)
-> Model Provider: N/A (not an LLM system -- blockchain SDK)
-> Last Updated: 2026-05-14
+> 框架：Hyperledger Fabric Gateway Java SDK v1.11.0  
+> 系统类型：区块链集成（碳交易平台）  
+> 模型提供方：不适用（这不是 LLM 系统，而是区块链 SDK）  
+> 最后更新：2026-05-14
 
 ---
 
-## Section 3 -- Framework Quick Reference
+## 第 3 部分：框架速查
 
-### 3.1 Installation
+### 3.1 安装
 
-The Fabric Gateway client API (`fabric-gateway`) is the current, actively maintained SDK (the older `fabric-gateway-java` v2.2.x is deprecated as of Fabric v2.5). It requires Fabric v2.4+ with a Gateway-enabled peer.
+Fabric Gateway 客户端 API（`fabric-gateway`）是当前仍在维护的 SDK。旧版 `fabric-gateway-java` v2.2.x 自 Fabric v2.5 起已废弃。使用当前 SDK 需要 Fabric v2.4+，并要求 peer 节点启用了 Gateway。
 
-**Maven dependencies** -- add to `oaiss-chain-backend/pom.xml`:
+**Maven 依赖**，添加到 `oaiss-chain-backend/pom.xml`：
 
 ```xml
 <!-- Fabric Gateway Client API (current, v1.11.0) -->
@@ -51,7 +51,7 @@ The Fabric Gateway client API (`fabric-gateway`) is the current, actively mainta
 </dependency>
 ```
 
-### 3.2 Key Imports
+### 3.2 关键导入
 
 ```java
 // Gateway connection
@@ -80,7 +80,7 @@ import io.grpc.ManagedChannel;
 import io.grpc.TlsChannelCredentials;
 ```
 
-### 3.3 Entry Point Pattern (Carbon Trading)
+### 3.3 入口模式（碳交易场景）
 
 ```java
 @Configuration
@@ -167,46 +167,46 @@ public class FabricGatewayConfig {
 }
 ```
 
-### 3.4 Abstractions
+### 3.4 核心抽象
 
-| Abstraction | Package | Purpose | OAISS Usage |
-|-------------|---------|---------|-------------|
-| `Gateway` | `org.hyperledger.fabric.client` | Entry point -- single connection to Fabric network | Singleton Spring bean, reused across all blockchain calls |
-| `Network` | `org.hyperledger.fabric.client` | Represents a channel (e.g., `carbon-channel`) | One bean for the carbon trading channel |
-| `Contract` | `org.hyperledger.fabric.client` | Represents a deployed chaincode | Three beans: `carbon-report-cc`, `carbon-trade-cc`, `carbon-neutral-cc` |
-| `Identity` / `X509Identity` | `org.hyperledger.fabric.client.identity` | Client identity (X.509 certificate + MSP ID) | Created once at startup from crypto material |
-| `Signer` | `org.hyperledger.fabric.client.identity` | Signs proposals using a private key | Created once at startup, used for all transaction signing |
+| 抽象 | 包 | 作用 | OAISS 用法 |
+|---|---|---|---|
+| `Gateway` | `org.hyperledger.fabric.client` | 进入 Fabric 网络的统一入口 | 作为单例 Spring Bean，复用所有区块链调用 |
+| `Network` | `org.hyperledger.fabric.client` | 表示一个通道，例如 `carbon-channel` | 为碳交易通道创建一个 Bean |
+| `Contract` | `org.hyperledger.fabric.client` | 表示某个已部署的链码 | 当前规划为 3 个 Bean：`carbon-report-cc`、`carbon-trade-cc`、`carbon-neutral-cc` |
+| `Identity` / `X509Identity` | `org.hyperledger.fabric.client.identity` | 客户端身份（X.509 证书 + MSP ID） | 启动时从加密材料中读取并创建 |
+| `Signer` | `org.hyperledger.fabric.client.identity` | 使用私钥对提案进行签名 | 启动时创建，后续所有交易复用 |
 
-### 3.5 Pitfalls
+### 3.5 常见坑点
 
-1. **Using the deprecated `fabric-gateway-java` (v2.2.x) instead of `fabric-gateway` (v1.11.0).**
-   The old SDK (`org.hyperledger.fabric:fabric-gateway-java`) is archived and deprecated since Fabric v2.5. The new SDK (`org.hyperledger.fabric:fabric-gateway`) has a completely different API -- `Gateway.newInstance()` vs `Gateway.createBuilder()`, different identity model, no `Wallet` class. Mixing tutorials from both SDKs causes compilation errors.
+1. **错误地继续使用废弃的 `fabric-gateway-java`（v2.2.x）而不是 `fabric-gateway`（v1.11.0）**  
+   旧 SDK `org.hyperledger.fabric:fabric-gateway-java` 已在 Fabric v2.5 后归档废弃。新 SDK `org.hyperledger.fabric:fabric-gateway` API 完全不同，例如 `Gateway.newInstance()` 替代了 `Gateway.createBuilder()`，身份模型也变化了，而且不再有 `Wallet`。如果混用两套教程，极容易直接编译失败。
 
-2. **Opening a new Gateway connection per request.**
-   `Gateway` is designed to be long-lived and thread-safe. Creating a new `Gateway` per HTTP request causes gRPC channel leaks, TLS handshake overhead, and eventual connection exhaustion. The Spring bean should be a singleton with `destroyMethod = "close"`.
+2. **每个请求都重新打开一个 Gateway 连接**  
+   `Gateway` 设计目标是长生命周期且线程安全。若每个 HTTP 请求都新建一个 `Gateway`，会导致 gRPC 通道泄漏、TLS 握手额外开销，以及最终的连接资源耗尽。Spring Bean 应保持单例，并配置 `destroyMethod = "close"`。
 
-3. **Ignoring `CommitException` after `submitAsync()`.**
-   `submitAsync()` returns immediately with a `Commit` future. If you never call `commit.getStatus()`, a failed endorsement or ordering failure goes silently unnoticed. For carbon trading, this means a trade could appear to succeed but never reach the ledger. Always check commit status or use synchronous `submitTransaction()`.
+3. **调用 `submitAsync()` 后忽略 `CommitException` / `commit.getStatus()`**  
+   `submitAsync()` 会立刻返回一个 `Commit` future。如果从不调用 `commit.getStatus()`，那么 endorsement 或 ordering 失败可能会被静默吞掉。对碳交易系统而言，这意味着交易在界面上看起来成功，但实际上并未落链。必须显式检查 commit 状态，或者直接使用同步 `submitTransaction()`。
 
-4. **Hardcoding crypto material paths instead of using Spring configuration.**
-   The Fabric test network generates certificates in `organizations/peerOrganizations/...` with filenames that include random hashes. Hardcoding these paths breaks when certificates are regenerated. Use `Files.list(dirPath).findFirst()` pattern combined with configurable base directories.
+4. **把证书、私钥路径写死在代码里，而不是走 Spring 配置**  
+   Fabric 测试网络生成的证书路径中常带有随机哈希。硬编码路径会在证书重建后立即失效。应采用 `Files.list(dirPath).findFirst()` 这类模式，并结合可配置目录。
 
-5. **Not setting gRPC deadlines.**
-   Without explicit `evaluateOptions`, `endorseOptions`, `submitOptions`, and `commitStatusOptions` deadlines, a hung peer can block the calling thread indefinitely. In a Spring Boot app serving HTTP requests, this translates to stuck Tomcat threads and cascading timeouts.
+5. **未设置 gRPC deadline**  
+   如果没有为 `evaluateOptions`、`endorseOptions`、`submitOptions`、`commitStatusOptions` 设置超时，卡住的 peer 会无限阻塞调用线程。在 Spring Boot 的 HTTP 服务中，这会直接变成卡死的 Tomcat 线程与级联超时。
 
-### 3.6 Folder Structure
+### 3.6 目录结构建议
 
-```
+```text
 oaiss-chain-backend/
   src/main/java/com/oaiss/chain/
     config/
-      FabricGatewayConfig.java          # Gateway, Network, Contract beans
-      FabricProperties.java             # @ConfigurationProperties for fabric.*
+      FabricGatewayConfig.java          # Gateway / Network / Contract Bean
+      FabricProperties.java             # fabric.* 的 @ConfigurationProperties
     service/
-      BlockchainService.java            # Real implementation (replaces mock)
+      BlockchainService.java            # 真实实现（替换 mock）
       fabric/
-        FabricTransactionService.java    # Submit/evaluate with retry logic
-    blockchain/                          # New package for Fabric-specific code
+        FabricTransactionService.java   # 带重试逻辑的 submit/evaluate
+    blockchain/
       exception/
         FabricConnectionException.java
         FabricTransactionException.java
@@ -215,11 +215,11 @@ oaiss-chain-backend/
         ChaincodeResponse.java
   src/main/resources/
     fabric/
-      connection-org1.yaml              # Connection profile for Org1
-      connection-org2.yaml              # Connection profile for Org2
-    application.yml                     # fabric.* properties section
+      connection-org1.yaml              # Org1 的连接配置
+      connection-org2.yaml              # Org2 的连接配置
+    application.yml                     # fabric.* 配置段
 
-chaincode/                              # Separate project (Gradle or Maven)
+chaincode/
   carbon-report-cc/
     src/main/java/com/oaiss/chaincode/
       CarbonReportContract.java
@@ -236,7 +236,7 @@ chaincode/                              # Separate project (Gradle or Maven)
       model/
         CarbonNeutralProject.java
 
-fabric-network/                         # Docker-based test network
+fabric-network/
   docker/
     docker-compose-fabric.yaml
   organizations/
@@ -252,7 +252,7 @@ fabric-network/                         # Docker-based test network
     deploy-chaincode.sh
 ```
 
-### 3.7 Sources
+### 3.7 参考来源
 
 - [Fabric Gateway Client API -- Java README](https://github.com/hyperledger/fabric-gateway/blob/main/java/README.md)
 - [Fabric Gateway Java SDK (deprecated) -- v2.2.9](https://github.com/hyperledger/fabric-gateway-java)
@@ -265,26 +265,28 @@ fabric-network/                         # Docker-based test network
 
 ---
 
-## Section 4 -- Implementation Guidance
+## 第 4 部分：实现指导
 
-### 4.1 Model Selection and Parameters
+### 4.1 模型选择与参数
 
-This is a blockchain SDK integration, not an LLM system. The "model" here is the chaincode execution model.
+这里不是 LLM 集成，而是区块链 SDK 集成。所谓“模型”，对应的是链码执行模型。
 
-**Fabric version**: v2.5.x (LTS) or v3.0 (if BFT consensus needed)
-**Gateway SDK**: `org.hyperledger.fabric:fabric-gateway:1.11.0`
-**Chaincode runtime**: Java 17 (matches backend, uses `fabric-chaincode-shim`)
-**Consensus**: Raft (default) -- sufficient for carbon trading; BFT only if Byzantine fault tolerance is required
-**Endorsement policy**: `AND('Org1MSP', 'Org2MSP')` -- both orgs must endorse for carbon trades (high assurance); `OR('Org1MSP', 'Org2MSP')` for read-only queries
-**gRPC timeouts**:
-- Evaluate (query): 5 seconds
-- Endorse (propose): 15 seconds
-- Submit (order): 5 seconds
-- Commit status: 60 seconds
+- **Fabric 版本**：`v2.5.x (LTS)`，或在确有 BFT 共识需求时使用 `v3.0`
+- **Gateway SDK**：`org.hyperledger.fabric:fabric-gateway:1.11.0`
+- **Chaincode 运行时**：Java 17（与后端一致，使用 `fabric-chaincode-shim`）
+- **共识**：默认使用 Raft，足以支撑碳交易；只有在确需拜占庭容错时才考虑 BFT
+- **背书策略**：
+  - 碳交易写操作建议：`AND('Org1MSP', 'Org2MSP')`
+  - 只读查询可放宽为：`OR('Org1MSP', 'Org2MSP')`
+- **gRPC 超时建议**：
+  - Evaluate（查询）：5 秒
+  - Endorse（提案背书）：15 秒
+  - Submit（排序提交）：5 秒
+  - Commit status：60 秒
 
-### 4.2 Core Pattern -- Replacing Mock Methods with Real Fabric Calls
+### 4.2 核心替换模式：将 Mock 方法替换为真实 Fabric 调用
 
-**Current mock in `BlockchainService.java`** (lines 35-46, 57-64, 73-86, 95-108):
+**当前 `BlockchainService.java` 中的 mock 形式**（35-46、57-64、73-86、95-108 行附近）：
 
 ```java
 // MOCK: returns fake txHash
@@ -295,7 +297,7 @@ public String invokeChaincode(String channelName, String chaincodeName,
 }
 ```
 
-**Real implementation using Fabric Gateway API**:
+**使用 Fabric Gateway API 的真实实现建议：**
 
 ```java
 @Slf4j
@@ -409,17 +411,26 @@ public class BlockchainService {
 }
 ```
 
-### 4.3 Tool Use / Chaincode Invocation Configuration
+### 4.3 链码调用方式配置
 
-**Synchronous submit** (`contract.submitTransaction(name, args...)`):
-- Best for: carbon report commits, trade settlements, project certifications
-- Guarantees: transaction is endorsed, ordered, and committed before returning
-- Trade-off: higher latency (~1-3 seconds per call), but simplest error handling
+**同步提交**：`contract.submitTransaction(name, args...)`
 
-**Asynchronous submit** (`contract.newProposal(name).addArguments(args).build().endorse().submitAsync()`):
-- Best for: bulk operations, when you need the proposal result before commit completes
-- Pattern: submit async, process the result, then await commit status
-- Required for: high-throughput trade settlement where UI can show pending state
+- 适用场景：
+  - 碳报告提交上链
+  - 交易结算
+  - 项目认证
+- 保证：
+  - 方法返回前，交易已经完成背书、排序并提交到账本
+- 代价：
+  - 单次调用延迟更高，通常约 1-3 秒
+  - 但错误处理最直接、最稳妥
+
+**异步提交**：`contract.newProposal(name).addArguments(args).build().endorse().submitAsync()`
+
+- 适用场景：
+  - 批量操作
+  - 需要先拿到 proposal 结果，再等待 commit 完成
+  - 高吞吐交易场景，希望前端先展示“处理中”
 
 ```java
 // Async pattern for trade settlement
@@ -440,20 +451,23 @@ if (!status.isSuccessful()) {
 }
 ```
 
-### 4.4 State Management Approach
+### 4.4 状态管理策略
 
-**On-chain state** (Fabric world state):
-- Carbon report hashes and metadata (key: `REPORT:{reportId}`)
-- Trade records (key: `TRADE:{tradeId}`)
-- Carbon neutral project certifications (key: `PROJECT:{projectId}`)
-- Use Fabric's built-in MVCC concurrency control -- no separate @Version needed
+**链上状态（Fabric world state）**
 
-**Off-chain state** (MySQL -- existing OAISS CHAIN database):
-- Full report data, user details, enterprise info
-- The on-chain record stores only a SHA-256 hash + metadata, not the full payload
-- This keeps chaincode lightweight and avoids bloating the ledger
+- 碳报告哈希与元数据，键建议为：`REPORT:{reportId}`
+- 交易记录，键建议为：`TRADE:{tradeId}`
+- 碳中和项目认证记录，键建议为：`PROJECT:{projectId}`
+- 直接依赖 Fabric 内建的 MVCC 并发控制，无需再加独立 `@Version`
 
-**Hash verification pattern**:
+**链下状态（MySQL，沿用现有 OAISS CHAIN 数据库）**
+
+- 完整报表内容、用户详情、企业信息
+- 链上只保留 SHA-256 哈希与少量元数据，不保存完整业务载荷
+- 这样可保持链码轻量，避免账本膨胀
+
+**哈希校验模式：**
+
 ```java
 // In CarbonService.java (existing code at line 171)
 String reportHash = DigestUtils.sha256Hex(reportData);  // Off-chain hash
@@ -466,26 +480,26 @@ String currentHash = DigestUtils.sha256Hex(currentReportData);
 boolean intact = onChainHash.equals(currentHash);
 ```
 
-### 4.5 Context Window Strategy
+### 4.5 “上下文窗口”在区块链系统中的对应问题
 
-Not applicable (blockchain system, not LLM). The equivalent concern is **ledger size management**:
+这里不是 LLM 系统，因此不存在 prompt context window 的问题；它在区块链场景下对应的是 **账本规模管理**：
 
-- Store only hashes and minimal metadata on-chain; keep full data in MySQL
-- Use Fabric's history query (`getHistoryForKey`) sparingly -- it scans the entire key history
-- For paginated transaction listing (`listTransactions`), maintain an off-chain index in MySQL that records txId + blockNumber + timestamp for each blockchain operation, rather than querying the ledger for every page request
-- Prune old block events if the ledger grows beyond operational limits (Fabric supports snapshot pruning)
+- 链上只存哈希和少量元数据，完整数据放在 MySQL
+- 谨慎使用 `getHistoryForKey()`，因为它会扫描整个 key 的完整历史
+- 对分页交易列表，不应每次都直接查账本，而是维护链下索引表，例如记录 txId、blockNumber、timestamp
+- 如果账本增长到运维压力过大，应使用 Fabric 支持的 snapshot pruning 策略
 
 ---
 
-## Section 4b -- AI Systems Best Practices
+## 第 4b 部分：把“AI 系统最佳实践”映射到 Fabric 集成
 
-> Note: This project is a blockchain integration, not an LLM/AI system. The "AI best practices" framework is adapted here as "Distributed Ledger Integration Best Practices" -- the same principles of structured outputs, async design, prompt discipline, context management, and cost budgeting have direct analogues in blockchain system design.
+> 注意：本项目本质是区块链集成，并不是 LLM/AI 系统。这里借用“AI 系统最佳实践”的结构，只是为了把结构化输出、异步设计、接口纪律、上下文管理、成本预算这些思想映射到分布式账本场景中。
 
-### 4b.1 Structured Outputs with Pydantic -> Structured Chaincode Responses with Java Records
+### 4b.1 从 Pydantic 结构化输出，到 Java Record 结构化链码响应
 
-In LLM systems, Pydantic enforces structured output. In blockchain systems, chaincode functions must return structured, typed data -- unstructured responses cause deserialization failures across organizations.
+在 LLM 系统里，Pydantic 用于约束结构化输出。对应到区块链系统，链码函数同样必须返回结构化、可反序列化的类型，否则跨组织调用时很容易出错。
 
-**Pattern: Define chaincode response as a Java Record, serialize with Genson (Fabric's default JSON library for Java chaincode)**
+**建议模式：使用 Java Record 定义链码响应，并通过 Genson（Fabric Java 链码默认 JSON 库）序列化。**
 
 ```java
 // Chaincode-side model (in carbon-report-cc)
@@ -547,27 +561,35 @@ public <T> T submitWithRetry(Contract contract, String function,
 }
 ```
 
-**Retry rules**:
-- `EndorseException`, `SubmitException`: transient, retry up to 3 times with exponential backoff (1s, 2s, 4s)
-- `CommitException`: non-retryable (business logic rejection), surface immediately
-- `CommitStatusException`: retry once (network hiccup), then surface
-- `GatewayException` on evaluate: retry once, then surface
-- Log: function name, attempt number, error message, transaction ID on every attempt
+**重试规则建议：**
 
-### 4b.2 Async-First Design
+- `EndorseException`、`SubmitException`：视为瞬时错误，可重试 3 次，采用指数退避（1s、2s、4s）
+- `CommitException`：属于业务拒绝，不应重试，应立即上抛
+- `CommitStatusException`：可在网络抖动场景下重试 1 次
+- `GatewayException`（evaluate 场景）：建议重试 1 次
+- 每次尝试都要记录：
+  - function name
+  - attempt number
+  - error message
+  - transaction ID
 
-**How async works in Fabric Gateway**:
-- `contract.submitTransaction()` is synchronous -- blocks until the transaction is committed
-- `contract.newProposal().build().endorse().submitAsync()` is asynchronous -- returns a `Commit` object immediately
-- `contract.evaluateTransaction()` is always synchronous (single-peer read, no ordering)
+### 4b.2 异步优先设计
 
-**The one common mistake**: Calling `submitAsync()` and never checking `commit.getStatus()`. This is the blockchain equivalent of fire-and-forget -- the transaction may fail at the ordering or commit stage, and you will never know.
+**Fabric Gateway 中异步的真实含义：**
 
-**Stream vs. await**:
-- **Await (synchronous `submitTransaction`)**: Use for structured operations that must be confirmed before proceeding -- carbon report commit, trade settlement, project certification. The caller needs the txId for database correlation.
-- **Async (`submitAsync`)**: Use for high-throughput scenarios where the UI can show "pending" state -- bulk report uploads, batch trade settlements. Always follow up with `commit.getStatus()` in a separate thread or callback.
+- `contract.submitTransaction()`：同步，直到交易提交到账本才返回
+- `contract.newProposal().build().endorse().submitAsync()`：异步，立刻返回一个 `Commit` 对象
+- `contract.evaluateTransaction()`：永远是同步查询，不涉及排序
 
-**Spring Boot async integration**:
+**最常见错误**：调用 `submitAsync()` 后，从不检查 `commit.getStatus()`。这在区块链里就等价于“fire-and-forget”，交易可能在排序或提交阶段失败，但调用方永远不知道。
+
+**什么时候 await，什么时候 async：**
+
+- **同步提交**：适合必须确认成功后才能继续的操作，例如碳报告上链、交易结算、项目认证
+- **异步提交**：适合高吞吐批量场景，例如批量报告上传、批量结算。前端可以先显示“处理中”，后台再等待 commit 完成
+
+**Spring Boot 异步集成示例：**
+
 ```java
 @Async("fabricTaskExecutor")
 public CompletableFuture<String> commitReportAsync(Long reportId, String reportData) {
@@ -594,7 +616,8 @@ public CompletableFuture<String> commitReportAsync(Long reportId, String reportD
 }
 ```
 
-**Thread pool configuration**:
+**线程池配置建议：**
+
 ```java
 @Bean("fabricTaskExecutor")
 public Executor fabricTaskExecutor() {
@@ -608,24 +631,27 @@ public Executor fabricTaskExecutor() {
 }
 ```
 
-### 4b.3 Prompt Engineering Discipline -> Chaincode Interface Discipline
+### 4b.3 从 Prompt Discipline 映射到 Chaincode Interface Discipline
 
-In LLM systems, prompt engineering controls output quality. In blockchain systems, chaincode function signatures and parameter conventions control data integrity.
+LLM 系统里，prompt 工程控制输出质量；区块链系统里，链码函数签名与参数约定控制数据一致性。
 
-**System vs. user prompt separation -> Chaincode vs. client-side validation**:
-- Chaincode (on-chain): MUST validate all inputs -- this is immutable and shared across orgs. Never trust client input.
-- Client (off-chain): Pre-validate for UX (fail fast, friendly error messages), but chaincode must re-validate independently.
+**“system vs user prompt 分离”在区块链里的对应关系：**
 
-**Function naming conventions**:
-| Operation Type | Prefix | Example | Chaincode Intent |
-|---------------|--------|---------|-----------------|
-| Write (ledger modify) | `Commit`, `Create`, `Update`, `Transfer` | `CommitReport`, `CommitTrade` | `Transaction.TYPE.SUBMIT` |
-| Read (query) | `Get`, `Query`, `Verify`, `Exists` | `GetReportHash`, `VerifySignature` | `Transaction.TYPE.EVALUATE` |
+- 链码侧（链上）：**必须** 对所有输入做校验，这是不可篡改的共享规则，绝不能信任客户端
+- 客户端（链下）：可以先做 UX 友好的预校验，但链码仍必须独立再次校验
 
-**Few-shot equivalent -> Chaincode test data initialization**:
-- Provide `InitLedger` function for development/test environments only
-- Use `@Transaction(intent = Transaction.TYPE.SUBMIT)` for all state-modifying functions
-- Never leave `max_tokens` unbounded equivalent: always validate input sizes in chaincode to prevent oversized ledger entries
+**函数命名约定：**
+
+| 操作类型 | 前缀 | 示例 | 链码事务意图 |
+|---|---|---|---|
+| 写操作（修改账本） | `Commit`、`Create`、`Update`、`Transfer` | `CommitReport`、`CommitTrade` | `Transaction.TYPE.SUBMIT` |
+| 读操作（查询） | `Get`、`Query`、`Verify`、`Exists` | `GetReportHash`、`VerifySignature` | `Transaction.TYPE.EVALUATE` |
+
+**few-shot 对应物：测试数据初始化**
+
+- 可以在开发/测试网络中提供 `InitLedger`
+- 所有写操作都明确使用 `@Transaction(intent = Transaction.TYPE.SUBMIT)`
+- 类似“不要让 max_tokens 无上限”的原则，对应到链码里就是：必须限制输入大小，防止账本条目过大
 
 ```java
 // Chaincode input validation (must be done on-chain)
@@ -653,23 +679,28 @@ public void CommitReport(Context ctx, String reportId, String reportHash) {
 }
 ```
 
-### 4b.4 Context Window Management -> Ledger Size and Query Management
+### 4b.4 从 Context Management 映射到账本规模与查询管理
 
-**RAG equivalent -> Fabric history queries**:
-- `getHistoryForKey()` scans the entire key history -- equivalent to loading full context. Use sparingly.
-- For audit trail queries, maintain an off-chain event log in MySQL instead of querying on-chain history.
-- When on-chain history is required, paginate by block range rather than full key history.
+**RAG 在 Fabric 中的对应物：历史查询**
 
-**Multi-agent/conversational equivalent -> Multi-chaincode transactions**:
-- Fabric does not support cross-chaincode transactions atomically. If a carbon report commit must also update a trade, use a single chaincode with multiple functions rather than two separate chaincodes.
-- For the OAISS CHAIN system, consider consolidating `carbon-report-cc` and `carbon-trade-cc` into a single `carbon-ledger-cc` if cross-function atomicity is needed.
+- `getHistoryForKey()` 会扫描该 key 的完整历史，代价高，应谨慎使用
+- 对审计轨迹需求，优先在 MySQL 中维护链下事件日志，而不是每次都直接扫链上历史
+- 如确需链上历史，建议按 block range 分段，而不是一次性读取全量历史
 
-**Autonomous/compaction equivalent -> Ledger pruning**:
-- Fabric v2.5+ supports peer snapshot and ledger pruning
-- Implement periodic snapshot jobs for long-running production networks
-- Store only the current state on-chain; archive historical data off-chain in MySQL
+**多 agent / 会话协作的对应物：跨链码事务**
 
-**Practical approach for OAISS CHAIN**:
+- Fabric 不支持多个链码之间天然原子事务
+- 如果“碳报告提交”必须同时更新“交易状态”，更稳妥的是用单一链码内多个函数完成，而不是拆成两个独立链码
+- 对 OAISS CHAIN 而言，如果未来需要跨功能强一致性，可以考虑将 `carbon-report-cc` 与 `carbon-trade-cc` 合并为 `carbon-ledger-cc`
+
+**自动压缩 / 长上下文裁剪的对应物：账本修剪**
+
+- Fabric v2.5+ 支持 peer snapshot 与 ledger pruning
+- 长期运行的生产网络应配套周期性 snapshot 任务
+- 链上保留当前状态，历史明细归档到 MySQL
+
+**OAISS CHAIN 的实际建议：**
+
 ```java
 // Off-chain index for fast paginated queries (replaces listTransactions mock)
 @Entity
@@ -699,20 +730,21 @@ public String commitReportToChain(Long reportId, String reportData) {
 }
 ```
 
-### 4b.5 Cost and Latency Budget
+### 4b.5 成本与延迟预算
 
-**Per-call cost estimate at expected volume**:
+**在预期业务量下的单次调用成本估算：**
 
-| Operation | Latency (p50) | Latency (p99) | Compute Cost | Notes |
-|-----------|--------------|--------------|-------------|-------|
-| `evaluateTransaction` (query) | 50-100ms | 500ms | Negligible | Single peer, no ordering |
-| `submitTransaction` (write) | 1-3s | 5-10s | Endorsement CPU + ordering | Goes through endorsement + ordering + commit |
-| `submitAsync` + await | 1-3s | 5-10s | Same as sync | Non-blocking thread usage |
-| Block query | 100-200ms | 1s | Negligible | Uses peer ledger |
+| 操作 | 延迟（p50） | 延迟（p99） | 计算成本 | 说明 |
+|---|---|---|---|---|
+| `evaluateTransaction`（查询） | 50-100ms | 500ms | 很低 | 单 peer 查询，无排序 |
+| `submitTransaction`（写入） | 1-3s | 5-10s | 背书 CPU + 排序成本 | 需经历背书、排序、提交 |
+| `submitAsync` + await | 1-3s | 5-10s | 与同步相同 | 只是线程占用方式不同 |
+| 区块查询 | 100-200ms | 1s | 很低 | 走 peer 账本查询 |
 
-**Caching strategy** (equivalent of semantic caching in LLM systems):
-- **Exact-match caching**: Cache `evaluateTransaction` results in Redis with TTL. Carbon report hashes are immutable after commit -- cache forever with `REPORT:HASH:{reportId}` as the key.
-- **Invalidation**: No invalidation needed for committed data (append-only ledger). Only cache query results, never cache write results.
+**缓存策略**，对应于 LLM 场景中的 semantic caching：
+
+- **精确命中缓存**：将 `evaluateTransaction` 结果缓存到 Redis，并设置 TTL。对于一经提交就不可变的碳报告哈希，理论上可永久缓存，例如键名 `REPORT:HASH:{reportId}`
+- **失效策略**：对已提交数据通常无需失效，只缓存查询结果，不缓存写入结果
 
 ```java
 @Cacheable(value = "blockchain-queries", key = "'query:' + #contractName + ':' + #function + ':' + #args.hashCode()")
@@ -722,12 +754,14 @@ public String cachedEvaluate(Contract contract, String contractName,
 }
 ```
 
-**Cheaper models for sub-tasks -> Lightweight chaincode for queries**:
-- Use `evaluateTransaction` (query, no ordering) for all read operations -- 10-30x faster than submit
-- Use a dedicated query chaincode (`carbon-query-cc`) with read-optimized functions if the main chaincode becomes too heavy
-- Consider Fabric's private data collections for sensitive enterprise data that should not be visible to all orgs -- reduces endorsement overhead for private reads
+**“更便宜模型做子任务”的区块链类比：轻量查询链码**
 
-**Infrastructure cost**:
-- Fabric test network: 3 Docker containers (2 peers + 1 orderer) -- ~2GB RAM total
-- Production minimum: 4 peers (2 per org) + 3 orderers (Raft) + 2 CAs -- ~8GB RAM
-- Storage: ~1MB per 1000 transactions on ledger; plan for 10GB/year at moderate volume
+- 所有读操作尽量用 `evaluateTransaction`，通常比 submit 快 10-30 倍
+- 如果主链码越来越重，可考虑单独做读优化链码，例如 `carbon-query-cc`
+- 如某些企业数据不应被所有组织看到，可考虑使用 Fabric private data collections，既保护隐私，也减少不必要背书
+
+**基础设施成本估算：**
+
+- Fabric 测试网络：3 个 Docker 容器（2 个 peer + 1 个 orderer），约 2GB RAM
+- 生产最小规模：4 个 peer（每个组织 2 个）+ 3 个 orderer（Raft）+ 2 个 CA，约 8GB RAM
+- 存储：账本大约每 1000 笔交易增加约 1MB，按中等业务量估算，每年预留约 10GB

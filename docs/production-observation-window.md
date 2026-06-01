@@ -135,3 +135,7 @@ docker compose --env-file /opt/oaiss-chain-prod/oaiss-chain.env -f /opt/oaiss-ch
 - 没有触发任何回滚条件
 - 人工业务抽查通过
 - 告警链路在此期间保持正常
+
+建议在观察窗口结束后立即复制并填写：
+
+- `docs/external-execution-evidence-template.md`

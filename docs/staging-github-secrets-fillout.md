@@ -47,7 +47,7 @@
 将 `DEPLOY_ENV_FILE` 设置为下面这份完整内容，并把占位符替换成真实值。
 
 ```env
-SPRING_PROFILES_ACTIVE=staging
+SPRING_PROFILES_ACTIVE=staging,fabric
 LOG_LEVEL=INFO
 APP_LOG_LEVEL=INFO
 
@@ -95,22 +95,27 @@ ALERT_SMTP_USERNAME=
 ALERT_SMTP_PASSWORD=
 ALERT_WEBHOOK_URL=
 ALERT_WEBHOOK_SECRET=
+BACKEND_LOG_DIR=./runtime-logs/backend
+FRONTEND_LOG_DIR=./runtime-logs/frontend
+ML_LOG_DIR=./runtime-logs/ml-service
 
-FABRIC_ENABLED=false
+FABRIC_ENABLED=true
 FABRIC_MSP_ID=Org1MSP
 FABRIC_CHANNEL_NAME=mychannel
 FABRIC_CHAINCODE_NAME=carbon-chaincode
-FABRIC_PEER_ENDPOINT=
+FABRIC_PEER_ENDPOINT=peer0.org1.staging.internal:7051
 FABRIC_TLS_ENABLED=true
-FABRIC_PEER_TLS_CERT_PATH=
-FABRIC_CERT_PATH=
-FABRIC_KEY_PATH=
+FABRIC_PEER_TLS_CERT_PATH=/run/secrets/fabric/peer-tls-ca.crt
+FABRIC_CERT_PATH=/run/secrets/fabric/user-cert.pem
+FABRIC_KEY_PATH=/run/secrets/fabric/user-key.pem
 FABRIC_CA_ENABLED=false
-FABRIC_CA_ENDPOINT=
+FABRIC_CA_ENDPOINT=https://ca.org1.staging.internal:7054
 FABRIC_CA_ADMIN_NAME=admin
 FABRIC_CA_ADMIN_PASSWORD=<真实 staging fabric ca 密码>
 FABRIC_COUCHDB_USER=admin
 FABRIC_COUCHDB_PASSWORD=<真实 staging couchdb 密码>
+FABRIC_SECRETS_DIR=./secrets/fabric
+FABRIC_SECRETS_MOUNT_PATH=/run/secrets/fabric
 ```
 
 ## 5. 保存前检查
@@ -118,9 +123,13 @@ FABRIC_COUCHDB_PASSWORD=<真实 staging couchdb 密码>
 快速核对以下项目：
 
 - `BACKEND_IMAGE`、`FRONTEND_IMAGE`、`ML_SERVICE_IMAGE` 指向同一个候选发布标签
+- `SPRING_PROFILES_ACTIVE=staging,fabric`
 - `CORS_ALLOWED_ORIGINS` 与真实 staging 域名一致
 - `DB_URL`、`REDIS_HOST`、`MINIO_ENDPOINT` 没有指向 `localhost`
 - `JWT_SECRET`、`RSA_KEK`、`ML_SERVICE_SECRET` 都已替换为真实值
+- `BACKEND_LOG_DIR`、`FRONTEND_LOG_DIR`、`ML_LOG_DIR` 已填写
+- `FABRIC_SECRETS_DIR` 与远程主机上的 secrets 目录一致
+- `FABRIC_PEER_TLS_CERT_PATH`、`FABRIC_CERT_PATH`、`FABRIC_KEY_PATH` 已填写
 - 目标环境中已经存在非演示用的 staging 登录账号
 
 ## 6. 保存后执行顺序
@@ -129,4 +138,6 @@ FABRIC_COUCHDB_PASSWORD=<真实 staging couchdb 密码>
 
 1. `release-images.yml`
 2. `deploy-release.yml`，并设置 `environment=staging`
-3. 按 `docs/remote-staging-rehearsal.md` 执行验收
+3. 在远程主机先运行 `scripts/bootstrap-remote-release-host.sh --target-dir /opt/oaiss-chain-staging --deploy-user deploy`
+4. 将真实 Fabric 文件放入 `/opt/oaiss-chain-staging/secrets/fabric`
+5. 按 `docs/remote-staging-rehearsal.md` 执行验收

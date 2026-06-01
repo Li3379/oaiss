@@ -9,9 +9,7 @@
 
 运行 profile：
 
-- `staging`
 - `staging,fabric`
-- `prod`
 - `prod,fabric`
 
 ## 2. 发布前提
@@ -29,7 +27,10 @@
    - staging 示例：`C:\secure\oaiss-chain-staging.env`
    - production 示例：`C:\secure\oaiss-chain-prod.env`
    - 仓库模板：`.env.staging.example`、`.env.prod.example`
-3. 必要密钥已准备：
+3. 必要发布值已准备：
+   - `BACKEND_IMAGE`
+   - `FRONTEND_IMAGE`
+   - `ML_SERVICE_IMAGE`
    - `DB_PASSWORD`
    - `REDIS_PASSWORD`
    - `JWT_SECRET`
@@ -37,12 +38,23 @@
    - `MINIO_ACCESS_KEY`
    - `MINIO_SECRET_KEY`
    - `ML_SERVICE_SECRET`
+   - 如 `REQUIRE_OPS_SECRETS=true`：`GRAFANA_ADMIN_PASSWORD`
+   - 如配置 `ALERT_SMTP_HOST`：`ALERT_SMTP_PASSWORD`
+   - 如配置 `ALERT_WEBHOOK_URL`：`ALERT_WEBHOOK_SECRET`
+   - 如 `FABRIC_ENABLED=true`：`FABRIC_COUCHDB_PASSWORD`
+   - 如 `FABRIC_CA_ENABLED=true`：`FABRIC_CA_ADMIN_PASSWORD`
 4. 基础设施端点可达：
    - MySQL
    - Redis
    - 对象存储（MinIO 兼容）
    - 可选 Fabric peer / CA
 5. 数据库备份方案已确认。
+6. 远程主机已初始化目录结构：
+   - `runtime-logs/backend`
+   - `runtime-logs/frontend`
+   - `runtime-logs/ml-service`
+   - `secrets/fabric`
+   - 可通过 `scripts/bootstrap-remote-release-host.sh` 创建
 
 ## 3. 部署前检查
 
@@ -53,6 +65,14 @@ node scripts/validate-prod-env.mjs
 ```
 
 该命令用于保证模板完整性，并防止生产配置回退到 localhost。
+
+如需对真实发布 env 做硬性检查，使用：
+
+```bash
+node scripts/validate-prod-env.mjs --require-real-secrets /secure/path/oaiss-chain-prod.env
+```
+
+严格模式会拒绝占位符镜像、关键业务密钥，以及按功能启用情况需要提供的运维 / Fabric 密钥。
 
 ### 3.2 安全展开 compose 配置
 
@@ -70,7 +90,7 @@ Linux/macOS：
 
 应检查：
 
-- `SPRING_PROFILES_ACTIVE` 是否为 `staging` / `staging,fabric` / `prod` / `prod,fabric`
+- release 部署时 `SPRING_PROFILES_ACTIVE` 应使用 `staging,fabric` / `prod,fabric`
 - backend 依赖是否不存在 localhost
 - frontend 绑定端口是否符合预期
 
@@ -108,8 +128,7 @@ Linux/macOS：
 
 推荐 staging profile：
 
-- `SPRING_PROFILES_ACTIVE=staging`
-- 或 `SPRING_PROFILES_ACTIVE=staging,fabric`
+- `SPRING_PROFILES_ACTIVE=staging,fabric`
 
 ## 5. Production 部署
 
@@ -141,8 +160,7 @@ image-only 方式：
 
 推荐 production profile：
 
-- `SPRING_PROFILES_ACTIVE=prod`
-- 或 `SPRING_PROFILES_ACTIVE=prod,fabric`
+- `SPRING_PROFILES_ACTIVE=prod,fabric`
 
 ## 6. 部署后验证
 
@@ -172,6 +190,9 @@ curl -f http://127.0.0.1/api/v1/actuator/health
 2. `.github/workflows/deploy-release.yml`
    - 通过 SSH 将 `docker-compose.release.yml` 部署到远程主机
    - 支持可选镜像覆盖参数（用于推进新版本或回滚旧版本）
+   - 部署前备份远端 env/compose/helper-script 文件
+   - 失败时抓取远程 `ps` / `logs`
+   - 健康检查失败后自动尝试回滚到上一份备份
 
 `deploy-release.yml` 推荐配置的 GitHub Environment secrets：
 
@@ -206,6 +227,9 @@ production 发布后重点观察：
 5. ML 推理成功率
 
 观察窗口期间请保留上一版本镜像 tag 与 env 文件，便于快速回滚。
+如果使用 `deploy-release.yml`，工作流会同步保留上一份远端
+`oaiss-chain.env`、`docker-compose.release.yml` 与
+`scripts/prod-compose.sh` 备份。
 
 ## 8. 回滚
 

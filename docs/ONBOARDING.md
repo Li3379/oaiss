@@ -1,213 +1,218 @@
-# Onboarding Guide: OAISS CHAIN
+# OAISS CHAIN 开发者入门指南
 
-## Overview
+## 概览
 
-OAISS CHAIN（双碳链动）是一个基于区块链的可信碳核算与交易平台。企业提交碳排放报告，审核员审核，第三方监管，管理员管理全系统。支持碳币交易、双向拍卖、P2P交易、碳中和项目等核心业务。
+OAISS CHAIN（双碳链动系统）是一个基于区块链的可信碳核算与碳交易平台。企业提交碳排放报告，审核员进行审核，第三方执行监管，管理员负责系统管理。系统支持碳币交易、双向撮合、P2P 交易、碳中和项目等核心业务。
 
-## Tech Stack
+## 技术栈
 
-| Layer | Technology | Version |
+| 层级 | 技术 | 版本 |
 |-------|-----------|---------|
-| Backend Language | Java | 17 |
-| Backend Framework | Spring Boot | 3.2.5 |
+| 后端语言 | Java | 17 |
+| 后端框架 | Spring Boot | 3.2.5 |
 | ORM | Spring Data JPA (Hibernate) | - |
-| Database | MySQL | 8.0 |
-| Cache | Redis | 7 (Lettuce) |
-| Object Storage | MinIO | latest |
-| Auth | JWT (jjwt) | 0.12.5 |
-| DB Migration | Flyway | - |
-| API Docs | SpringDoc OpenAPI | 2.5 |
-| Build | Maven | - |
-| Frontend Language | TypeScript | 6 |
-| Frontend Framework | Vue | 3.5 |
-| UI Library | Element Plus | 2.13 |
-| State Management | Pinia | 3 |
-| Router | Vue Router | 5 |
-| Charts | ECharts | 6 |
-| i18n | vue-i18n | 11 |
-| Build Tool | Vite | 8 |
-| Unit Testing (FE) | Vitest (happy-dom) | 4.1 |
-| E2E Testing | Playwright | 1.59 |
-| Infra | Docker Compose | 3.8 |
+| 数据库 | MySQL | 8.0 |
+| 缓存 | Redis | 7 (Lettuce) |
+| 对象存储 | MinIO | latest |
+| 认证 | JWT (jjwt) | 0.12.5 |
+| 数据库迁移 | Flyway | - |
+| API 文档 | SpringDoc OpenAPI | 2.5 |
+| 构建工具 | Maven | - |
+| 前端语言 | TypeScript | 6 |
+| 前端框架 | Vue | 3.5 |
+| UI 组件库 | Element Plus | 2.13 |
+| 状态管理 | Pinia | 3 |
+| 路由 | Vue Router | 5 |
+| 图表 | ECharts | 6 |
+| 国际化 | vue-i18n | 11 |
+| 构建工具 | Vite | 8 |
+| 前端单测 | Vitest (happy-dom) | 4.1 |
+| E2E 测试 | Playwright | 1.59 |
+| 基础设施 | Docker Compose | 3.8 |
 
-## Architecture
+## 架构
 
+```text
+Vue 3 SPA (Vite/TS)
+    |
+    | /api/v1/*
+    v
+Spring Boot API
+    |
+    +-- MySQL 8
+    +-- Redis 7
+    +-- MinIO
+    +-- Fabric / ML（按 profile 启用）
 ```
-┌─────────────┐     ┌──────────────────┐     ┌─────────────┐
-│  Vue 3 SPA  │────▶│  Spring Boot API │────▶│   MySQL 8   │
-│  (Vite/TS)  │◀────│  /api/v1/*       │────▶│   Redis 7   │
-└─────────────┘     └──────────────────┘────▶│   MinIO      │
-                                            └─────────────┘
-```
 
-- **Monolithic backend + SPA frontend**，通过 Docker Compose 编排
-- **REST API** 风格，JWT Bearer Token 认证 + CSRF cookie
-- 前端开发时代理 `/api` 到 `localhost:8080`（Vite proxy）
+- 采用 **单体后端 + SPA 前端** 的组合，并通过 Docker Compose 编排。
+- API 风格为 **REST**，使用 JWT Bearer Token 认证，并配合 CSRF cookie。
+- 前端开发环境会把 `/api` 代理到 `localhost:8080`（Vite proxy）。
 
-## User Roles
+## 用户角色
 
-| Role | Chinese | Home Route | Description |
+| 角色 | 中文名 | 首页路由 | 说明 |
 |------|---------|-----------|-------------|
-| `ENTERPRISE` | 企业 | `/enterprise/carbon/upload` | 提交碳报告、交易、查看碳币 |
-| `REVIEWER` | 审核员 | `/auditor/audit/list` | 审核碳排放数据 |
-| `THIRD_PARTY` | 第三方 | `/third-party/monitor` | 监管面板 |
-| `ADMIN` | 管理员 | `/admin/system/users` | 用户管理、系统配置 |
+| `ENTERPRISE` | 企业 | `/enterprise/carbon/upload` | 提交碳报告、参与交易、查看碳币与项目数据 |
+| `REVIEWER` | 审核员 | `/auditor/audit/list` | 审核碳排放与相关业务材料 |
+| `THIRD_PARTY` | 第三方 | `/third-party/monitor` | 查看监管与监测面板 |
+| `ADMIN` | 管理员 | `/admin/system/users` | 用户管理、系统配置、平台治理 |
 
-## Key Entry Points
+## 关键入口
 
-| What | Where |
+| 内容 | 位置 |
 |------|-------|
-| Backend main | `oaiss-chain-backend/.../OaissChainApplication.java` |
-| API base path | `server.servlet.context-path: /api/v1` (application.yml) |
-| Security config | `config/SecurityConfig.java` |
-| JWT filter | `security/JwtAuthenticationFilter.java` |
-| Frontend main | `oaiss-chain-frontend/src/main.ts` |
-| Router | `src/router/index.ts` (role-based guards) |
-| API client | `src/api/request.ts` (axios + token refresh) |
-| Auth utils | `src/utils/auth.ts` (token storage + JWT parse) |
-| Store | `src/store/index.ts` (Pinia, user state from JWT) |
-| DB schema | `src/main/resources/db/migration/V1__init_schema.sql` |
+| 后端启动类 | `oaiss-chain-backend/.../OaissChainApplication.java` |
+| API 根路径 | `server.servlet.context-path: /api/v1`（`application.yml`） |
+| 安全配置 | `config/SecurityConfig.java` |
+| JWT 过滤器 | `security/JwtAuthenticationFilter.java` |
+| 前端入口 | `oaiss-chain-frontend/src/main.ts` |
+| 路由配置 | `src/router/index.ts`（带角色守卫） |
+| API 客户端 | `src/api/request.ts`（axios + token refresh） |
+| 认证工具 | `src/utils/auth.ts`（token 存储 + JWT 解析） |
+| 状态管理 | `src/store/index.ts`（Pinia，从 JWT 初始化用户状态） |
+| 数据库结构 | `src/main/resources/db/migration/V1__init_schema.sql` |
 
-## Directory Map
+## 目录地图
 
-### Backend (`oaiss-chain-backend/src/main/java/com/oaiss/chain/`)
+### 后端目录（`oaiss-chain-backend/src/main/java/com/oaiss/chain/`）
 
-| Directory | Purpose | Count |
+| 目录 | 作用 | 数量 |
 |-----------|---------|-------|
-| `controller/` | REST endpoints | 16 |
-| `service/` | Business logic | 23 |
-| `repository/` | Spring Data JPA interfaces | 22 |
-| `entity/` | JPA entities (Lombok `@Data`) | 21 |
-| `dto/` | Request/response DTOs | 30+ |
-| `config/` | Spring configs (Security, Redis, MinIO, Swagger, etc.) | 14 |
-| `annotation/` | Custom annotations | 5 |
-| `aop/` | AOP aspects for annotations | 5 |
-| `security/` | JWT filter, token provider, handlers | 6 |
-| `enums/` | Business enumerations | 8 |
-| `constant/` | ErrorCode, ErrorMessage | 2 |
-| `exception/` | Custom exceptions + GlobalExceptionHandler | 7 |
-| `util/` | Utility classes | 4 |
+| `controller/` | REST 接口层 | 16 |
+| `service/` | 业务逻辑层 | 23 |
+| `repository/` | Spring Data JPA 接口 | 22 |
+| `entity/` | JPA 实体（大量使用 Lombok `@Data`） | 21 |
+| `dto/` | 请求/响应 DTO | 30+ |
+| `config/` | Spring 配置（安全、Redis、MinIO、Swagger 等） | 14 |
+| `annotation/` | 自定义注解 | 5 |
+| `aop/` | 注解对应的 AOP 切面 | 5 |
+| `security/` | JWT 过滤器、token provider、handler 等 | 6 |
+| `enums/` | 业务枚举 | 8 |
+| `constant/` | 错误码与错误信息常量 | 2 |
+| `exception/` | 自定义异常与全局异常处理 | 7 |
+| `util/` | 工具类 | 4 |
 
-### Frontend (`oaiss-chain-frontend/src/`)
+### 前端目录（`oaiss-chain-frontend/src/`）
 
-| Directory | Purpose | Count |
+| 目录 | 作用 | 数量 |
 |-----------|---------|-------|
-| `api/` | Axios API clients (per domain) | 17 |
-| `types/` | TypeScript type definitions | 16 |
-| `views/` | Page components (by role) | 20+ |
-| `views/__tests__/` | Colocated Vitest unit tests | 20+ |
-| `store/` | Pinia store (single `app` store) | 1 |
-| `router/` | Vue Router with role guards | 1 |
-| `i18n/` | zh-CN + en-US locales | 3 |
-| `components/` | Shared components | 3 |
-| `layout/` | App shell (sidebar + header) | 1 |
-| `config/` | Menu config, image config | 2 |
-| `utils/` | Auth, ECharts utilities | 2 |
+| `api/` | 按业务域拆分的 Axios API 客户端 | 17 |
+| `types/` | TypeScript 类型定义 | 16 |
+| `views/` | 页面组件（按角色拆分） | 20+ |
+| `views/__tests__/` | 就地 Vitest 单元测试 | 20+ |
+| `store/` | Pinia 状态管理（当前为单一 `app` store） | 1 |
+| `router/` | 带角色守卫的 Vue Router | 1 |
+| `i18n/` | `zh-CN` + `en-US` 国际化资源 | 3 |
+| `components/` | 公共组件 | 3 |
+| `layout/` | 应用壳层（侧边栏 + 顶栏） | 1 |
+| `config/` | 菜单配置、图片配置 | 2 |
+| `utils/` | 认证与 ECharts 工具 | 2 |
 
-## Request Lifecycle
+## 请求生命周期
 
-典型请求流程（以创建碳报告为例）：
+以“创建碳报告”为例：
 
-```
-1. Vue component calls api/carbon.ts → axios request
-2. request.ts interceptor: attach JWT Bearer token
-   ├─ token expired? → auto-refresh via /auth/refresh
-   └─ pageNum/pageSize → page/size param conversion
-3. Vite proxy → http://localhost:8080/api/v1
-4. Spring Security filter chain:
-   JwtAuthenticationFilter → validate token → set SecurityContext
-5. @PreAuthorize("hasRole('ENTERPRISE')") → role check
+```text
+1. Vue 组件调用 api/carbon.ts -> 发起 axios 请求
+2. request.ts 拦截器附加 JWT Bearer token
+   - token 过期时，自动通过 /auth/refresh 刷新
+   - 把 pageNum/pageSize 转成 page/size
+3. Vite 代理转发到 http://localhost:8080/api/v1
+4. Spring Security 过滤链执行：
+   JwtAuthenticationFilter -> 校验 token -> 写入 SecurityContext
+5. @PreAuthorize("hasRole('ENTERPRISE')") 进行角色检查
 6. CarbonController.createReport()
-   └─ CarbonService → business logic
-      └─ CarbonReportRepository → Spring Data JPA → MySQL
-7. ApiResponse<T> envelope wraps response
-8. request.ts response interceptor:
-   ├─ Spring Data Page → { items, total, page, size, totalPages }
-   └─ error codes → ElMessage.error()
+   -> CarbonService 处理业务逻辑
+      -> CarbonReportRepository 通过 Spring Data JPA 落库 MySQL
+7. 响应统一用 ApiResponse<T> 包装
+8. request.ts 响应拦截器：
+   - 把 Spring Data Page 转为 { items, total, page, size, totalPages }
+   - 错误码映射为 ElMessage.error()
 ```
 
-## Cross-Cutting Concerns (AOP)
+## 横切关注点（AOP）
 
-5 个自定义注解 + 对应切面：
+系统中有 5 个自定义注解及其对应切面：
 
-| Annotation | Purpose | Mechanism |
+| 注解 | 作用 | 机制 |
 |------------|---------|-----------|
-| `@AuditLog` | 操作审计日志 | AOP 记录到 OperationLog 表 |
-| `@RateLimit` | 请求限流 | Redis 计数器 |
-| `@RequirePermission` | 细粒度权限 | 权限表查询 |
-| `@DataIsolation` | 租户数据隔离 | 企业 ID 过滤 |
-| `@DistributedLock` | 分布式锁 | Redis SETNX |
+| `@AuditLog` | 操作审计日志 | AOP 记录到 `OperationLog` 表 |
+| `@RateLimit` | 请求限流 | 基于 Redis 计数 |
+| `@RequirePermission` | 细粒度权限控制 | 权限表校验 |
+| `@DataIsolation` | 租户数据隔离 | 通过企业 ID 过滤 |
+| `@DistributedLock` | 分布式锁 | 基于 Redis `SETNX` |
 
-## Conventions
+## 约定
 
-### Naming
+### 命名约定
 
-| What | Pattern | Example |
+| 对象 | 规则 | 示例 |
 |------|---------|---------|
-| Java classes | PascalCase | `CarbonReportService` |
-| Java methods/fields | camelCase | `createReport()` |
-| API paths | kebab-case | `/carbon-coin/account` |
-| Vue components | PascalCase | `CarbonUpload.vue` |
-| TS files | camelCase | `carbonCoin.ts` |
-| View directories | kebab-case | `views/enterprise/`, `views/third-party/` |
-| Test files | `*.test.ts` | `Login.test.ts` |
-| Test location | `__tests__/` colocated | `views/__tests__/Login.test.ts` |
+| Java 类名 | PascalCase | `CarbonReportService` |
+| Java 方法/字段 | camelCase | `createReport()` |
+| API 路径 | kebab-case | `/carbon-coin/account` |
+| Vue 组件 | PascalCase | `CarbonUpload.vue` |
+| TS 文件 | camelCase | `carbonCoin.ts` |
+| 页面目录 | kebab-case | `views/enterprise/`, `views/third-party/` |
+| 测试文件 | `*.test.ts` | `Login.test.ts` |
+| 测试位置 | `__tests__/` 就地放置 | `views/__tests__/Login.test.ts` |
 
-### Code Patterns
+### 代码模式
 
-- **Backend**: Lombok `@Data`/`@Builder`/`@RequiredArgsConstructor` on entities/DTOs
-- **Backend**: Constructor injection via `@RequiredArgsConstructor` (no `@Autowired`)
-- **Backend**: `ApiResponse<T>` static factory methods for all responses
-- **Backend**: `@PreAuthorize` for role-based access on controller methods
-- **Backend**: Swagger annotations on all controller methods
-- **Frontend**: Pinia Options API store (single `app` store)
-- **Frontend**: Lazy-loaded routes via `() => import()`
-- **Frontend**: Token stored in localStorage/sessionStorage + memory cache
-- **Frontend**: JWT payload parsed client-side for role/userId extraction
+- **后端**：实体和 DTO 中广泛使用 Lombok `@Data` / `@Builder` / `@RequiredArgsConstructor`
+- **后端**：主要使用构造器注入，不使用 `@Autowired`
+- **后端**：所有接口响应统一使用 `ApiResponse<T>` 静态工厂方法
+- **后端**：控制器方法通过 `@PreAuthorize` 进行角色控制
+- **后端**：控制器方法都带 Swagger 注解
+- **前端**：Pinia Options API 风格，当前为单一 `app` store
+- **前端**：路由默认采用 `() => import()` 懒加载
+- **前端**：token 保存在 localStorage/sessionStorage + 内存缓存
+- **前端**：客户端会解析 JWT payload 获取 role/userId
 
-### Git
+### Git 约定
 
-- **Branch naming**: `claude/<adjective>-<name>-<hash>` (AI-generated)
-- **Commit format**: Conventional commits: `type(scope): description`
-  - Types: `feat`, `fix`, `docs`, `test`, `refactor`, `chore`, `perf`, `ci`
-- **PR workflow**: Squash merge to main
+- **分支命名**：`claude/<adjective>-<name>-<hash>`（AI 生成分支命名规则）
+- **提交格式**：Conventional Commits，例如 `type(scope): description`
+  - 可用类型：`feat`、`fix`、`docs`、`test`、`refactor`、`chore`、`perf`、`ci`
+- **PR 策略**：合并到主分支时使用 squash merge
 
-## Common Tasks
+## 常用任务
 
-| Task | Command |
+| 任务 | 命令 |
 |------|---------|
-| Start backend dev server | `scripts/start-backend.bat` / `./scripts/start-backend.sh` |
-| Stop backend dev server | `scripts/stop-backend.bat` / `./scripts/stop-backend.sh` |
-| Start frontend dev server | `cd oaiss-chain-frontend && npm run dev` |
-| Run backend tests | `cd oaiss-chain-backend && mvn test` |
-| Run backend integration tests | `cd oaiss-chain-backend && mvn verify` |
-| Run frontend unit tests | `cd oaiss-chain-frontend && npm run test` |
-| Run frontend E2E tests | `cd oaiss-chain-frontend && npm run test:e2e` |
-| Build frontend for production | `cd oaiss-chain-frontend && npm run build` |
-| Start full stack | `docker compose up` |
-| View Swagger API docs | `http://localhost:8080/api/v1/swagger-ui.html` |
-| View MinIO console | `http://localhost:9003` |
+| 启动后端开发服务 | `scripts/start-backend.bat` / `./scripts/start-backend.sh` |
+| 停止后端开发服务 | `scripts/stop-backend.bat` / `./scripts/stop-backend.sh` |
+| 启动前端开发服务 | `cd oaiss-chain-frontend && npm run dev` |
+| 运行后端测试 | `cd oaiss-chain-backend && mvn test` |
+| 运行后端集成测试 | `cd oaiss-chain-backend && mvn verify` |
+| 运行前端单元测试 | `cd oaiss-chain-frontend && npm run test` |
+| 运行前端 E2E 测试 | `cd oaiss-chain-frontend && npm run test:e2e` |
+| 构建前端生产包 | `cd oaiss-chain-frontend && npm run build` |
+| 启动整套栈 | `docker compose up` |
+| 查看 Swagger API 文档 | `http://localhost:8080/api/v1/swagger-ui.html` |
+| 查看 MinIO 控制台 | `http://localhost:9003` |
 
-## Environment Setup
+## 环境准备
 
-1. Copy `.env.example` to `.env` and fill values
-2. Key variables: `DB_PASSWORD`, `REDIS_PASSWORD`, `JWT_SECRET`, `MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY`, `RSA_KEK`
-3. Backend runs on port **8080**, frontend dev on **5173**
-4. MySQL on **3306**, Redis on **6379**, MinIO API on **9002**, console on **9003**
-5. For `local,fabric`, prefer `scripts/start-all.bat --with-fabric` or `./scripts/start-all.sh --with-fabric` so `.env` variables are injected before Spring Boot starts
+1. 将 `.env.example` 复制为 `.env` 并填写真实值
+2. 关键变量包括：`DB_PASSWORD`、`REDIS_PASSWORD`、`JWT_SECRET`、`MINIO_ACCESS_KEY`、`MINIO_SECRET_KEY`、`RSA_KEK`
+3. 后端默认运行在 **8080**，前端开发服务默认运行在 **5173**
+4. MySQL 默认 **3306**，Redis 默认 **6379**，MinIO API 默认 **9002**，控制台默认 **9003**
+5. 如使用 `local,fabric`，优先使用 `scripts/start-all.bat --with-fabric` 或 `./scripts/start-all.sh --with-fabric`，确保 Spring Boot 启动前已经注入 `.env` 变量
 
-## Where to Look
+## 遇到问题时看哪里
 
-| I want to... | Look at... |
+| 我想做什么 | 建议查看 |
 |--------------|-----------|
-| Add a REST endpoint | `controller/` → matching service → repository |
-| Add a new entity/table | `entity/` + Flyway migration in `db/migration/` |
-| Change auth behavior | `security/` + `config/SecurityConfig.java` |
-| Add a frontend page | `views/<role>/` + add route in `router/index.ts` + add API in `api/` |
-| Add a new API client | `api/<domain>.ts` + `types/<domain>.ts` |
-| Fix a role/permission issue | Backend: `@PreAuthorize` on controller; Frontend: `meta.roles` in router |
-| Add i18n strings | `i18n/locales/zh-CN.ts` + `en-US.ts` |
-| Debug JWT issues | `security/JwtTokenProvider.java` + `utils/auth.ts` |
-| Understand DB schema | `db/migration/V1__init_schema.sql` |
-| Add a custom annotation | `annotation/` + matching aspect in `aop/` |
-| Check API docs | Swagger UI at `/api/v1/swagger-ui.html` |
+| 新增 REST 接口 | `controller/` -> 对应 `service/` -> `repository/` |
+| 新增实体/表 | `entity/` + `db/migration/` 中的 Flyway 脚本 |
+| 修改认证行为 | `security/` + `config/SecurityConfig.java` |
+| 新增前端页面 | `views/<role>/` + `router/index.ts` + `api/` |
+| 新增 API 客户端 | `api/<domain>.ts` + `types/<domain>.ts` |
+| 修角色/权限问题 | 后端看 `@PreAuthorize`，前端看路由 `meta.roles` |
+| 增加 i18n 文案 | `i18n/locales/zh-CN.ts` + `en-US.ts` |
+| 排查 JWT 问题 | `security/JwtTokenProvider.java` + `utils/auth.ts` |
+| 理解数据库结构 | `db/migration/V1__init_schema.sql` |
+| 新增自定义注解 | `annotation/` + `aop/` 中对应切面 |
+| 查看 API 文档 | Swagger UI：`/api/v1/swagger-ui.html` |

@@ -47,7 +47,7 @@
 将 `DEPLOY_ENV_FILE` 设置为下面这份完整内容，并把占位符替换成真实值。
 
 ```env
-SPRING_PROFILES_ACTIVE=prod
+SPRING_PROFILES_ACTIVE=prod,fabric
 LOG_LEVEL=INFO
 APP_LOG_LEVEL=INFO
 
@@ -95,33 +95,27 @@ ALERT_SMTP_USERNAME=<真实 smtp 用户名>
 ALERT_SMTP_PASSWORD=<真实 smtp 密码>
 ALERT_WEBHOOK_URL=<真实 webhook 地址>
 ALERT_WEBHOOK_SECRET=<真实 webhook 密钥>
+BACKEND_LOG_DIR=./runtime-logs/backend
+FRONTEND_LOG_DIR=./runtime-logs/frontend
+ML_LOG_DIR=./runtime-logs/ml-service
 
-FABRIC_ENABLED=false
+FABRIC_ENABLED=true
 FABRIC_MSP_ID=Org1MSP
 FABRIC_CHANNEL_NAME=mychannel
 FABRIC_CHAINCODE_NAME=carbon-chaincode
-FABRIC_PEER_ENDPOINT=
+FABRIC_PEER_ENDPOINT=peer0.org1.example.internal:7051
 FABRIC_TLS_ENABLED=true
-FABRIC_PEER_TLS_CERT_PATH=
-FABRIC_CERT_PATH=
-FABRIC_KEY_PATH=
+FABRIC_PEER_TLS_CERT_PATH=/run/secrets/fabric/peer-tls-ca.crt
+FABRIC_CERT_PATH=/run/secrets/fabric/user-cert.pem
+FABRIC_KEY_PATH=/run/secrets/fabric/user-key.pem
 FABRIC_CA_ENABLED=false
-FABRIC_CA_ENDPOINT=
+FABRIC_CA_ENDPOINT=https://ca.org1.example.internal:7054
 FABRIC_CA_ADMIN_NAME=admin
 FABRIC_CA_ADMIN_PASSWORD=<真实生产 fabric ca 密码>
 FABRIC_COUCHDB_USER=admin
 FABRIC_COUCHDB_PASSWORD=<真实生产 couchdb 密码>
-```
-
-如果生产环境启用 Fabric，请同步更新：
-
-```env
-SPRING_PROFILES_ACTIVE=prod,fabric
-FABRIC_ENABLED=true
-FABRIC_PEER_ENDPOINT=peer0.org1.example.internal:7051
-FABRIC_PEER_TLS_CERT_PATH=/run/secrets/fabric/peer-tls-ca.crt
-FABRIC_CERT_PATH=/run/secrets/fabric/user-cert.pem
-FABRIC_KEY_PATH=/run/secrets/fabric/user-key.pem
+FABRIC_SECRETS_DIR=./secrets/fabric
+FABRIC_SECRETS_MOUNT_PATH=/run/secrets/fabric
 ```
 
 ## 5. 保存前检查
@@ -129,10 +123,14 @@ FABRIC_KEY_PATH=/run/secrets/fabric/user-key.pem
 快速核对以下项目：
 
 - `BACKEND_IMAGE`、`FRONTEND_IMAGE`、`ML_SERVICE_IMAGE` 都指向已批准的正式发布标签
+- `SPRING_PROFILES_ACTIVE=prod,fabric`
 - `CORS_ALLOWED_ORIGINS` 仅允许真实公网域名
 - `DB_URL`、`REDIS_HOST`、`MINIO_ENDPOINT` 没有指向 `localhost`
 - `JWT_SECRET`、`RSA_KEK`、`ML_SERVICE_SECRET` 都已替换为真实值
 - 如生产环境需要告警，SMTP / webhook 配置必须为真实可用值
+- `BACKEND_LOG_DIR`、`FRONTEND_LOG_DIR`、`ML_LOG_DIR` 已填写
+- `FABRIC_SECRETS_DIR` 与远程主机上的 secrets 目录一致
+- `FABRIC_PEER_TLS_CERT_PATH`、`FABRIC_CERT_PATH`、`FABRIC_KEY_PATH` 已填写
 - 已存在非演示用的生产账号
 - 生产环境配置与 staging 配置完全隔离
 
@@ -143,6 +141,8 @@ FABRIC_KEY_PATH=/run/secrets/fabric/user-key.pem
 1. 完成并验证 staging 演练
 2. 发布正式批准的 release 镜像
 3. 填写或更新 `production` GitHub Environment secrets
-4. 运行 `deploy-release.yml`，并设置 `environment=production`
-5. 按 `docs/deployment-runbook.md` 执行部署后检查
-6. 观察 canary / 观察窗口，确认稳定后再宣布正式上线完成
+4. 在远程主机先运行 `scripts/bootstrap-remote-release-host.sh --target-dir /opt/oaiss-chain-prod --deploy-user deploy`
+5. 将真实 Fabric 文件放入 `/opt/oaiss-chain-prod/secrets/fabric`
+6. 运行 `deploy-release.yml`，并设置 `environment=production`
+7. 按 `docs/deployment-runbook.md` 执行部署后检查
+8. 观察 canary / 观察窗口，确认稳定后再宣布正式上线完成

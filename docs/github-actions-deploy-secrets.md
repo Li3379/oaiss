@@ -37,14 +37,28 @@
   - `BACKEND_IMAGE`
   - `FRONTEND_IMAGE`
   - `ML_SERVICE_IMAGE`
-  - 数据库、Redis、MinIO、JWT、RSA、ML，以及可选 Fabric 相关设置
+  - 数据库、Redis、MinIO、JWT、RSA、ML 相关设置
+  - `BACKEND_LOG_DIR`、`FRONTEND_LOG_DIR`、`ML_LOG_DIR`
+  - 启用真实区块链时的 `SPRING_PROFILES_ACTIVE=staging,fabric` 或 `prod,fabric`
+  - `FABRIC_SECRETS_DIR`、`FABRIC_SECRETS_MOUNT_PATH`
+  - `FABRIC_PEER_TLS_CERT_PATH`、`FABRIC_CERT_PATH`、`FABRIC_KEY_PATH`
+  - 如 `REQUIRE_OPS_SECRETS=true`：`GRAFANA_ADMIN_PASSWORD`
+  - 如配置 `ALERT_SMTP_HOST`：`ALERT_SMTP_PASSWORD`
+  - 如配置 `ALERT_WEBHOOK_URL`：`ALERT_WEBHOOK_SECRET`
+  - 如 `FABRIC_ENABLED=true`：`FABRIC_COUCHDB_PASSWORD`
+  - 如 `FABRIC_CA_ENABLED=true`：`FABRIC_CA_ADMIN_PASSWORD`
 - `deploy-release.yml` 支持以下可选工作流输入：
   - `backend_image`
   - `frontend_image`
   - `ml_service_image`
   这些值会覆盖 `DEPLOY_ENV_FILE` 中对应的镜像地址，适用于受控发布新标签或快速回滚到已知稳定版本。
 - 当 `REGISTRY_HOST`、`REGISTRY_USERNAME`、`REGISTRY_PASSWORD` 三项同时存在时，工作流会在远端主机执行 `pull` 前先执行 `docker login`。
+- 工作流会先在本地渲染 `DEPLOY_ENV_FILE`，再执行 `node scripts/validate-prod-env.mjs --require-real-secrets`；占位符镜像、关键业务密钥，以及按功能启用而要求存在的运维 / Fabric 密钥会在上传前被拒绝。
+- 工作流现在会在部署前自动备份远端 `oaiss-chain.env` 和 `docker-compose.release.yml`，并在健康检查失败时抓取远程 `ps/logs` 后尝试自动回滚。
 - 建议为 `staging` 与 `production` 分别创建独立的 GitHub Environment。
 - 使用最小权限原则创建独立部署密钥。
 - SSH 密钥与应用密钥应分别轮换，不要绑定为同一变更流程。
 - 使用 `docker-compose.release.yml` 时，远程主机不需要仓库源码，只需要 Docker、Compose 包装脚本，以及访问镜像仓库和基础设施端点的网络权限。
+- 首次上机前建议在远程主机执行：
+  - `scripts/bootstrap-remote-release-host.sh --target-dir /opt/oaiss-chain-staging --deploy-user deploy`
+  - 或 `scripts/bootstrap-remote-release-host.sh --target-dir /opt/oaiss-chain-prod --deploy-user deploy`

@@ -52,22 +52,10 @@ ML_SERVICE_IMAGE=ghcr.io/<owner>/oaiss-chain-ml-service:<release-tag>
 ### 2.2 运行环境 Profile
 
 ```env
-SPRING_PROFILES_ACTIVE=staging
-```
-
-生产环境应使用：
-
-```env
-SPRING_PROFILES_ACTIVE=prod
-```
-
-如启用 Fabric：
-
-```env
 SPRING_PROFILES_ACTIVE=staging,fabric
 ```
 
-或：
+生产环境应使用：
 
 ```env
 SPRING_PROFILES_ACTIVE=prod,fabric
@@ -124,9 +112,9 @@ CORS_ALLOWED_ORIGINS=https://staging.example.com
 CORS_ALLOWED_ORIGINS=https://app.example.com
 ```
 
-### 2.7 可选 Fabric 配置
+### 2.7 Fabric 配置
 
-如果远程环境启用区块链集成：
+远程 `staging` / `production` 发布应启用真实区块链集成：
 
 ```env
 FABRIC_ENABLED=true
@@ -140,6 +128,19 @@ FABRIC_CERT_PATH=/run/secrets/fabric/user-cert.pem
 FABRIC_KEY_PATH=/run/secrets/fabric/user-key.pem
 FABRIC_CA_ENABLED=false
 ```
+
+同时声明远程挂载目录与运行日志目录：
+
+```env
+BACKEND_LOG_DIR=./runtime-logs/backend
+FRONTEND_LOG_DIR=./runtime-logs/frontend
+ML_LOG_DIR=./runtime-logs/ml-service
+FABRIC_SECRETS_DIR=./secrets/fabric
+FABRIC_SECRETS_MOUNT_PATH=/run/secrets/fabric
+```
+
+若 `FABRIC_CA_ENABLED=true`，还应提供真实 `FABRIC_CA_ADMIN_PASSWORD`。  
+若 `FABRIC_ENABLED=true`，还应提供真实 `FABRIC_COUCHDB_PASSWORD`。
 
 ## 3. 各值通常来源于哪里
 
@@ -174,9 +175,12 @@ FABRIC_CA_ENABLED=false
 - staging 与 production 使用不同主机和不同凭证
 - staging 与 production 的 JWT / RSA / ML 共享密钥彼此独立
 - `DEPLOY_ENV_FILE` 已包含镜像地址
+- `DEPLOY_ENV_FILE` 已包含日志目录与 Fabric secrets 目录
+- `DEPLOY_ENV_FILE` 已使用 `SPRING_PROFILES_ACTIVE=staging,fabric` 或 `prod,fabric`
 - 若镜像为私有仓库，已配置镜像登录密钥
 - 健康检查地址与真实入口路径一致
 - 目标环境中已存在非演示账号
+- 首次上机前已执行远程目录初始化脚本
 
 ## 6. 相关文档
 
@@ -184,6 +188,7 @@ FABRIC_CA_ENABLED=false
 - `docs/staging-github-secrets-fillout.md`
 - `docs/production-github-secrets-fillout.md`
 - `docs/remote-staging-rehearsal.md`
+- `docs/remote-host-preflight-checklist.md`
 - `docs/deployment-runbook.md`
 - `.env.staging.example`
 - `.env.prod.example`

@@ -365,9 +365,9 @@ DRAFT(0) → SUBMITTED(1) → UNDER_REVIEW(2) → APPROVED(3) → ON_CHAIN(5)
 
 | 角色 | 用户名 | 密码 | 路由前缀 |
 |------|--------|------|----------|
-| 企业 | (待确认) | (待确认) | /enterprise/* |
-| 审核员 | (待确认) | (待确认) | /auditor/* |
-| 第三方 | (待确认) | (待确认) | /third-party/* |
-| 管理员 | (待确认) | (待确认) | /admin/* |
+| 企业 | enterprise001 | admin123 | /enterprise/* |
+| 审核员 | reviewer001 | admin123 | /auditor/* |
+| 第三方 | thirdparty001 | admin123 | /third-party/* |
+| 管理员 | admin | admin123 | /admin/* |
 
-> 需要确认测试账号后才能开始浏览器自动化验收。
+> 当前仓库内的浏览器自动化与 API 测试基线已默认使用上述账号。若切换到远程 staging / production 环境，仍需复核这些账号是否真实存在且权限映射一致。

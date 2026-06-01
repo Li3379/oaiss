@@ -7,12 +7,30 @@ on:
       - 'oaiss-chain-backend/**'
       - 'oaiss-chain-frontend/**'
       - 'oaiss-chain-ml-service/**'
+      - '.env.prod.example'
+      - '.env.staging.example'
+      - 'docker-compose.prod.yml'
+      - 'docker-compose.release.yml'
+      - 'scripts/bootstrap-remote-release-host.sh'
+      - 'scripts/closure-audit.mjs'
+      - 'scripts/prod-compose.sh'
+      - 'scripts/prod-compose.ps1'
+      - 'scripts/validate-prod-env.mjs'
       - '.github/workflows/e2e-tests.yml'
   pull_request:
     paths:
       - 'oaiss-chain-backend/**'
       - 'oaiss-chain-frontend/**'
       - 'oaiss-chain-ml-service/**'
+      - '.env.prod.example'
+      - '.env.staging.example'
+      - 'docker-compose.prod.yml'
+      - 'docker-compose.release.yml'
+      - 'scripts/bootstrap-remote-release-host.sh'
+      - 'scripts/closure-audit.mjs'
+      - 'scripts/prod-compose.sh'
+      - 'scripts/prod-compose.ps1'
+      - 'scripts/validate-prod-env.mjs'
       - '.github/workflows/e2e-tests.yml'
   workflow_dispatch:
 
@@ -120,6 +138,96 @@ jobs:
         run: |
           node scripts/validate-prod-env.mjs .env.staging.example | tee staging-env-validation.txt
 
+      - name: Validate strict deployment env guardrails
+        run: |
+          set +e
+          node scripts/validate-prod-env.mjs --require-real-secrets .env.prod.example > strict-prod-env-validation.txt 2>&1
+          strict_prod_exit=$?
+          if [ "$strict_prod_exit" -eq 0 ]; then
+            echo "Expected strict production env validation to fail for placeholder template" >&2
+            exit 1
+          fi
+
+          node scripts/validate-prod-env.mjs --require-real-secrets .env.staging.example > strict-staging-env-validation.txt 2>&1
+          strict_staging_exit=$?
+          if [ "$strict_staging_exit" -eq 0 ]; then
+            echo "Expected strict staging env validation to fail for placeholder template" >&2
+            exit 1
+          fi
+
+          set -e
+          cat > strict-release-smoke.env <<'EOF'
+SPRING_PROFILES_ACTIVE=prod,fabric
+LOG_LEVEL=INFO
+APP_LOG_LEVEL=INFO
+BACKEND_IMAGE=ghcr.io/example-org/oaiss-chain-backend:release-smoke-tag
+FRONTEND_IMAGE=ghcr.io/example-org/oaiss-chain-frontend:release-smoke-tag
+ML_SERVICE_IMAGE=ghcr.io/example-org/oaiss-chain-ml-service:release-smoke-tag
+CORS_ALLOWED_ORIGINS=https://app.example.com
+DB_URL=jdbc:mysql://mysql.example.internal:3306/oaiss_chain?useSSL=true&requireSSL=true&serverTimezone=Asia/Shanghai&characterEncoding=UTF-8
+DB_USERNAME=oaiss_app
+DB_PASSWORD=Str0ngReleaseSmokeDbPass!
+DB_POOL_MIN_IDLE=5
+DB_POOL_MAX_SIZE=20
+DB_POOL_CONNECTION_TIMEOUT_MS=30000
+DB_POOL_LEAK_DETECTION_MS=0
+REDIS_HOST=redis.example.internal
+REDIS_PORT=6379
+REDIS_DATABASE=0
+REDIS_PASSWORD=Str0ngReleaseSmokeRedisPass!
+JWT_SECRET=0123456789abcdef0123456789abcdef0123456789abcdef
+JWT_EXPIRATION_MS=3600000
+JWT_REFRESH_EXPIRATION_MS=604800000
+RSA_KEK=QUJDREVGR0hJSktMTU5PUFFSU1RVVldYWVo0MTIzNDU2Nzg5MDE=
+MINIO_ENDPOINT=https://object-storage.example.internal
+MINIO_ACCESS_KEY=releaseSmokeMinioAccessKey01
+MINIO_SECRET_KEY=releaseSmokeMinioSecretKey01
+MINIO_BUCKET=oaiss-chain-prod
+MINIO_PRESIGNED_URL_EXPIRY_SECONDS=1800
+ML_LOG_LEVEL=INFO
+ML_SERVICE_URL=http://ml-service:8001
+ML_SERVICE_SECRET=releaseSmokeMlSecret01
+ML_SERVICE_CONNECT_TIMEOUT=5s
+ML_SERVICE_READ_TIMEOUT=30s
+REQUIRE_OPS_SECRETS=true
+GRAFANA_ADMIN_USER=admin
+GRAFANA_ADMIN_PASSWORD=ReleaseSmokeGrafanaPass!2026
+ALERT_SMTP_HOST=smtp.example.com
+ALERT_SMTP_USERNAME=alerts@example.com
+ALERT_SMTP_PASSWORD=ReleaseSmokeSmtpPass!2026
+ALERT_WEBHOOK_URL=https://alerts.example.com/webhook
+ALERT_WEBHOOK_SECRET=ReleaseSmokeWebhookSecret!2026
+BACKEND_LOG_DIR=./runtime-logs/backend
+FRONTEND_LOG_DIR=./runtime-logs/frontend
+ML_LOG_DIR=./runtime-logs/ml-service
+FABRIC_ENABLED=true
+FABRIC_MSP_ID=Org1MSP
+FABRIC_CHANNEL_NAME=mychannel
+FABRIC_CHAINCODE_NAME=carbon-chaincode
+FABRIC_PEER_ENDPOINT=peer0.org1.example.internal:7051
+FABRIC_TLS_ENABLED=true
+FABRIC_PEER_TLS_CERT_PATH=/run/secrets/fabric/peer-tls-ca.crt
+FABRIC_CERT_PATH=/run/secrets/fabric/user-cert.pem
+FABRIC_KEY_PATH=/run/secrets/fabric/user-key.pem
+FABRIC_CA_ENABLED=true
+FABRIC_CA_ENDPOINT=https://ca.org1.example.internal:7054
+FABRIC_CA_ADMIN_NAME=admin
+FABRIC_CA_ADMIN_PASSWORD=ReleaseSmokeFabricCaPass!2026
+FABRIC_COUCHDB_USER=admin
+FABRIC_COUCHDB_PASSWORD=ReleaseSmokeCouchdbPass!2026
+FABRIC_SECRETS_DIR=./secrets/fabric
+FABRIC_SECRETS_MOUNT_PATH=/run/secrets/fabric
+          EOF
+          node scripts/validate-prod-env.mjs --require-real-secrets strict-release-smoke.env | tee strict-release-env-validation.txt
+          ./scripts/prod-compose.sh --env-file strict-release-smoke.env --compose-file docker-compose.release.yml config > strict-release-compose-config.txt
+          grep -q "SPRING_PROFILES_ACTIVE: prod,fabric" strict-release-compose-config.txt
+          grep -q "image: ghcr.io/example-org/oaiss-chain-backend:release-smoke-tag" strict-release-compose-config.txt
+          grep -q "image: ghcr.io/example-org/oaiss-chain-frontend:release-smoke-tag" strict-release-compose-config.txt
+          grep -q "image: ghcr.io/example-org/oaiss-chain-ml-service:release-smoke-tag" strict-release-compose-config.txt
+          grep -q "/app/logs" strict-release-compose-config.txt
+          grep -q "/run/secrets/fabric" strict-release-compose-config.txt
+          rm -f strict-release-smoke.env
+
       - name: Install ML test dependencies
         run: |
           python -m pip install --upgrade pip
@@ -146,7 +254,9 @@ jobs:
           grep -q "image: ghcr.io/example-org/oaiss-chain-backend:replace_with_release_tag" release-compose-config.txt
           grep -q "image: ghcr.io/example-org/oaiss-chain-frontend:replace_with_release_tag" release-compose-config.txt
           grep -q "image: ghcr.io/example-org/oaiss-chain-ml-service:replace_with_release_tag" release-compose-config.txt
-          grep -q "SPRING_PROFILES_ACTIVE: prod" release-compose-config.txt
+          grep -q "SPRING_PROFILES_ACTIVE: prod,fabric" release-compose-config.txt
+          grep -q "/app/logs" release-compose-config.txt
+          grep -q "/run/secrets/fabric" release-compose-config.txt
 
       - name: Validate staging release compose config
         run: |
@@ -155,7 +265,27 @@ jobs:
           grep -q "image: ghcr.io/example-org/oaiss-chain-backend:replace_with_staging_release_tag" staging-release-compose-config.txt
           grep -q "image: ghcr.io/example-org/oaiss-chain-frontend:replace_with_staging_release_tag" staging-release-compose-config.txt
           grep -q "image: ghcr.io/example-org/oaiss-chain-ml-service:replace_with_staging_release_tag" staging-release-compose-config.txt
-          grep -q "SPRING_PROFILES_ACTIVE: staging" staging-release-compose-config.txt
+          grep -q "SPRING_PROFILES_ACTIVE: staging,fabric" staging-release-compose-config.txt
+          grep -q "/app/logs" staging-release-compose-config.txt
+          grep -q "/run/secrets/fabric" staging-release-compose-config.txt
+
+      - name: Smoke test remote release host bootstrap script
+        run: |
+          chmod +x scripts/bootstrap-remote-release-host.sh
+          ./scripts/bootstrap-remote-release-host.sh --target-dir ./tmp/release-host-smoke-ci --deploy-user "$(id -un)" > bootstrap-release-host-smoke.txt
+          test -d ./tmp/release-host-smoke-ci/runtime-logs/backend
+          test -d ./tmp/release-host-smoke-ci/runtime-logs/frontend
+          test -d ./tmp/release-host-smoke-ci/runtime-logs/ml-service
+          test -d ./tmp/release-host-smoke-ci/secrets/fabric
+          test -d ./tmp/release-host-smoke-ci/backups
+          test -d ./tmp/release-host-smoke-ci/scripts
+          grep -q "Directory layout ready" bootstrap-release-host-smoke.txt
+          grep -q "docker compose version" bootstrap-release-host-smoke.txt
+          rm -rf ./tmp/release-host-smoke-ci
+
+      - name: Run repository closure audit
+        run: |
+          node scripts/closure-audit.mjs | tee closure-audit.txt
 
       - name: Run backend security and contract tests
         run: |
@@ -219,9 +349,15 @@ jobs:
           path: |
             prod-env-validation.txt
             staging-env-validation.txt
+            strict-prod-env-validation.txt
+            strict-staging-env-validation.txt
+            strict-release-env-validation.txt
+            strict-release-compose-config.txt
             prod-compose-config.txt
             release-compose-config.txt
             staging-release-compose-config.txt
+            bootstrap-release-host-smoke.txt
+            closure-audit.txt
           retention-days: 7
 
       - name: Stop backend

@@ -6,7 +6,7 @@
 
 - 当前运行时角色基线为：`ENTERPRISE / REVIEWER / THIRD_PARTY / ADMIN`。
 - 旧版需求文档里出现的 `authenticator` 属于历史命名，不应作为当前可登录角色。
-- 开发机启用 Fabric 时推荐使用 `local,fabric`；生产环境必须使用 `prod` 或 `prod,fabric`。
+- 开发机启用 Fabric 时推荐使用 `local,fabric`；远程 staging / production 发布必须使用 `staging,fabric` 或 `prod,fabric`。
 
 ## 环境 Profile 说明
 
@@ -17,7 +17,7 @@
 | `staging` | 生产等价验证环境 | 允许 staging 种子数据 |
 | `prod` | 正式生产运行环境 | 禁止 demo/测试数据 |
 
-`docker` 视为本地容器 profile。生产部署必须使用 `SPRING_PROFILES_ACTIVE=prod` 或（启用 Fabric 时）`prod,fabric`。
+`docker` 视为本地容器 profile。远程 staging / production 发布必须使用 `SPRING_PROFILES_ACTIVE=staging,fabric` 或 `prod,fabric`，避免回退到非 Fabric 链路。
 
 ## 生产配置规则
 
@@ -108,7 +108,7 @@ go test ./...
 
 ## 生产发布检查清单
 
-- `prod` profile 已使用强密钥与真实生产域名配置。
+- `prod,fabric` profile 已使用强密钥与真实生产域名配置。
 - 在生产等价的 staging 数据副本上，Flyway 迁移校验通过。
 - 数据库备份与恢复流程已实测可用。
 - 公共认证入口已启用限流。
@@ -186,6 +186,14 @@ node scripts/validate-prod-env.mjs
 
 该校验用于保证模板完整性并防止生产配置回退到 `localhost`。  
 由于 `.env.prod.example` 需要可安全入库，占位密钥会以 warning（而非 error）方式提示。
+
+对真实发布环境文件，应使用严格模式：
+
+```bash
+node scripts/validate-prod-env.mjs --require-real-secrets /secure/path/oaiss-chain.env
+```
+
+严格模式会拒绝占位符镜像、关键业务密钥，以及按启用状态必须存在的运维 / Fabric 密钥。
 
 CI/CD 目前分两层：
 

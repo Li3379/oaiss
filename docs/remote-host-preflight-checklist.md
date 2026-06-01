@@ -52,6 +52,18 @@ ls -ld /opt/oaiss-chain-staging
 df -h /opt
 ```
 
+首次准备主机时，建议直接运行：
+
+```bash
+sudo ./scripts/bootstrap-remote-release-host.sh --target-dir /opt/oaiss-chain-staging --deploy-user deploy
+```
+
+生产环境可改为：
+
+```bash
+sudo ./scripts/bootstrap-remote-release-host.sh --target-dir /opt/oaiss-chain-prod --deploy-user deploy
+```
+
 ## 4. 网络与 DNS
 
 - [ ] 主机可以解析镜像仓库域名
@@ -148,6 +160,7 @@ redis-cli -h redis.example.internal -a '<password>' ping
 ## 10. 可观测性
 
 - [ ] 已知日志查看路径
+- [ ] `runtime-logs/backend`、`runtime-logs/frontend`、`runtime-logs/ml-service` 已存在
 - [ ] 已明确容器重启行为
 - [ ] 指标面板 / 仪表盘可访问
 - [ ] 告警投递链路已验证
@@ -164,6 +177,7 @@ docker compose --env-file /opt/oaiss-chain-prod/oaiss-chain.env -f /opt/oaiss-ch
 - [ ] 数据库备份命令已实际演练过
 - [ ] 旧镜像标签已记录
 - [ ] 回滚操作人员知道如何使用镜像覆盖参数重新执行 `deploy-release.yml`
+- [ ] 知道工作流失败时会自动恢复上一个 `oaiss-chain.env`、`docker-compose.release.yml` 与 `scripts/prod-compose.sh`
 - [ ] 观察窗口责任人已明确
 
 ## 12. 退出标准

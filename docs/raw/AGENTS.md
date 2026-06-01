@@ -1,20 +1,24 @@
 <!-- Parent: ../AGENTS.md -->
-<!-- Generated: 2026-05-11 | Updated: 2026-05-11 -->
+<!-- Generated: 2026-05-11 | Updated: 2026-05-30 -->
 
-# docs/raw
+# docs/raw 原始文档目录
 
-Original Chinese project requirement and design documents.
+本目录保存项目最初的中文需求、方案与测试文档。
 
-## Key Files
+## 关键文件
 
-| File | Description |
-|------|-------------|
-| `01-项目需求分析.md` | Project requirements analysis |
-| `02-项目概要介绍.md` | Project overview |
-| `03-项目详细方案.md` | Detailed solution design |
-| `04-碳核算模型介绍文档.md` | Carbon accounting model documentation |
-| `05-项目测试文档.md` | Project testing documentation |
+| 文件 | 说明 |
+|------|------|
+| `01-项目需求分析.md` | 项目需求分析 |
+| `02-项目概要介绍.md` | 项目概要说明 |
+| `03-项目详细方案.md` | 详细方案设计 |
+| `04-碳核算模型介绍文档.md` | 碳核算模型说明 |
+| `05-项目测试文档.md` | 项目测试文档 |
 
-## For AI Agents
+## 对 AI Agent 的要求
 
-Read-only reference. Chinese content preserved as-is. Do not translate or modify.
+此目录为只读参考区。
+
+- 保留原始中文内容，不要翻译成其他版本
+- 不要随意改写原始需求含义
+- 如需引用，应将这里视为项目原始业务依据

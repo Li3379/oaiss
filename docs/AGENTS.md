@@ -1,72 +1,72 @@
 <!-- Parent: ../AGENTS.md -->
-<!-- Generated: 2026-05-11 | Updated: 2026-05-11 -->
+<!-- Generated: 2026-05-11 | Updated: 2026-05-30 -->
 
-# docs/ — Documentation Directory
+# docs/ 文档目录说明
 
-This directory holds all reference, specification, and planning documents for the OAISS CHAIN carbon accounting platform.
+本目录用于存放 OAISS CHAIN 双碳链动平台的参考资料、规格说明、计划文档与验收文档。
 
-## Contents
+## 内容结构
 
-### Top-Level Files
+### 顶层文件
 
-| File | Description |
-|------|-------------|
-| `DATABASE_SCHEMA.md` | Database schema documentation |
-| `execution.md` | Execution guide |
-| `FIX-SPEC.md` | Fix specifications |
-| `ONBOARDING.md` | Developer onboarding guide |
-| `phase-01-spec.md` | Phase 1 specification |
-| `phase-02-prompts.md` | Phase 2 prompts |
-| `phase-03-inner.md` | Phase 3 inner details |
-| `phase-04-output.md` | Phase 4 output documentation |
-| `product-specification.md` | Product specification |
-| `verifiability.md` | Verifiability criteria |
+| 文件 | 说明 |
+|------|------|
+| `DATABASE_SCHEMA.md` | 数据库结构说明 |
+| `execution.md` | 执行规则说明 |
+| `FIX-SPEC.md` | 规格驱动修复说明 |
+| `ONBOARDING.md` | 开发者入门指南 |
+| `phase-01-spec.md` | Phase 1 规格定义 |
+| `phase-02-prompts.md` | Phase 2 Prompt 方案设计 |
+| `phase-03-inner.md` | Phase 3 内层迭代细则 |
+| `phase-04-output.md` | Phase 4 输出与择优规则 |
+| `product-specification.md` | 产品说明书 |
+| `verifiability.md` | 可验证性规则 |
 
-### Subdirectories
+### 子目录
 
-| Directory | Description |
-|-----------|-------------|
-| `raw/` | Original Chinese project requirement docs (5 files) |
-| `specs/` | Technical specifications (AI module, blockchain integration, carbon calculation, gap analysis) |
-| `superpowers/` | Dated design docs with `plans/` and `specs/` subdirectories (2026-05-03 through 2026-05-10) |
+| 目录 | 说明 |
+|------|------|
+| `raw/` | 原始中文需求文档（5 份） |
+| `specs/` | 技术规范文档，包括 AI 模块、区块链集成、碳核算模型、差距分析 |
+| `superpowers/` | 带日期的设计文档，内部含 `plans/` 与 `specs/` 子目录（2026-05-03 至 2026-05-10） |
 
-### raw/ — Original Requirements
+### `raw/` 原始需求
 
-Chinese-language project requirement documents:
+该目录保存中文原始项目文档：
 
-1. `01-项目需求分析.md` — Project requirements analysis
-2. `02-项目概要介绍.md` — Project overview introduction
-3. `03-项目详细方案.md` — Detailed project plan
-4. `04-碳核算模型介绍文档.md` — Carbon accounting model documentation
-5. `05-项目测试文档.md` — Project testing documentation
+1. `01-项目需求分析.md`：项目需求分析
+2. `02-项目概要介绍.md`：项目概要说明
+3. `03-项目详细方案.md`：项目详细方案
+4. `04-碳核算模型介绍文档.md`：碳核算模型说明
+5. `05-项目测试文档.md`：项目测试文档
 
-### specs/ — Technical Specifications
+### `specs/` 技术规范
 
-| File | Description |
-|------|-------------|
-| `AI-MODULE-SPEC.md` | AI module specification |
-| `BLOCKCHAIN-INTEGRATION-SPEC.md` | Blockchain integration specification |
-| `CARBON-CALCULATION-SPEC.md` | Carbon calculation specification |
-| `GAP-ANALYSIS.md` | Gap analysis between requirements and implementation |
-| `README.md` | Specs directory overview |
+| 文件 | 说明 |
+|------|------|
+| `AI-MODULE-SPEC.md` | AI 模块技术规范 |
+| `BLOCKCHAIN-INTEGRATION-SPEC.md` | 区块链集成技术规范 |
+| `CARBON-CALCULATION-SPEC.md` | 碳核算模型技术规范 |
+| `GAP-ANALYSIS.md` | 需求与实现差距分析 |
+| `README.md` | `specs` 目录索引 |
 
-## For AI Agents
+## 对 AI Agent 的要求
 
-### Working in This Directory
+### 在本目录中工作时
 
-These docs are reference material. When modifying docs, preserve Chinese content in `raw/` and `tracks/` directories.
+这些文档主要作为参考材料使用。修改文档时，应保留 `raw/` 与 `tracks/` 目录中的中文原始内容，不要误覆盖为其他形式。
 
-### Testing
+### 测试要求
 
-No code to test here. Verify doc links are valid.
+本目录不包含可执行代码，无需运行单元测试，但应检查文档引用路径是否有效。
 
-### Patterns
+### 编写规范
 
-- Use markdown formatting
-- Include diagrams where helpful
-- Keep Chinese and English content in separate files
+- 使用 Markdown 格式
+- 需要时可以补充图示
+- 中文与英文内容尽量分文件或分明确段落维护
 
-## Dependencies
+## 依赖关系
 
-- **Internal**: References the project codebase (entities, services, controllers)
-- **External**: None
+- **内部依赖**：引用项目中的实体、服务、控制器及其他代码实现
+- **外部依赖**：无

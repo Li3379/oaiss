@@ -7,12 +7,14 @@
 ### 已完成的防护与约束
 
 - 已将历史遗留的 `AUTHENTICATOR` 运行时角色从现行角色基线中移除
-- 已将 `local,fabric` 与 `prod` / `prod,fabric` 路径分别文档化
+- 已将 `local,fabric` 与远程 `staging,fabric` / `prod,fabric` 路径分别文档化
 - 已新增生产 compose 包装脚本：
   - `scripts/prod-compose.ps1`
   - `scripts/prod-compose.sh`
 - 已新增生产环境模板校验脚本：
   - `scripts/validate-prod-env.mjs`
+- 已新增仓库侧统一闭环审计脚本：
+  - `scripts/closure-audit.mjs`
 - 已将生产 compose 干跑校验加入 CI
 - 已新增纯镜像远程 compose 部署文件：
   - `docker-compose.release.yml`
@@ -22,6 +24,7 @@
   - `.github/workflows/release-images.yml`
 - 已新增远程发布工作流：
   - `.github/workflows/deploy-release.yml`
+- 已将严格发布前校验、release host bootstrap smoke、closure audit 接入 CI
 - 已补齐 staging / production 运维运行手册
 
 ## 2. `local,fabric` 验收基线
@@ -76,17 +79,19 @@
 在 staging 或 production 部署前，至少满足以下条件：
 
 1. CI 全部通过
-2. `node scripts/validate-prod-env.mjs` 校验通过
-3. 通过包装脚本执行的生产 compose 干跑通过
-4. 填写完成的环境文件存放在仓库外
-5. 备份已完成
-6. 监控 / 告警链路已确认
+2. `node scripts/validate-prod-env.mjs` 校验通过，且真实发布 env 需额外通过 `--require-real-secrets`
+3. `node scripts/closure-audit.mjs` 明确显示仓库侧结构完整，且剩余项仅为外部执行证据
+4. 通过包装脚本执行的生产 compose 干跑通过
+5. 填写完成的环境文件存放在仓库外
+6. 备份已完成
+7. 监控 / 告警链路已确认
 
 ## 5. Staging / Production 命令
 
 请使用部署运行手册：
 
 - `docs/deployment-runbook.md`
+- `docs/remote-staging-first-deploy-checklist.md`
 
 推荐包装脚本用法：
 
@@ -125,3 +130,8 @@ Linux / macOS：
 当前汇总后的闸门状态请参考：
 
 - `docs/go-live-gate-matrix.md`
+
+外部执行证据建议统一回填到：
+
+- `docs/external-execution-evidence-template.md`
+- `docs/evidence/README.md`

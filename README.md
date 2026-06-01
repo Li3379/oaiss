@@ -57,7 +57,7 @@ OAISS CHAIN 是一个面向双碳（碳达峰、碳中和）领域的全栈 Web 
 │  │  AOP: @AuditLog @RateLimit @DataIsolation            │   │
 │  │       @DistributedLock @RequirePermission            │   │
 │  ├──────────────────────────────────────────────────────┤   │
-│  │  21 Controllers → 31 Services → 22 Repositories      │   │
+│  │  20 Controllers → 29 Services → 21 Repositories      │   │
 │  └──────────────────────────────────────────────────────┘   │
 │         │              │              │              │        │
 │    ┌────▼────┐   ┌────▼────┐   ┌────▼────┐   ┌────▼────┐  │
@@ -81,9 +81,9 @@ OAISS CHAIN/
 │       ├── controller/           # 21 REST 控制器
 │       ├── service/              # 28 业务服务 + 3 ML 客户端
 │       ├── repository/           # 22 JPA 仓库
-│       ├── entity/               # 24 JPA 实体
+│       ├── entity/               # 22 JPA 实体 (21 业务 + BaseEntity)
 │       ├── dto/                  # 请求/响应 DTO
-│       ├── config/               # 17 配置类 (Security, Redis, MinIO, Fabric, ML...)
+│       ├── config/               # 19 配置类 (Security, Redis, MinIO, Fabric, ML...)
 │       ├── annotation/           # 5 自定义注解 (@AuditLog, @RateLimit, ...)
 │       ├── aop/                  # 5 切面
 │       ├── security/             # JWT 过滤器、认证入口
@@ -92,7 +92,7 @@ OAISS CHAIN/
 │       ├── constant/             # 错误码、错误信息
 │       └── util/                 # 工具类
 │   └── src/main/resources/
-│       ├── db/migration/         # Flyway 迁移脚本 (V1, V2, V4, V5)
+│       ├── db/migration/         # Flyway 迁移脚本 (V1-V8, V3 缺失)
 │       └── application*.yml      # 多环境配置
 │
 ├── oaiss-chain-frontend/         # Vue 3 前端

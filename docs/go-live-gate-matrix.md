@@ -17,11 +17,15 @@
 | Compose 包装脚本 | repo | 已完成 | `scripts/prod-compose.sh`、`scripts/prod-compose.ps1` |
 | 模板校验脚本 | repo | 已完成 | `scripts/validate-prod-env.mjs` |
 | CI 生产配置检查 | repo | 已完成 | `.github/workflows/e2e-tests.yml` |
+| 严格发布前 secrets 守门 | repo | 已完成 | `scripts/validate-prod-env.mjs`、`.github/workflows/deploy-release.yml`、`.github/workflows/e2e-tests.yml` |
+| 远程发布主机初始化 smoke | repo | 已完成 | `scripts/bootstrap-remote-release-host.sh`、`.github/workflows/e2e-tests.yml` |
+| 仓库侧闭环统一审计入口 | repo | 已完成 | `scripts/closure-audit.mjs`、`tracks/phase-01-acceptance.md` |
 | Release 镜像发布工作流 | repo | 已完成 | `.github/workflows/release-images.yml` |
 | 远程部署工作流 | repo | 已完成 | `.github/workflows/deploy-release.yml` |
 | 部署密钥校验 | repo | 已完成 | `.github/workflows/deploy-release.yml` |
 | 可选仓库登录路径 | repo | 已完成 | `.github/workflows/deploy-release.yml` |
 | Staging 演练手册 | repo | 已完成 | `docs/remote-staging-rehearsal.md` |
+| Staging 首次上线操作单 | repo | 已完成 | `docs/remote-staging-first-deploy-checklist.md` |
 | Staging GitHub 密钥填写单 | repo | 已完成 | `docs/staging-github-secrets-fillout.md` |
 | Production GitHub 密钥填写单 | repo | 已完成 | `docs/production-github-secrets-fillout.md` |
 | 远程主机预检清单 | repo | 已完成 | `docs/remote-host-preflight-checklist.md` |
@@ -50,7 +54,7 @@
 
 当前状态更准确地说是：
 
-- 仓库侧发布工程能力：基本完成
+- 仓库侧发布工程能力：已完整建成并可重复复核
 - 环境侧真实发布与签收：尚未实际执行完毕
 
 因此，OAISS CHAIN 目前应被视为：
@@ -75,5 +79,10 @@
 - `docs/production-readiness.md`
 - `docs/deployment-runbook.md`
 - `docs/remote-staging-rehearsal.md`
+- `docs/remote-staging-first-deploy-checklist.md`
 - `docs/production-observation-window.md`
 - `docs/remote-host-preflight-checklist.md`
+- `docs/external-execution-evidence-template.md`
+- `docs/evidence/README.md`
+- `docs/closure-verification-2026-05-31.md`
+- `tracks/phase-01-acceptance.md`

@@ -1,24 +1,24 @@
-# Browser QA Report — OAISS CHAIN
+# 浏览器 QA 报告 - OAISS CHAIN
 
-**Date**: 2026-05-29T17:03:20.325Z
-**URL**: http://localhost:5173
-**Tool**: Playwright 1.60.0 (headless Chromium)
+**日期**：2026-05-29T17:03:20.325Z  
+**地址**：`http://localhost:5173`  
+**工具**：Playwright 1.60.0（无头 Chromium）
 
-## Summary
+## 摘要
 
-| Level | Count |
+| 级别 | 数量 |
 |-------|-------|
 | MEDIUM | 1 |
 | LOW | 1 |
 | INFO | 46 |
 
-## Findings
+## 发现项
 
-| # | Level | Category | Page | Description |
+| # | 级别 | 分类 | 页面 | 描述 |
 |---|-------|----------|------|-------------|
-| 10 | MEDIUM | Interaction | - | Login: captcha image NOT found |
-| 47 | LOW | A11y | - | Few ARIA landmarks found: none |
+| 10 | MEDIUM | 交互 | - | 登录页：未找到验证码图片 |
+| 47 | LOW | 可访问性 | - | ARIA landmark 数量过少：未检测到 |
 
-## Screenshots
+## 截图
 
-Screenshots saved to: `docs/qa-screenshots/`
+截图已保存至：`docs/qa-screenshots/`
