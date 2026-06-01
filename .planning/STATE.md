@@ -3,38 +3,36 @@ gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: 测试基础设施修复与收尾
 status: complete
-last_updated: 2026-05-22T04:20:00.000Z
-last_activity: 2026-05-22 -- Phase 18 execution complete
+last_updated: 2026-05-22T18:12:00.000Z
+last_activity: 2026-05-22 -- v2.1 milestone archived
 progress:
-  total_phases: 3
-  completed_phases: 3
-  total_plans: 4
+  total_phases: 18
+  completed_phases: 18
+  total_plans: 47
   completed_plans: 47
   percent: 100
-stopped_at: v2.1 milestone complete
+stopped_at: v2.1 milestone archived
 ---
 
 # STATE: OAISS CHAIN
 
-**Milestone:** v2.1 测试基础设施修复与收尾
-**Created:** 2026-05-22
+**Milestone:** v2.1 测试基础设施修复与收尾 — ARCHIVED
+**Created:** 2026-05-08
+**Archived:** 2026-05-22
 **Status:** Complete
 
 ## Current Position
 
-Phase: 18
-Plan: 18-01-PLAN.md (complete)
-Status: Executed
-Last activity: 2026-05-22
-Next: v2.1 milestone complete
-Resume file: None
+All milestones complete (v1.0, v1.1.0, v2.0, v2.1).
+
+Next: Plan v3.0 or new project phase.
 
 ## Project Reference
 
 See: .planning/PROJECT.md (updated 2026-05-22)
 
 **Core value:** 生产就绪的碳交易与区块链管理平台 — 安全、高性能、CI/CD 自动化保障
-**Current focus:** Phase 18 — Fabric CA 可选集成（planned, ready to execute）
+**Current focus:** Planning next milestone
 
 ## Accumulated Context
 
@@ -43,22 +41,22 @@ See: .planning/PROJECT.md (updated 2026-05-22)
 - v1.0 Manual Testing (Phases 1-6, 2026-05-13) — 84 需求
 - v1.1.0 需求对齐 (Phases 7-12, 2026-05-18) — 12 Gap 项
 - v2.0 安全与性能加固 (Phases 13-15, 2026-05-21) — 19 安全/性能项
+- v2.1 测试基础设施修复与收尾 (Phases 16-18, 2026-05-22) — 7 需求
 
-### Deferred Items (now in v2.1 scope)
+### Key Decisions
 
-- E2E auth fixture timeout → E2E-01
-- d9/d10 orphaned specs → E2E-02
-- isFabricAvailable() unwired → E2E-03
-- REQ-06 carbon formula E2E → GAP-01
-- REQ-03 /emission/predict E2E → GAP-02
-- M19 i18n residual → I18N-01
-- Fabric CA integration → FABRIC-01
+- D-01: EnrollmentResult made public for cross-package access from FabricGatewayConfig
 
-### Decisions
-- D-01: EnrollmentResult made public for cross-package access from FabricGatewayConfig Summary
-
-Full log in PROJECT.md Key Decisions table (15 entries, all resolved)
+Full log in PROJECT.md Key Decisions table (12 entries, all resolved)
 
 ## Blockers
 
 None.
+
+## Deferred Items
+
+| Category | Items | Deferred To | Status |
+|----------|-------|-------------|--------|
+| E2E smoke | route 失败修复 | backlog | LOW |
+| Prophet | Windows CmdStan 环境 | backlog | LOW |
+| Auction | 订单分页化 (PERF-04) | backlog | LOW |
