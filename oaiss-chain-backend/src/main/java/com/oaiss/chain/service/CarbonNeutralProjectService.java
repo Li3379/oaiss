@@ -28,7 +28,11 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -418,7 +422,7 @@ public class CarbonNeutralProjectService {
         }
         PageRequest pageable = PageRequest.of(page - 1, size, Sort.by(Sort.Direction.DESC, "createdAt"));
         Page<CarbonNeutralProject> projects = projectRepository.search(projectType, status, escapedKeyword, pageable);
-        return projects.map(this::toResponse);
+        return toResponsePage(projects);
     }
 
     /**
@@ -437,7 +441,7 @@ public class CarbonNeutralProjectService {
         } else {
             projects = projectRepository.findByOwnerIdAndDeletedFalse(enterprise.getId(), pageable);
         }
-        return projects.map(this::toResponse);
+        return toResponsePage(projects);
     }
 
     /**
@@ -452,7 +456,7 @@ public class CarbonNeutralProjectService {
                         verifierLookupIds,
                         VERIFY_STATUS_PENDING,
                         pageable);
-        return projects.map(this::toResponse);
+        return toResponsePage(projects);
     }
 
     // ==================== 私有方法 ====================
@@ -482,22 +486,82 @@ public class CarbonNeutralProjectService {
                 + String.format("%04d", ThreadLocalRandom.current().nextInt(10000));
     }
 
-    /**
-     * Entity → Response
-     * TODO: N+1 query pattern — this method makes up to 3 DB queries per project (enterprise, reviewer, verifier).
-     *       Consider using @EntityGraph or batch-loading for production scale.
-     */
     private CarbonNeutralProjectResponse toResponse(CarbonNeutralProject p) {
-        String ownerName = enterpriseRepository.findById(p.getOwnerId())
-                .map(Enterprise::getEnterpriseName).orElse("未知企业");
+        return toResponse(p, buildDisplayContext(List.of(p)));
+    }
 
-        String reviewerName = null;
-        if (p.getReviewerId() != null) {
-            reviewerName = userRepository.findById(p.getReviewerId())
-                    .map(User::getRealName).orElse(null);
+    private Page<CarbonNeutralProjectResponse> toResponsePage(Page<CarbonNeutralProject> projects) {
+        ProjectDisplayContext context = buildDisplayContext(projects.getContent());
+        return projects.map(project -> toResponse(project, context));
+    }
+
+    /**
+     * Batch-load the display names needed by project list/detail responses so list endpoints
+     * do not issue per-row lookups for enterprises, reviewers, and verifiers.
+     */
+    private ProjectDisplayContext buildDisplayContext(Collection<CarbonNeutralProject> projects) {
+        if (projects == null || projects.isEmpty()) {
+            return new ProjectDisplayContext(Map.of(), Map.of(), Set.of(), Map.of());
         }
 
-        String verifierName = resolveVerifierName(p.getVerifierId());
+        Set<Long> ownerIds = new LinkedHashSet<>();
+        Set<Long> reviewerIds = new LinkedHashSet<>();
+        Set<Long> verifierIds = new LinkedHashSet<>();
+
+        for (CarbonNeutralProject project : projects) {
+            if (project.getOwnerId() != null) {
+                ownerIds.add(project.getOwnerId());
+            }
+            if (project.getReviewerId() != null) {
+                reviewerIds.add(project.getReviewerId());
+            }
+            if (project.getVerifierId() != null) {
+                verifierIds.add(project.getVerifierId());
+            }
+        }
+
+        Map<Long, String> ownerNamesById = new HashMap<>();
+        if (!ownerIds.isEmpty()) {
+            for (Enterprise enterprise : enterpriseRepository.findAllById(ownerIds)) {
+                if (enterprise.getEnterpriseName() != null) {
+                    ownerNamesById.put(enterprise.getId(), enterprise.getEnterpriseName());
+                }
+            }
+        }
+
+        Map<Long, Long> reviewerUserIdsByReviewerId = new HashMap<>();
+        if (!verifierIds.isEmpty()) {
+            for (Reviewer reviewer : reviewerRepository.findAllById(verifierIds)) {
+                reviewerUserIdsByReviewerId.put(reviewer.getId(), reviewer.getUserId());
+            }
+        }
+
+        Set<Long> reviewerUserIds = new LinkedHashSet<>();
+        if (!verifierIds.isEmpty()) {
+            for (Reviewer reviewer : reviewerRepository.findByUserIdInAndDeletedFalse(verifierIds)) {
+                reviewerUserIds.add(reviewer.getUserId());
+            }
+        }
+
+        Set<Long> userIds = new LinkedHashSet<>(reviewerIds);
+        userIds.addAll(verifierIds);
+        userIds.addAll(reviewerUserIds);
+        userIds.addAll(reviewerUserIdsByReviewerId.values());
+
+        Map<Long, String> userRealNamesById = new HashMap<>();
+        if (!userIds.isEmpty()) {
+            for (User user : userRepository.findAllById(userIds)) {
+                userRealNamesById.put(user.getId(), user.getRealName());
+            }
+        }
+
+        return new ProjectDisplayContext(ownerNamesById, userRealNamesById, reviewerUserIds, reviewerUserIdsByReviewerId);
+    }
+
+    private CarbonNeutralProjectResponse toResponse(CarbonNeutralProject p, ProjectDisplayContext context) {
+        String ownerName = context.ownerNamesById().getOrDefault(p.getOwnerId(), "未知企业");
+        String reviewerName = p.getReviewerId() != null ? context.userRealNamesById().get(p.getReviewerId()) : null;
+        String verifierName = resolveVerifierName(p.getVerifierId(), context);
 
         BigDecimal availableCredits = p.getIssuedCredits().subtract(
                 p.getUsedCredits() != null ? p.getUsedCredits() : BigDecimal.ZERO);
@@ -545,6 +609,14 @@ public class CarbonNeutralProjectService {
                 .createdAt(p.getCreatedAt())
                 .updatedAt(p.getUpdatedAt())
                 .build();
+    }
+
+    private record ProjectDisplayContext(
+            Map<Long, String> ownerNamesById,
+            Map<Long, String> userRealNamesById,
+            Set<Long> reviewerUserIds,
+            Map<Long, Long> reviewerUserIdsByReviewerId
+    ) {
     }
 
     private String getProjectTypeName(Integer type) {
@@ -617,17 +689,18 @@ public class CarbonNeutralProjectService {
         return ids;
     }
 
-    private String resolveVerifierName(Long verifierId) {
+    private String resolveVerifierName(Long verifierId, ProjectDisplayContext context) {
         if (verifierId == null) {
             return null;
         }
 
-        return reviewerRepository.findByUserIdAndDeletedFalse(verifierId)
-                .map(Reviewer::getUserId)
-                .or(() -> reviewerRepository.findById(verifierId).map(Reviewer::getUserId))
-                .flatMap(userRepository::findById)
-                .map(User::getRealName)
-                .or(() -> userRepository.findById(verifierId).map(User::getRealName))
-                .orElse(null);
+        Long verifierUserId;
+        if (context.reviewerUserIds().contains(verifierId)) {
+            verifierUserId = verifierId;
+        } else {
+            verifierUserId = context.reviewerUserIdsByReviewerId().getOrDefault(verifierId, verifierId);
+        }
+
+        return context.userRealNamesById().get(verifierUserId);
     }
 }

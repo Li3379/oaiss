@@ -20,6 +20,8 @@ import org.springframework.stereotype.Component;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
+import java.util.concurrent.TimeUnit;
+import java.util.regex.Pattern;
 
 /**
  * 分布式锁切面
@@ -36,6 +38,8 @@ import java.lang.reflect.Parameter;
 @Order(Ordered.HIGHEST_PRECEDENCE)
 @RequiredArgsConstructor
 public class DistributedLockAspect {
+
+    private static final Pattern SAFE_LOCK_KEY_EXPRESSION = Pattern.compile("^[#'\"A-Za-z0-9_:.+\\-\\s\\[\\]]+$");
 
     private final RedisLockService redisLockService;
     private final SpelExpressionParser parser = new SpelExpressionParser();
@@ -59,11 +63,12 @@ public class DistributedLockAspect {
             lockValue = redisLockService.tryLockWithRetry(
                     lockKey,
                     annotation.waitTime(),
+                    TimeUnit.MILLISECONDS,
                     annotation.expireTime(),
-                    java.util.concurrent.TimeUnit.MILLISECONDS
+                    TimeUnit.SECONDS
             );
         } else {
-            lockValue = redisLockService.tryLock(lockKey, annotation.expireTime(), java.util.concurrent.TimeUnit.SECONDS);
+            lockValue = redisLockService.tryLock(lockKey, annotation.expireTime(), TimeUnit.SECONDS);
         }
 
         // 获取锁失败
@@ -94,6 +99,8 @@ public class DistributedLockAspect {
             return expression;
         }
 
+        validateLockExpression(expression);
+
         EvaluationContext context = new StandardEvaluationContext();
 
         // 设置方法参数
@@ -105,5 +112,14 @@ public class DistributedLockAspect {
         Expression exp = parser.parseExpression(expression);
         Object value = exp.getValue(context);
         return value != null ? value.toString() : expression;
+    }
+
+    private void validateLockExpression(String expression) {
+        if (!SAFE_LOCK_KEY_EXPRESSION.matcher(expression).matches()
+                || expression.contains("(")
+                || expression.contains(")")
+                || expression.contains("@")) {
+            throw new IllegalArgumentException("Unsupported distributed lock key expression: " + expression);
+        }
     }
 }

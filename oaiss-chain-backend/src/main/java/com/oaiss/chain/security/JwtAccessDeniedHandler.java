@@ -23,6 +23,12 @@ import java.io.IOException;
 @Component
 public class JwtAccessDeniedHandler implements AccessDeniedHandler {
 
+    private final ObjectMapper objectMapper;
+
+    public JwtAccessDeniedHandler(ObjectMapper objectMapper) {
+        this.objectMapper = objectMapper;
+    }
+
     @Override
     public void handle(
             HttpServletRequest request,
@@ -38,7 +44,6 @@ public class JwtAccessDeniedHandler implements AccessDeniedHandler {
                 ErrorCode.PERMISSION_DENIED,
                 "无权限访问该资源");
 
-        ObjectMapper mapper = new ObjectMapper();
-        response.getWriter().write(mapper.writeValueAsString(apiResponse));
+        response.getWriter().write(objectMapper.writeValueAsString(apiResponse));
     }
 }

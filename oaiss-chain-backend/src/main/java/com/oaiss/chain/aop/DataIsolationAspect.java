@@ -2,6 +2,7 @@ package com.oaiss.chain.aop;
 
 import com.oaiss.chain.annotation.DataIsolation;
 import com.oaiss.chain.constant.ErrorCode;
+import com.oaiss.chain.enums.UserTypeEnum;
 import com.oaiss.chain.exception.BusinessException;
 import com.oaiss.chain.security.EnterpriseContextHolder;
 import com.oaiss.chain.security.JwtUserDetails;
@@ -34,8 +35,8 @@ public class DataIsolationAspect {
     /**
      * 用户类型常量
      */
-    private static final int USER_TYPE_ADMIN = 99;
-    private static final int USER_TYPE_ENTERPRISE = 1;
+    private static final int USER_TYPE_ADMIN = UserTypeEnum.ADMIN.getCode();
+    private static final int USER_TYPE_ENTERPRISE = UserTypeEnum.ENTERPRISE.getCode();
 
     /**
      * 环绕通知：数据隔离处理

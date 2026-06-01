@@ -77,6 +77,21 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
             "AND (:status IS NULL OR t.status = :status) " +
             "AND (:tradeType IS NULL OR t.tradeType = :tradeType) " +
             "AND (:tradeNo IS NULL OR t.tradeNo LIKE CONCAT('%', :tradeNo, '%')) " +
+            "AND (:keyword IS NULL OR (" +
+            "   (t.sellerId = :userId AND EXISTS (" +
+            "       SELECT 1 FROM User buyer " +
+            "       WHERE buyer.id = t.buyerId " +
+            "       AND LOWER(COALESCE(buyer.realName, '')) LIKE CONCAT('%', LOWER(:keyword), '%')" +
+            "   )) OR " +
+            "   (t.buyerId = :userId AND EXISTS (" +
+            "       SELECT 1 FROM User seller " +
+            "       WHERE seller.id = t.sellerId " +
+            "       AND LOWER(COALESCE(seller.realName, '')) LIKE CONCAT('%', LOWER(:keyword), '%')" +
+            "   ))" +
+            ")) " +
+            "AND (:identity IS NULL " +
+            "   OR (:identity = 'buyer' AND t.buyerId = :userId) " +
+            "   OR (:identity = 'seller' AND t.sellerId = :userId)) " +
             "AND (:startTime IS NULL OR t.createdAt >= :startTime) " +
             "AND (:endTime IS NULL OR t.createdAt <= :endTime)")
     Page<Transaction> findByUserIdRelated(
@@ -84,6 +99,8 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
             @Param("tradeType") Integer tradeType,
             @Param("status") Integer status,
             @Param("tradeNo") String tradeNo,
+            @Param("keyword") String keyword,
+            @Param("identity") String identity,
             @Param("startTime") java.time.LocalDateTime startTime,
             @Param("endTime") java.time.LocalDateTime endTime,
             Pageable pageable);

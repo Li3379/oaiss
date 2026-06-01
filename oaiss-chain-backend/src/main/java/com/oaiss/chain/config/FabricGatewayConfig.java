@@ -19,10 +19,14 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.Resource;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
 import java.security.InvalidKeyException;
 import java.security.PrivateKey;
 import java.security.cert.CertificateException;
@@ -88,7 +92,7 @@ public class FabricGatewayConfig {
     private ManagedChannel newGrpcChannel() throws Exception {
         if (props.isTlsEnabled()) {
             var tlsCertReader = new InputStreamReader(
-                    new ClassPathResource(stripClasspath(props.getPeerTlsCertPath())).getInputStream(),
+                    openResource(props.getPeerTlsCertPath()),
                     StandardCharsets.UTF_8);
             var tlsRootCert = Identities.readX509Certificate(tlsCertReader);
 
@@ -110,7 +114,7 @@ public class FabricGatewayConfig {
 
     private Identity newIdentity() throws IOException, CertificateException {
         var certReader = new InputStreamReader(
-                new ClassPathResource(stripClasspath(props.getCertPath())).getInputStream(),
+                openResource(props.getCertPath()),
                 StandardCharsets.UTF_8);
         var certificate = Identities.readX509Certificate(certReader);
         return new X509Identity(props.getMspId(), certificate);
@@ -118,16 +122,23 @@ public class FabricGatewayConfig {
 
     private Signer newSigner() throws IOException, InvalidKeyException {
         var keyReader = new InputStreamReader(
-                new ClassPathResource(stripClasspath(props.getKeyPath())).getInputStream(),
+                openResource(props.getKeyPath()),
                 StandardCharsets.UTF_8);
         var privateKey = Identities.readPrivateKey(keyReader);
         return Signers.newPrivateKeySigner(privateKey);
     }
 
-    private String stripClasspath(String path) {
-        if (path.startsWith("classpath:")) {
-            return path.substring("classpath:".length());
+    private InputStream openResource(String location) throws IOException {
+        return resolveResource(location).getInputStream();
+    }
+
+    Resource resolveResource(String location) throws IOException {
+        if (location == null || location.isBlank()) {
+            throw new IOException("Fabric crypto path is blank");
         }
-        return path;
+        if (location.startsWith("classpath:")) {
+            return new ClassPathResource(location.substring("classpath:".length()));
+        }
+        return new FileSystemResource(Path.of(location));
     }
 }

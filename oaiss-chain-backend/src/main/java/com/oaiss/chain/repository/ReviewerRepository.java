@@ -6,6 +6,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -20,6 +22,11 @@ public interface ReviewerRepository extends JpaRepository<Reviewer, Long> {
      * 根据用户ID查找审核员
      */
     Optional<Reviewer> findByUserIdAndDeletedFalse(Long userId);
+
+    /**
+     * 根据用户ID批量查找审核员
+     */
+    List<Reviewer> findByUserIdInAndDeletedFalse(Collection<Long> userIds);
 
     /**
      * 根据资质编号查找

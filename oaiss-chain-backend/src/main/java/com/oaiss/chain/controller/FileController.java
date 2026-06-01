@@ -13,7 +13,9 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
@@ -199,7 +201,7 @@ public class FileController {
     })
     public ApiResponse<Void> deleteFiles(
             @Parameter(description = "对象名称列表", required = true)
-            @RequestBody @NotBlank List<String> objectNames,
+            @RequestBody @NotEmpty @Valid List<@NotBlank String> objectNames,
             @Parameter(hidden = true) @AuthenticationPrincipal JwtUserDetails currentUser) {
 
         // Check permission for each file

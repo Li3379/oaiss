@@ -1,6 +1,7 @@
 package com.oaiss.chain.service;
 
 import com.oaiss.chain.annotation.DistributedLock;
+import com.oaiss.chain.constant.ErrorCode;
 import com.oaiss.chain.dto.AuctionOrderRequest;
 import com.oaiss.chain.dto.AuctionOrderResponse;
 import com.oaiss.chain.dto.MatchingResultResponse;
@@ -75,6 +76,7 @@ public class DoubleAuctionService {
     @DistributedLock(key = "'auction:order:' + #currentUser.userId", expireTime = 10)
     @Transactional
     public AuctionOrderResponse placeBuyOrder(JwtUserDetails currentUser, AuctionOrderRequest request) {
+        validateOrderRequest(request);
         Enterprise enterprise = enterpriseRepository.findByUserId(currentUser.getUserId())
                 .orElseThrow(() -> TradeException.insufficientQuota(BigDecimal.ZERO, request.getQuantity()));
 
@@ -106,6 +108,7 @@ public class DoubleAuctionService {
     @DistributedLock(key = "'auction:order:' + #currentUser.userId", expireTime = 10)
     @Transactional
     public AuctionOrderResponse placeSellOrder(JwtUserDetails currentUser, AuctionOrderRequest request) {
+        validateOrderRequest(request);
         Enterprise enterprise = enterpriseRepository.findByUserId(currentUser.getUserId())
                 .orElseThrow(() -> TradeException.insufficientQuota(BigDecimal.ZERO, request.getQuantity()));
 
@@ -145,6 +148,18 @@ public class DoubleAuctionService {
      *
      * @return 撮合结果列表
      */
+    private void validateOrderRequest(AuctionOrderRequest request) {
+        if (request == null) {
+            throw new TradeException(ErrorCode.PARAM_ERROR, "拍卖挂单请求不能为空");
+        }
+        if (request.getQuantity() == null || request.getQuantity().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new TradeException(ErrorCode.PARAM_ERROR, "挂单数量必须为正数");
+        }
+        if (request.getPrice() == null || request.getPrice().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new TradeException(ErrorCode.PARAM_ERROR, "挂单价格必须为正数");
+        }
+    }
+
     @DistributedLock(key = "'auction:matching'", expireTime = 30, waitTime = 0)
     @Transactional
     public List<MatchingResultResponse> executeMatching() {

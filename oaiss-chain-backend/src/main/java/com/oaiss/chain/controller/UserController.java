@@ -12,6 +12,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -52,9 +53,10 @@ public class UserController {
     }
 
     @GetMapping("/{userId}")
+    @PreAuthorize("isAuthenticated()")
     @Operation(
         summary = "根据ID获取用户信息", 
-        description = "根据用户ID获取用户的公开信息。仅返回可公开的用户资料。",
+        description = "根据用户ID获取用户信息。管理员或用户本人可获取完整资料，其他已登录用户仅返回公开资料。",
         security = @SecurityRequirement(name = "Bearer Authentication")
     )
     @ApiResponses(value = {
@@ -70,9 +72,10 @@ public class UserController {
         )
     })
     public ApiResponse<UserInfoResponse> getUserById(
+            @Parameter(hidden = true) @AuthenticationPrincipal JwtUserDetails currentUser,
             @Parameter(description = "用户ID", required = true, example = "1")
             @PathVariable Long userId) {
-        return ApiResponse.success(userService.getUserById(userId));
+        return ApiResponse.success(userService.getUserById(userId, currentUser));
     }
 
     @PutMapping("/profile")

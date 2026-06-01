@@ -46,12 +46,16 @@ public class UserService {
      * 根据用户ID获取信息
      */
     @Transactional(readOnly = true)
-    public UserInfoResponse getUserById(Long userId) {
+    public UserInfoResponse getUserById(Long userId, JwtUserDetails currentUser) {
         User user = userRepository.findByIdAndDeletedFalse(userId)
                 .orElseThrow(() -> new BusinessException(
                         ErrorCode.RESOURCE_NOT_FOUND, "用户不存在"));
 
-        return toUserInfoResponse(user);
+        if (canViewSensitiveUserInfo(currentUser, user.getId())) {
+            return toUserInfoResponse(user);
+        }
+
+        return toPublicUserInfoResponse(user);
     }
 
     /**
@@ -141,12 +145,7 @@ public class UserService {
     // ==================== 私有方法 ====================
 
     private UserInfoResponse toUserInfoResponse(User user) {
-        String userTypeDesc = "";
-        try {
-            userTypeDesc = UserTypeEnum.fromCode(user.getUserType()).getDescription();
-        } catch (Exception ignored) {
-            userTypeDesc = "未知";
-        }
+        String userTypeDesc = resolveUserTypeDescription(user.getUserType());
 
         return UserInfoResponse.builder()
                 .userId(user.getId())
@@ -164,5 +163,34 @@ public class UserService {
                 .lastLoginIp(user.getLastLoginIp())
                 .createdAt(user.getCreatedAt())
                 .build();
+    }
+
+    private UserInfoResponse toPublicUserInfoResponse(User user) {
+        String userTypeDesc = resolveUserTypeDescription(user.getUserType());
+
+        return UserInfoResponse.builder()
+                .userId(user.getId())
+                .username(user.getUsername())
+                .realName(user.getRealName())
+                .avatar(user.getAvatar())
+                .company(user.getCompany())
+                .userType(user.getUserType())
+                .userTypeDesc(userTypeDesc)
+                .build();
+    }
+
+    private boolean canViewSensitiveUserInfo(JwtUserDetails currentUser, Long targetUserId) {
+        return currentUser != null
+                && (currentUser.isAdmin() || targetUserId.equals(currentUser.getUserId()));
+    }
+
+    private String resolveUserTypeDescription(Integer userType) {
+        String userTypeDesc = "";
+        try {
+            userTypeDesc = UserTypeEnum.fromCode(userType).getDescription();
+        } catch (Exception ignored) {
+            userTypeDesc = "未知";
+        }
+        return userTypeDesc;
     }
 }

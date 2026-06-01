@@ -85,6 +85,9 @@ public class SecurityStartupValidator {
     @Value("${fabric.ca.admin-password:}")
     private String fabricCaAdminPassword;
 
+    @Value("${fabric.enabled:false}")
+    private boolean fabricEnabled;
+
     @Value("${ml.service.secret:}")
     private String mlServiceSecret;
 
@@ -110,6 +113,7 @@ public class SecurityStartupValidator {
         validateMinioCredentials(isProduction);
         validateRsaKek(isProduction);
         validateCorsOrigins(isProduction);
+        validateFabricProfileAlignment(isProduction);
         validateFabricCa(isProduction);
         validateMlServiceSecret(isProduction);
         validateOpsSecrets(isProduction);
@@ -207,8 +211,10 @@ public class SecurityStartupValidator {
     }
 
     private void validateFabricCa(boolean isProduction) {
-        boolean fabricActive = fabricCaEnabled || isProfileActive("fabric");
-        if (!fabricActive) {
+        if (!isProfileActive("fabric")) {
+            return;
+        }
+        if (!fabricCaEnabled) {
             return;
         }
         if (isProduction && !isBlank(fabricCaEndpoint) && !fabricCaEndpoint.startsWith("https://")) {
@@ -221,6 +227,20 @@ public class SecurityStartupValidator {
         }
         if (WEAK_FABRIC_PASSWORDS.contains(fabricCaAdminPassword) || isPlaceholderSecret(fabricCaAdminPassword)) {
             failOrWarn(isProduction, "SECURITY WARNING: Fabric CA admin password is using a weak default value.");
+        }
+    }
+
+    private void validateFabricProfileAlignment(boolean isProduction) {
+        boolean fabricProfileActive = isProfileActive("fabric");
+
+        if (fabricEnabled && !fabricProfileActive) {
+            throw new SecurityException("FATAL: SECURITY WARNING: FABRIC_ENABLED=true requires the Spring 'fabric' profile. "
+                    + "Set SPRING_PROFILES_ACTIVE to include 'fabric' so production does not fall back to MockBlockchainService.");
+        }
+
+        if (isProduction && !fabricProfileActive) {
+            throw new SecurityException("FATAL: SECURITY WARNING: Production/staging startup requires the Spring 'fabric' profile. "
+                    + "MockBlockchainService is only allowed in dev/test environments.");
         }
     }
 

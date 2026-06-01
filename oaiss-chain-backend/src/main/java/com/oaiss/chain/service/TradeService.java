@@ -28,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.HashSet;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
@@ -246,14 +247,22 @@ public class TradeService {
      * 查询我的交易（作为买方或卖方）
      */
     public Page<TradeResponse> listMyTrades(JwtUserDetails currentUser,
-            Integer tradeType, Integer status, String tradeNo,
+            Integer tradeType, Integer status, String tradeNo, String keyword, String identity,
             java.time.LocalDateTime startTime, java.time.LocalDateTime endTime,
             Integer page, Integer size) {
         size = CommonUtils.sanitizePageSize(size);
         Pageable pageable = PageRequest.of(page - 1, size, Sort.by(Sort.Direction.DESC, "createdAt"));
         Long userId = currentUser.getUserId();
         Page<Transaction> trades = transactionRepository.findByUserIdRelated(
-                userId, tradeType, status, tradeNo, startTime, endTime, pageable);
+                userId,
+                tradeType,
+                status,
+                normalizeFilterValue(tradeNo),
+                normalizeFilterValue(keyword),
+                normalizeIdentity(identity),
+                startTime,
+                endTime,
+                pageable);
         Map<Long, String> userNames = resolveUserNames(trades.getContent());
         return trades.map(t -> toResponse(t, userNames));
     }
@@ -315,6 +324,28 @@ public class TradeService {
                 .completedAt(trade.getCompletedAt())
                 .createdAt(trade.getCreatedAt())
                 .build();
+    }
+
+    private String normalizeFilterValue(String value) {
+        if (value == null) {
+            return null;
+        }
+
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private String normalizeIdentity(String identity) {
+        String normalized = normalizeFilterValue(identity);
+        if (normalized == null) {
+            return null;
+        }
+
+        String lowercase = normalized.toLowerCase(Locale.ROOT);
+        if ("buyer".equals(lowercase) || "seller".equals(lowercase)) {
+            return lowercase;
+        }
+        return null;
     }
 
     private String safeTradeTypeText(Integer code) {

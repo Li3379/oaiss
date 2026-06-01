@@ -2,15 +2,21 @@ package com.oaiss.chain.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.protobuf.ByteString;
 import com.oaiss.chain.config.FabricProperties;
-import com.oaiss.chain.constant.ErrorCode;
 import com.oaiss.chain.exception.BlockchainException;
+import io.grpc.Status;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.hyperledger.fabric.client.CloseableIterator;
+import org.hyperledger.fabric.client.CommitException;
 import org.hyperledger.fabric.client.Contract;
 import org.hyperledger.fabric.client.EndorseException;
-import org.hyperledger.fabric.client.CommitException;
-import org.hyperledger.fabric.client.CommitStatusException;
+import org.hyperledger.fabric.client.Network;
+import org.hyperledger.fabric.protos.common.Block;
+import org.hyperledger.fabric.protos.common.ChannelHeader;
+import org.hyperledger.fabric.protos.common.Envelope;
+import org.hyperledger.fabric.protos.common.Payload;
 import org.springframework.context.annotation.Profile;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -18,8 +24,18 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.time.LocalDateTime;
-import java.util.*;
+import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Service
@@ -27,7 +43,11 @@ import java.util.*;
 @RequiredArgsConstructor
 public class FabricBlockchainService implements BlockchainServicePort {
 
+    private static final long EVENT_STREAM_START_BLOCK = 0L;
+    private static final long EVENT_STREAM_TIMEOUT_SECONDS = 2L;
+
     private final Contract carbonContract;
+    private final Network fabricNetwork;
     private final FabricProperties props;
     private final ObjectMapper objectMapper;
 
@@ -105,8 +125,11 @@ public class FabricBlockchainService implements BlockchainServicePort {
     public String queryBlock(Long blockNumber) {
         try {
             log.info("[FABRIC] Querying block: {}", blockNumber);
-            byte[] result = carbonContract.evaluateTransaction("QueryBlock", String.valueOf(blockNumber));
-            return new String(result, StandardCharsets.UTF_8);
+            Block block = readSingleBlock(blockNumber)
+                    .orElseThrow(() -> BlockchainException.blockQueryFailed(blockNumber, "Block not found in event stream"));
+            return objectMapper.writeValueAsString(toBlockRecord(block));
+        } catch (BlockchainException e) {
+            throw e;
         } catch (Exception e) {
             throw BlockchainException.blockQueryFailed(blockNumber, e.getMessage());
         }
@@ -116,8 +139,14 @@ public class FabricBlockchainService implements BlockchainServicePort {
     public String queryTransaction(String txHash) {
         try {
             log.info("[FABRIC] Querying transaction: {}", txHash);
-            byte[] result = carbonContract.evaluateTransaction("GetTransactionByID", txHash);
-            return new String(result, StandardCharsets.UTF_8);
+            return collectHistoricalBlocks(EVENT_STREAM_START_BLOCK).stream()
+                    .flatMap(block -> extractTransactions(block).stream())
+                    .filter(tx -> txHash.equals(tx.get("txHash")))
+                    .findFirst()
+                    .map(this::toJson)
+                    .orElseThrow(() -> BlockchainException.txQueryFailed(txHash, "Transaction not found in event stream"));
+        } catch (BlockchainException e) {
+            throw e;
         } catch (Exception e) {
             throw BlockchainException.txQueryFailed(txHash, e.getMessage());
         }
@@ -155,20 +184,13 @@ public class FabricBlockchainService implements BlockchainServicePort {
     public Page<Map<String, Object>> listTransactions(Integer page, Integer size) {
         try {
             log.info("[FABRIC] Listing transactions: page={}, size={}", page, size);
-            byte[] result = carbonContract.evaluateTransaction("ListTransactions",
-                    String.valueOf(page), String.valueOf(size));
-            String response = new String(result, StandardCharsets.UTF_8);
-
-            JsonNode node = objectMapper.readTree(response);
-            List<Map<String, Object>> transactions = new ArrayList<>();
-            if (node.isArray()) {
-                for (JsonNode item : node) {
-                    Map<String, Object> tx = objectMapper.convertValue(item, Map.class);
-                    transactions.add(tx);
-                }
-            }
-            long total = transactions.size() > 0 ? 100 : 0;
-            return new PageImpl<>(transactions, PageRequest.of(page - 1, size), total);
+            List<Map<String, Object>> transactions = collectHistoricalBlocks(EVENT_STREAM_START_BLOCK).stream()
+                    .flatMap(block -> extractTransactions(block).stream())
+                    .sorted(Comparator
+                            .comparing((Map<String, Object> tx) -> asLong(tx.get("blockNumber"))).reversed()
+                            .thenComparing(tx -> String.valueOf(tx.getOrDefault("timestamp", "")), Comparator.reverseOrder()))
+                    .toList();
+            return toPage(transactions, page, size);
         } catch (Exception e) {
             log.error("[FABRIC] Failed to list transactions: {}", e.getMessage());
             return new PageImpl<>(new ArrayList<>(), PageRequest.of(page - 1, size), 0);
@@ -179,24 +201,182 @@ public class FabricBlockchainService implements BlockchainServicePort {
     public Page<Map<String, Object>> listLatestBlocks(Integer page, Integer size) {
         try {
             log.info("[FABRIC] Listing latest blocks: page={}, size={}", page, size);
-            byte[] result = carbonContract.evaluateTransaction("ListLatestBlocks",
-                    String.valueOf(page), String.valueOf(size));
-            String response = new String(result, StandardCharsets.UTF_8);
-
-            JsonNode node = objectMapper.readTree(response);
-            List<Map<String, Object>> blocks = new ArrayList<>();
-            if (node.isArray()) {
-                for (JsonNode item : node) {
-                    Map<String, Object> block = objectMapper.convertValue(item, Map.class);
-                    blocks.add(block);
-                }
-            }
-            long total = blocks.size() > 0 ? 10000 : 0;
-            return new PageImpl<>(blocks, PageRequest.of(page - 1, size), total);
+            List<Map<String, Object>> blocks = collectHistoricalBlocks(EVENT_STREAM_START_BLOCK).stream()
+                    .map(this::toBlockRecord)
+                    .sorted(Comparator.comparing((Map<String, Object> block) -> asLong(block.get("blockNumber"))).reversed())
+                    .toList();
+            return toPage(blocks, page, size);
         } catch (Exception e) {
             log.error("[FABRIC] Failed to list blocks: {}", e.getMessage());
             return new PageImpl<>(new ArrayList<>(), PageRequest.of(page - 1, size), 0);
         }
+    }
+
+    private Optional<Block> readSingleBlock(Long blockNumber) {
+        var request = fabricNetwork.newBlockEventsRequest()
+                .startBlock(blockNumber)
+                .build();
+
+        try (CloseableIterator<Block> iterator = request.getEvents(
+                callOptions -> callOptions.withDeadlineAfter(EVENT_STREAM_TIMEOUT_SECONDS, TimeUnit.SECONDS))) {
+            if (iterator.hasNext()) {
+                Block block = iterator.next();
+                if (block.hasHeader() && block.getHeader().getNumber() == blockNumber) {
+                    return Optional.of(block);
+                }
+            }
+            return Optional.empty();
+        } catch (RuntimeException e) {
+            if (isDeadlineExceeded(e)) {
+                return Optional.empty();
+            }
+            throw e;
+        }
+    }
+
+    private List<Block> collectHistoricalBlocks(long startBlock) {
+        var request = fabricNetwork.newBlockEventsRequest()
+                .startBlock(startBlock)
+                .build();
+        List<Block> blocks = new ArrayList<>();
+
+        try (CloseableIterator<Block> iterator = request.getEvents(
+                callOptions -> callOptions.withDeadlineAfter(EVENT_STREAM_TIMEOUT_SECONDS, TimeUnit.SECONDS))) {
+            while (iterator.hasNext()) {
+                blocks.add(iterator.next());
+            }
+        } catch (RuntimeException e) {
+            if (!isDeadlineExceeded(e)) {
+                throw e;
+            }
+            log.debug("[FABRIC] Block stream reached deadline after reading {} historical blocks", blocks.size());
+        }
+
+        return blocks;
+    }
+
+    private List<Map<String, Object>> extractTransactions(Block block) {
+        List<Map<String, Object>> transactions = new ArrayList<>();
+        if (!block.hasData()) {
+            return transactions;
+        }
+
+        String blockTimestamp = extractBlockTimestamp(block);
+        for (ByteString envelopeBytes : block.getData().getDataList()) {
+            try {
+                Envelope envelope = Envelope.parseFrom(envelopeBytes);
+                Payload payload = Payload.parseFrom(envelope.getPayload());
+                if (!payload.hasHeader()) {
+                    continue;
+                }
+
+                ChannelHeader channelHeader = ChannelHeader.parseFrom(payload.getHeader().getChannelHeader());
+                if (channelHeader.getTxId().isBlank()) {
+                    continue;
+                }
+
+                Map<String, Object> tx = new LinkedHashMap<>();
+                tx.put("txHash", channelHeader.getTxId());
+                tx.put("txId", channelHeader.getTxId());
+                tx.put("status", "VALID");
+                tx.put("blockNumber", block.getHeader().getNumber());
+                tx.put("timestamp", channelHeader.hasTimestamp() ? toIsoTimestamp(channelHeader.getTimestamp()) : blockTimestamp);
+                tx.put("channelId", channelHeader.getChannelId());
+                tx.put("type", channelHeader.getType());
+                transactions.add(tx);
+            } catch (Exception e) {
+                log.debug("[FABRIC] Skipping unparsable transaction envelope in block {}: {}",
+                        block.hasHeader() ? block.getHeader().getNumber() : -1, e.getMessage());
+            }
+        }
+
+        return transactions;
+    }
+
+    private Map<String, Object> toBlockRecord(Block block) {
+        Map<String, Object> record = new LinkedHashMap<>();
+        record.put("blockNumber", block.hasHeader() ? block.getHeader().getNumber() : -1L);
+        record.put("blockHash", block.hasHeader() ? toHex(block.getHeader().getDataHash()) : "");
+        record.put("previousHash", block.hasHeader() ? toHex(block.getHeader().getPreviousHash()) : "");
+        record.put("txCount", block.hasData() ? block.getData().getDataCount() : 0);
+        record.put("timestamp", extractBlockTimestamp(block));
+        record.put("blockType", block.hasHeader() && block.getHeader().getNumber() == 0 ? "GENESIS" : "REGULAR");
+        record.put("channel", props.getChannelName());
+        return record;
+    }
+
+    private String extractBlockTimestamp(Block block) {
+        if (!block.hasData() || block.getData().getDataCount() == 0) {
+            return null;
+        }
+
+        for (ByteString envelopeBytes : block.getData().getDataList()) {
+            try {
+                Envelope envelope = Envelope.parseFrom(envelopeBytes);
+                Payload payload = Payload.parseFrom(envelope.getPayload());
+                if (!payload.hasHeader()) {
+                    continue;
+                }
+                ChannelHeader channelHeader = ChannelHeader.parseFrom(payload.getHeader().getChannelHeader());
+                if (channelHeader.hasTimestamp()) {
+                    return toIsoTimestamp(channelHeader.getTimestamp());
+                }
+            } catch (Exception e) {
+                log.debug("[FABRIC] Failed to extract block timestamp: {}", e.getMessage());
+            }
+        }
+
+        return null;
+    }
+
+    private String toIsoTimestamp(com.google.protobuf.Timestamp timestamp) {
+        return Instant.ofEpochSecond(timestamp.getSeconds(), timestamp.getNanos())
+                .atZone(ZoneId.systemDefault())
+                .toOffsetDateTime()
+                .toString();
+    }
+
+    private String toHex(ByteString bytes) {
+        if (bytes == null || bytes.isEmpty()) {
+            return "";
+        }
+
+        StringBuilder builder = new StringBuilder("0x");
+        for (byte value : bytes.toByteArray()) {
+            builder.append(String.format("%02x", value));
+        }
+        return builder.toString();
+    }
+
+    private long asLong(Object value) {
+        if (value instanceof Number number) {
+            return number.longValue();
+        }
+        return Long.parseLong(String.valueOf(value));
+    }
+
+    private <T> Page<T> toPage(List<T> items, Integer page, Integer size) {
+        int safePage = Math.max(page, 1);
+        int safeSize = Math.max(size, 1);
+        int fromIndex = Math.min((safePage - 1) * safeSize, items.size());
+        int toIndex = Math.min(fromIndex + safeSize, items.size());
+        return new PageImpl<>(
+                items.subList(fromIndex, toIndex),
+                PageRequest.of(safePage - 1, safeSize),
+                items.size()
+        );
+    }
+
+    private String toJson(Map<String, Object> data) {
+        try {
+            return objectMapper.writeValueAsString(data);
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to serialize Fabric query result", e);
+        }
+    }
+
+    private boolean isDeadlineExceeded(Throwable error) {
+        return Status.fromThrowable(error).getCode() == Status.Code.DEADLINE_EXCEEDED;
     }
 
     private String extractTxHashFromResponse(String response) {

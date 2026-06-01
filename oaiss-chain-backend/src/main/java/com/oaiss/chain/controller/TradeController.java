@@ -237,6 +237,10 @@ public class TradeController {
             @RequestParam(required = false) Integer status,
             @Parameter(description = "交易编号模糊搜索")
             @RequestParam(required = false) String tradeNo,
+            @Parameter(description = "Counterparty keyword filter")
+            @RequestParam(required = false) String keyword,
+            @Parameter(description = "Identity filter (buyer/seller)", example = "buyer")
+            @RequestParam(required = false) String identity,
             @Parameter(description = "开始时间（yyyy-MM-dd HH:mm:ss）")
             @RequestParam(required = false) String startTime,
             @Parameter(description = "结束时间（yyyy-MM-dd HH:mm:ss）")
@@ -247,7 +251,8 @@ public class TradeController {
             @RequestParam(defaultValue = "10") Integer size) {
         java.time.LocalDateTime start = parseDateTime(startTime);
         java.time.LocalDateTime end = parseDateTime(endTime);
-        return ApiResponse.success(tradeService.listMyTrades(currentUser, tradeType, status, tradeNo, start, end, page, size));
+        return ApiResponse.success(tradeService.listMyTrades(
+                currentUser, tradeType, status, tradeNo, keyword, identity, start, end, page, size));
     }
 
     private java.time.LocalDateTime parseDateTime(String value) {

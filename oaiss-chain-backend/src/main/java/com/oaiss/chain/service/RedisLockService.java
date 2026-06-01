@@ -3,8 +3,10 @@ package com.oaiss.chain.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
 
+import java.util.Collections;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
@@ -21,6 +23,14 @@ import java.util.concurrent.TimeUnit;
 @Service
 @RequiredArgsConstructor
 public class RedisLockService {
+
+    private static final DefaultRedisScript<Long> COMPARE_AND_DELETE_SCRIPT =
+            new DefaultRedisScript<>(
+                    "if redis.call('get', KEYS[1]) == ARGV[1] then "
+                            + "return redis.call('del', KEYS[1]) "
+                            + "else return 0 end",
+                    Long.class
+            );
 
     private final StringRedisTemplate redisTemplate;
 
@@ -81,11 +91,23 @@ public class RedisLockService {
      * @return 锁值（用于释放锁），如果获取失败返回 null
      */
     public String tryLockWithRetry(String lockKey, long waitTime, long leaseTime, TimeUnit timeUnit) {
+        return tryLockWithRetry(lockKey, waitTime, timeUnit, leaseTime, timeUnit);
+    }
+
+    /**
+     * 尝试获取分布式锁（带重试，等待与持有时间单位可独立配置）
+     * Try to acquire distributed lock with retry using independent wait and lease units.
+     */
+    public String tryLockWithRetry(String lockKey,
+                                   long waitTime,
+                                   TimeUnit waitUnit,
+                                   long leaseTime,
+                                   TimeUnit leaseUnit) {
         long startTime = System.currentTimeMillis();
-        long waitMillis = timeUnit.toMillis(waitTime);
+        long waitMillis = waitUnit.toMillis(waitTime);
 
         while (System.currentTimeMillis() - startTime < waitMillis) {
-            String lockValue = tryLock(lockKey, leaseTime, timeUnit);
+            String lockValue = tryLock(lockKey, leaseTime, leaseUnit);
             if (lockValue != null) {
                 return lockValue;
             }
@@ -116,15 +138,14 @@ public class RedisLockService {
         }
 
         String fullKey = LOCK_PREFIX + lockKey;
-        String currentValue = redisTemplate.opsForValue().get(fullKey);
-
-        // 只有锁值匹配时才释放，防止释放其他线程的锁
-        if (lockValue.equals(currentValue)) {
-            Boolean deleted = redisTemplate.delete(fullKey);
-            if (Boolean.TRUE.equals(deleted)) {
-                log.debug("Lock released: key={}", fullKey);
-                return true;
-            }
+        Long deleted = redisTemplate.execute(
+                COMPARE_AND_DELETE_SCRIPT,
+                Collections.singletonList(fullKey),
+                lockValue
+        );
+        if (deleted != null && deleted > 0) {
+            log.debug("Lock released: key={}", fullKey);
+            return true;
         }
 
         log.warn("Lock release failed (value mismatch or already expired): key={}", fullKey);
