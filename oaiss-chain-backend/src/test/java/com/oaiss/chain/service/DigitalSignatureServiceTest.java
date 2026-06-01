@@ -1,5 +1,6 @@
 package com.oaiss.chain.service;
 
+import com.oaiss.chain.constant.ErrorCode;
 import com.oaiss.chain.dto.RsaKeyPairResponse;
 import com.oaiss.chain.dto.SignatureResult;
 import com.oaiss.chain.entity.RsaKeyPair;
@@ -81,12 +82,10 @@ class DigitalSignatureServiceTest {
         // Given
         when(rsaKeyPairRepository.findLatestByUserId(1L)).thenReturn(Optional.empty());
 
-        // When
-        RsaKeyPairResponse response = digitalSignatureService.getKeyPair(1L);
-
-        // Then
-        assertNotNull(response);
-        assertEquals(0, response.getKeyStatus());
+        // When & Then
+        BlockchainException exception = assertThrows(BlockchainException.class, () ->
+                digitalSignatureService.getKeyPair(1L));
+        assertEquals(ErrorCode.RSA_KEY_PAIR_NOT_FOUND, exception.getCode());
     }
 
     @Test
@@ -101,7 +100,9 @@ class DigitalSignatureServiceTest {
 
         // Then
         assertNotNull(response);
-        assertEquals(2, response.getKeyStatus());
+        assertEquals(0, response.getKeyStatus());
+        assertEquals("已失效", response.getKeyStatusText());
+        verify(rsaKeyPairRepository, never()).save(any(RsaKeyPair.class));
     }
 
     @Test
@@ -117,7 +118,9 @@ class DigitalSignatureServiceTest {
 
         // Then
         assertNotNull(response);
-        assertEquals(0, response.getKeyStatus());
+        assertEquals(2, response.getKeyStatus());
+        assertEquals("已过期", response.getKeyStatusText());
+        verify(rsaKeyPairRepository, times(1)).save(testKeyPair);
     }
 
     @Test
@@ -476,7 +479,8 @@ class DigitalSignatureServiceTest {
 
         // Then
         assertNotNull(response);
-        assertEquals(2, response.getKeyStatus());
+        assertEquals(0, response.getKeyStatus());
+        assertEquals("已失效", response.getKeyStatusText());
     }
 
     @Test
@@ -486,7 +490,13 @@ class DigitalSignatureServiceTest {
         testKeyPair.setKeyStatus(2); // Expired status
         when(rsaKeyPairRepository.findLatestByUserId(1L)).thenReturn(Optional.of(testKeyPair));
 
-        // When & Then
-        assertThrows(BlockchainException.class, () -> digitalSignatureService.getKeyPair(1L));
+        // When
+        RsaKeyPairResponse response = digitalSignatureService.getKeyPair(1L);
+
+        // Then
+        assertNotNull(response);
+        assertEquals(2, response.getKeyStatus());
+        assertEquals("已过期", response.getKeyStatusText());
+        verify(rsaKeyPairRepository, never()).save(any(RsaKeyPair.class));
     }
 }

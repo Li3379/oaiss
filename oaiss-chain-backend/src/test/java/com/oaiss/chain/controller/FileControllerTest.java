@@ -372,18 +372,29 @@ class FileControllerTest {
                 "reports/file2.pdf",
                 "reports/file3.pdf"
         );
+        when(minioService.getFileOwner("reports/file1.pdf")).thenReturn(null);
+        when(minioService.getFileOwner("reports/file2.pdf")).thenReturn(null);
+        when(minioService.getFileOwner("reports/file3.pdf")).thenReturn(null);
         doNothing().when(minioService).deleteFiles(anyList());
 
         // When & Then
-        // Note: Controller has @NotBlank on List<String> which causes validation error (UnexpectedTypeException)
-        // This results in HTTP 500 instead of 200. Adjusting test to match actual behavior.
         mockMvc.perform(delete("/file/batch")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(objectNames)))
-                .andExpect(status().is5xxServerError());
+                        .content(objectMapper.writeValueAsString(objectNames))
+                        .with(request -> {
+                            JwtUserDetails user = JwtUserDetails.builder()
+                                    .userId(1L).username("test").userType(1)
+                                    .roles(List.of("ENTERPRISE")).build();
+                            SecurityContextHolder.getContext().setAuthentication(
+                                    new UsernamePasswordAuthenticationToken(user, null,
+                                            List.of(new SimpleGrantedAuthority("ROLE_ENTERPRISE"))));
+                            return request;
+                        }))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.message").value("批量删除成功，共 3 个文件"));
 
-        // Service is never called due to validation failure
-        verify(minioService, never()).deleteFiles(anyList());
+        verify(minioService, times(1)).deleteFiles(objectNames);
     }
 
     @Test
@@ -393,14 +404,21 @@ class FileControllerTest {
         doNothing().when(minioService).deleteFiles(anyList());
 
         // When & Then
-        // Note: Controller has @NotBlank on List<String> which causes validation error (UnexpectedTypeException)
-        // This results in HTTP 500 instead of 200. Adjusting test to match actual behavior.
         mockMvc.perform(delete("/file/batch")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(Collections.emptyList())))
-                .andExpect(status().is5xxServerError());
+                        .content(objectMapper.writeValueAsString(Collections.emptyList()))
+                        .with(request -> {
+                            JwtUserDetails user = JwtUserDetails.builder()
+                                    .userId(1L).username("test").userType(1)
+                                    .roles(List.of("ENTERPRISE")).build();
+                            SecurityContextHolder.getContext().setAuthentication(
+                                    new UsernamePasswordAuthenticationToken(user, null,
+                                            List.of(new SimpleGrantedAuthority("ROLE_ENTERPRISE"))));
+                            return request;
+                        }))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(1001));
 
-        // Service is never called due to validation failure
         verify(minioService, never()).deleteFiles(anyList());
     }
 

@@ -30,6 +30,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 /**
@@ -266,6 +267,43 @@ class TradeServiceTest {
         // Then
         assertNotNull(result);
         assertEquals(1, result.getContent().size());
+    }
+
+    @Test
+    @DisplayName("查询我的交易时将身份和关键词筛选透传到仓储")
+    void testListMyTradesPassesKeywordAndIdentityFilters() {
+        // Given
+        User seller = User.builder().username("seller").realName("Seller").build();
+        seller.setId(1L);
+        User buyer = User.builder().username("buyer").realName("Buyer Co").build();
+        buyer.setId(2L);
+
+        Page<Transaction> page = new PageImpl<>(Arrays.asList(testTransaction));
+        when(transactionRepository.findByUserIdRelated(
+                eq(1L), eq(TradeTypeEnum.P2P.getCode()), eq(TradeStatusEnum.PENDING.getCode()),
+                eq("TRX"), eq("Buyer"), eq("seller"), any(), any(), any(Pageable.class)))
+                .thenReturn(page);
+        when(userRepository.findAllById(any())).thenReturn(Arrays.asList(seller, buyer));
+
+        // When
+        Page<TradeResponse> result = tradeService.listMyTrades(
+                currentUser,
+                TradeTypeEnum.P2P.getCode(),
+                TradeStatusEnum.PENDING.getCode(),
+                " TRX ",
+                " Buyer ",
+                "SELLER",
+                LocalDateTime.now().minusDays(1),
+                LocalDateTime.now(),
+                1,
+                10);
+
+        // Then
+        assertNotNull(result);
+        assertEquals(1, result.getContent().size());
+        verify(transactionRepository, times(1)).findByUserIdRelated(
+                eq(1L), eq(TradeTypeEnum.P2P.getCode()), eq(TradeStatusEnum.PENDING.getCode()),
+                eq("TRX"), eq("Buyer"), eq("seller"), any(), any(), any(Pageable.class));
     }
 
     // ==================== H6: Trade Confirmation Race Condition ====================

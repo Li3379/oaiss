@@ -9,8 +9,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.Resource;
 
 import java.io.ByteArrayInputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 
@@ -109,5 +114,24 @@ class FabricGatewayConfigTest {
 
         // The key assertion: registerEnrollment was never called
         verify(fabricCAService, never()).registerEnrollment();
+    }
+
+    @Test
+    void resolveResource_shouldSupportClasspathAndAbsolutePaths() throws Exception {
+        FabricGatewayConfig config = new FabricGatewayConfig(props, fabricCAService);
+
+        Resource classpathResource = config.resolveResource("classpath:fabric/crypto/user-cert.pem");
+        assertInstanceOf(ClassPathResource.class, classpathResource);
+        assertTrue(classpathResource.exists());
+
+        Path tempFile = Files.createTempFile("fabric-gateway-test", ".pem");
+        try {
+            Files.writeString(tempFile, "dummy");
+            Resource fileSystemResource = config.resolveResource(tempFile.toString());
+            assertInstanceOf(FileSystemResource.class, fileSystemResource);
+            assertTrue(fileSystemResource.exists());
+        } finally {
+            Files.deleteIfExists(tempFile);
+        }
     }
 }

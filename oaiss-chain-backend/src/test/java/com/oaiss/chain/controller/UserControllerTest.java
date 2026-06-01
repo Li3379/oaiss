@@ -9,6 +9,7 @@ import com.oaiss.chain.service.UserService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
 import org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration;
@@ -23,10 +24,12 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.LocalDateTime;
+import java.lang.reflect.Method;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -142,7 +145,7 @@ class UserControllerTest {
                         List.of(new SimpleGrantedAuthority("ROLE_ENTERPRISE")));
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
-        when(userService.getUserById(1L)).thenReturn(userInfoResponse);
+        when(userService.getUserById(eq(1L), any(JwtUserDetails.class))).thenReturn(userInfoResponse);
 
         // When & Then
         mockMvc.perform(get("/user/1"))
@@ -151,7 +154,17 @@ class UserControllerTest {
                 .andExpect(jsonPath("$.data.userId").value(1))
                 .andExpect(jsonPath("$.data.username").value("testuser"));
 
-        verify(userService, times(1)).getUserById(1L);
+        verify(userService, times(1)).getUserById(eq(1L), any(JwtUserDetails.class));
+    }
+
+    @Test
+    @DisplayName("根据ID获取用户信息接口显式要求已登录")
+    void testGetUserByIdRequiresAuthenticatedAnnotation() throws Exception {
+        Method method = UserController.class.getMethod("getUserById", JwtUserDetails.class, Long.class);
+        PreAuthorize preAuthorize = method.getAnnotation(PreAuthorize.class);
+
+        org.junit.jupiter.api.Assertions.assertNotNull(preAuthorize);
+        org.junit.jupiter.api.Assertions.assertEquals("isAuthenticated()", preAuthorize.value());
     }
 
     @Test
@@ -163,7 +176,7 @@ class UserControllerTest {
                         List.of(new SimpleGrantedAuthority("ROLE_ENTERPRISE")));
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
-        when(userService.getUserById(999L))
+        when(userService.getUserById(eq(999L), any(JwtUserDetails.class)))
                 .thenThrow(new BusinessException(404, "用户不存在"));
 
         // When & Then - GlobalExceptionHandler converts BusinessException to HTTP 400
@@ -171,7 +184,7 @@ class UserControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(404));
 
-        verify(userService, times(1)).getUserById(999L);
+        verify(userService, times(1)).getUserById(eq(999L), any(JwtUserDetails.class));
     }
 
     // ==================== Update Profile Tests ====================

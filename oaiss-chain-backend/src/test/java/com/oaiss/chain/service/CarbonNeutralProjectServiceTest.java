@@ -31,6 +31,7 @@ import org.springframework.data.domain.Pageable;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -354,7 +355,7 @@ class CarbonNeutralProjectServiceTest {
     @DisplayName("获取项目详情成功")
     void testGetProjectSuccess() {
         when(projectRepository.findById(1L)).thenReturn(Optional.of(testProject));
-        when(enterpriseRepository.findById(1L)).thenReturn(Optional.of(testEnterprise));
+        when(enterpriseRepository.findAllById(anyIterable())).thenReturn(List.of(testEnterprise));
 
         CarbonNeutralProjectResponse response = service.getProject(1L);
 
@@ -376,7 +377,7 @@ class CarbonNeutralProjectServiceTest {
         List<CarbonNeutralProject> projects = List.of(testProject);
         Page<CarbonNeutralProject> page = new PageImpl<>(projects);
         when(projectRepository.search(any(), any(), any(), any(Pageable.class))).thenReturn(page);
-        when(enterpriseRepository.findById(1L)).thenReturn(Optional.of(testEnterprise));
+        when(enterpriseRepository.findAllById(anyIterable())).thenReturn(List.of(testEnterprise));
 
         Page<CarbonNeutralProjectResponse> response = service.searchProjects(1, 0, null, 1, 10);
 
@@ -391,7 +392,7 @@ class CarbonNeutralProjectServiceTest {
         Page<CarbonNeutralProject> page = new PageImpl<>(projects);
         when(enterpriseRepository.findByUserIdAndDeletedFalse(1L)).thenReturn(Optional.of(testEnterprise));
         when(projectRepository.findByOwnerIdAndDeletedFalse(anyLong(), any(Pageable.class))).thenReturn(page);
-        when(enterpriseRepository.findById(1L)).thenReturn(Optional.of(testEnterprise));
+        when(enterpriseRepository.findAllById(anyIterable())).thenReturn(List.of(testEnterprise));
 
         Page<CarbonNeutralProjectResponse> response = service.getMyProjects(testUser, null, 1, 10);
 
@@ -407,8 +408,13 @@ class CarbonNeutralProjectServiceTest {
         Reviewer reviewer = Reviewer.builder().userId(1L).build();
         reviewer.setId(7L);
         when(reviewerRepository.findByUserIdAndDeletedFalse(1L)).thenReturn(Optional.of(reviewer));
+        when(reviewerRepository.findByUserIdInAndDeletedFalse(anyCollection())).thenReturn(List.of(reviewer));
         when(projectRepository.findByVerifierIdInAndVerificationStatusAndDeletedFalse(anyCollection(), anyInt(), any(Pageable.class))).thenReturn(page);
-        when(enterpriseRepository.findById(1L)).thenReturn(Optional.of(testEnterprise));
+        when(enterpriseRepository.findAllById(anyIterable())).thenReturn(List.of(testEnterprise));
+        User verifierUser = new User();
+        verifierUser.setId(1L);
+        verifierUser.setRealName("Verifier");
+        when(userRepository.findAllById(anyIterable())).thenReturn(List.of(verifierUser));
 
         Page<CarbonNeutralProjectResponse> response = service.getPendingVerificationProjects(1L, 1, 10);
 
@@ -418,6 +424,72 @@ class CarbonNeutralProjectServiceTest {
                 argThat(ids -> ids.contains(1L) && ids.contains(7L)),
                 eq(CarbonNeutralProjectService.VERIFY_STATUS_PENDING),
                 any(Pageable.class));
+    }
+
+    @Test
+    @DisplayName("搜索项目批量加载展示字段，避免逐条 N+1 查询")
+    void testSearchProjectsBatchLoadsDisplayFields() {
+        CarbonNeutralProject secondProject = new CarbonNeutralProject();
+        secondProject.setProjectNo("CNP202401010002");
+        secondProject.setProjectName("Project Two");
+        secondProject.setProjectType(2);
+        secondProject.setOwnerId(1L);
+        secondProject.setReviewerId(10L);
+        secondProject.setVerifierId(21L);
+        secondProject.setStatus(CarbonNeutralProjectService.STATUS_PENDING);
+        secondProject.setCertStatus(CarbonNeutralProjectService.CERT_STATUS_NONE);
+        secondProject.setVerificationStatus(CarbonNeutralProjectService.VERIFY_STATUS_PENDING);
+        secondProject.setIssuedCredits(BigDecimal.ZERO);
+        secondProject.setUsedCredits(BigDecimal.ZERO);
+
+        testProject.setReviewerId(10L);
+        testProject.setVerifierId(20L);
+
+        Page<CarbonNeutralProject> page = new PageImpl<>(List.of(testProject, secondProject));
+
+        Reviewer verifierByUserId = Reviewer.builder().userId(20L).build();
+        verifierByUserId.setId(30L);
+        Reviewer verifierByReviewerId = Reviewer.builder().userId(22L).build();
+        verifierByReviewerId.setId(21L);
+
+        User reviewerUser = new User();
+        reviewerUser.setId(10L);
+        reviewerUser.setRealName("Reviewer One");
+
+        User verifierUserDirect = new User();
+        verifierUserDirect.setId(20L);
+        verifierUserDirect.setRealName("Verifier Direct");
+
+        User verifierUserFromReviewer = new User();
+        verifierUserFromReviewer.setId(22L);
+        verifierUserFromReviewer.setRealName("Verifier From Reviewer");
+
+        when(projectRepository.search(any(), any(), any(), any(Pageable.class))).thenReturn(page);
+        when(enterpriseRepository.findAllById(anyIterable())).thenReturn(List.of(testEnterprise));
+        when(reviewerRepository.findByUserIdInAndDeletedFalse(anyCollection())).thenReturn(List.of(verifierByUserId));
+        when(reviewerRepository.findAllById(anyIterable())).thenReturn(List.of(verifierByReviewerId));
+        when(userRepository.findAllById(anyIterable())).thenReturn(List.of(
+                reviewerUser,
+                verifierUserDirect,
+                verifierUserFromReviewer
+        ));
+
+        Page<CarbonNeutralProjectResponse> response = service.searchProjects(null, null, null, 1, 10);
+
+        assertEquals(2, response.getTotalElements());
+        assertEquals("Test Enterprise", response.getContent().get(0).getOwnerName());
+        assertEquals("Reviewer One", response.getContent().get(0).getReviewerName());
+        assertEquals("Verifier Direct", response.getContent().get(0).getVerifierName());
+        assertEquals("Verifier From Reviewer", response.getContent().get(1).getVerifierName());
+
+        verify(enterpriseRepository).findAllById(anyIterable());
+        verify(userRepository).findAllById(anyIterable());
+        verify(reviewerRepository).findByUserIdInAndDeletedFalse(anyCollection());
+        verify(reviewerRepository).findAllById(anyIterable());
+        verify(enterpriseRepository, never()).findById(anyLong());
+        verify(userRepository, never()).findById(anyLong());
+        verify(reviewerRepository, never()).findById(anyLong());
+        verify(reviewerRepository, never()).findByUserIdAndDeletedFalse(anyLong());
     }
 
     @Test
@@ -448,5 +520,10 @@ class CarbonNeutralProjectServiceTest {
         when(enterpriseRepository.findByUserIdAndDeletedFalse(1L)).thenReturn(Optional.of(testEnterprise));
 
         assertThrows(BusinessException.class, () -> service.submitForReview(testUser, 1L));
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Iterable<Long> anyIterable() {
+        return (Iterable<Long>) any(Iterable.class);
     }
 }

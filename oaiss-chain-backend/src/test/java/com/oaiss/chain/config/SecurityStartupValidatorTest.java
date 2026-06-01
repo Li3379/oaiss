@@ -66,9 +66,10 @@ class SecurityStartupValidatorTest {
     @DisplayName("生产环境+强密钥应通过校验")
     void validateOnStartup_productionWithStrongSecrets_shouldPass() {
         // Given: production profile with strong secrets
-        when(environment.getActiveProfiles()).thenReturn(new String[]{"prod"});
+        when(environment.getActiveProfiles()).thenReturn(new String[]{"prod", "fabric"});
         SecurityStartupValidator validator = new SecurityStartupValidator(environment);
         setStrongProductionFields(validator);
+        setField(validator, "fabricEnabled", true);
 
         // When & Then - should not throw
         assertDoesNotThrow(validator::validateOnStartup);
@@ -234,6 +235,7 @@ class SecurityStartupValidatorTest {
         when(environment.getActiveProfiles()).thenReturn(new String[]{"prod", "fabric"});
         SecurityStartupValidator validator = new SecurityStartupValidator(environment);
         setStrongProductionFields(validator);
+        setField(validator, "fabricEnabled", true);
         setField(validator, "fabricCaEnabled", true);
         setField(validator, "fabricCaEndpoint", "http://ca.org1.example.com:7054");
         setField(validator, "fabricCaAdminPassword", "strongFabricPassword123!");
@@ -275,6 +277,48 @@ class SecurityStartupValidatorTest {
         assertThrows(SecurityException.class, validator::validateOnStartup);
     }
 
+    @Test
+    @DisplayName("生产环境缺少 fabric profile 应阻止启动")
+    void validateOnStartup_productionWithoutFabricProfile_shouldThrow() {
+        when(environment.getActiveProfiles()).thenReturn(new String[]{"prod"});
+        SecurityStartupValidator validator = new SecurityStartupValidator(environment);
+        setStrongProductionFields(validator);
+
+        assertThrows(SecurityException.class, validator::validateOnStartup);
+    }
+
+    @Test
+    @DisplayName("staging 环境缺少 fabric profile 应阻止启动")
+    void validateOnStartup_stagingWithoutFabricProfile_shouldThrow() {
+        when(environment.getActiveProfiles()).thenReturn(new String[]{"staging"});
+        SecurityStartupValidator validator = new SecurityStartupValidator(environment);
+        setStrongProductionFields(validator);
+
+        assertThrows(SecurityException.class, validator::validateOnStartup);
+    }
+
+    @Test
+    @DisplayName("FABRIC_ENABLED 为 true 但未启用 fabric profile 应阻止启动")
+    void validateOnStartup_fabricEnabledWithoutFabricProfile_shouldThrow() {
+        when(environment.getActiveProfiles()).thenReturn(new String[]{"dev"});
+        SecurityStartupValidator validator = new SecurityStartupValidator(environment);
+        setStrongProductionFields(validator);
+        setField(validator, "fabricEnabled", true);
+
+        assertThrows(SecurityException.class, validator::validateOnStartup);
+    }
+
+    @Test
+    @DisplayName("staging + fabric + 强密钥应通过校验")
+    void validateOnStartup_stagingWithFabricProfile_shouldPass() {
+        when(environment.getActiveProfiles()).thenReturn(new String[]{"staging", "fabric"});
+        SecurityStartupValidator validator = new SecurityStartupValidator(environment);
+        setStrongProductionFields(validator);
+        setField(validator, "fabricEnabled", true);
+
+        assertDoesNotThrow(validator::validateOnStartup);
+    }
+
     private void setStrongProductionFields(SecurityStartupValidator validator) {
         setField(validator, "jwtSecret", STRONG_JWT_SECRET);
         setField(validator, "dbPassword", "strongDbPassword123!");
@@ -283,6 +327,7 @@ class SecurityStartupValidatorTest {
         setField(validator, "minioSecretKey", "strong-secret-key");
         setField(validator, "rsaKek", VALID_RSA_KEK);
         setField(validator, "allowedOrigins", "https://app.example.com");
+        setField(validator, "fabricEnabled", false);
         setField(validator, "fabricCaEnabled", false);
         setField(validator, "fabricCaEndpoint", "");
         setField(validator, "fabricCaAdminPassword", "");

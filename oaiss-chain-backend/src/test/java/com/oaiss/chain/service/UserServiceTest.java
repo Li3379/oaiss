@@ -97,18 +97,68 @@ class UserServiceTest {
     }
 
     @Test
-    @DisplayName("根据ID获取用户信息成功")
-    void testGetUserByIdSuccess() {
+    @DisplayName("根据ID获取用户信息-本人可见完整信息")
+    void testGetUserByIdSuccessForSelf() {
         // Given
         doReturn(Optional.of(testUser)).when(userRepository).findByIdAndDeletedFalse(1L);
 
         // When
-        UserInfoResponse response = userService.getUserById(1L);
+        UserInfoResponse response = userService.getUserById(1L, currentUser);
 
         // Then
         assertNotNull(response);
         assertEquals(1L, response.getUserId());
+        assertEquals("13800138000", response.getPhone());
+        assertEquals("test@example.com", response.getEmail());
         verify(userRepository, times(1)).findByIdAndDeletedFalse(1L);
+    }
+
+    @Test
+    @DisplayName("根据ID获取用户信息-管理员可见完整信息")
+    void testGetUserByIdSuccessForAdmin() {
+        // Given
+        JwtUserDetails adminUser = JwtUserDetails.builder()
+                .userId(99L)
+                .username("admin")
+                .roles(java.util.List.of("ADMIN"))
+                .build();
+        doReturn(Optional.of(testUser)).when(userRepository).findByIdAndDeletedFalse(1L);
+
+        // When
+        UserInfoResponse response = userService.getUserById(1L, adminUser);
+
+        // Then
+        assertNotNull(response);
+        assertEquals("13800138000", response.getPhone());
+        assertEquals("test@example.com", response.getEmail());
+    }
+
+    @Test
+    @DisplayName("根据ID获取用户信息-其他已登录用户仅见公开资料")
+    void testGetUserByIdReturnsPublicInfoForOtherUser() {
+        // Given
+        JwtUserDetails otherUser = JwtUserDetails.builder()
+                .userId(2L)
+                .username("other")
+                .roles(java.util.List.of("REVIEWER"))
+                .build();
+        doReturn(Optional.of(testUser)).when(userRepository).findByIdAndDeletedFalse(1L);
+
+        // When
+        UserInfoResponse response = userService.getUserById(1L, otherUser);
+
+        // Then
+        assertNotNull(response);
+        assertEquals(1L, response.getUserId());
+        assertEquals("testuser", response.getUsername());
+        assertEquals("Test User", response.getRealName());
+        assertNull(response.getPhone());
+        assertNull(response.getEmail());
+        assertNull(response.getAddress());
+        assertNull(response.getStatus());
+        assertNull(response.getLastLoginAt());
+        assertNull(response.getLastLoginIp());
+        assertNull(response.getCreatedAt());
     }
 
     @Test

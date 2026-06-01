@@ -1,5 +1,6 @@
 package com.oaiss.chain.service;
 
+import com.oaiss.chain.constant.ErrorCode;
 import com.oaiss.chain.dto.AuctionOrderRequest;
 import com.oaiss.chain.dto.AuctionOrderResponse;
 import com.oaiss.chain.dto.MatchingResultResponse;
@@ -32,15 +33,20 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Optional;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
-import static org.mockito.Mockito.*;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
-/**
- * DoubleAuctionService 单元测试
- * DoubleAuctionService Unit Tests
- */
 @ExtendWith(MockitoExtension.class)
 class DoubleAuctionServiceTest {
 
@@ -81,14 +87,14 @@ class DoubleAuctionServiceTest {
         testEnterprise.setId(1L);
 
         orderRequest = new AuctionOrderRequest();
+        orderRequest.setDirection(1);
         orderRequest.setQuantity(new BigDecimal("100.00"));
         orderRequest.setPrice(new BigDecimal("50.00"));
     }
 
     @Test
-    @DisplayName("提交买入挂单成功")
+    @DisplayName("placeBuyOrder succeeds")
     void testPlaceBuyOrderSuccess() {
-        // Given
         when(enterpriseRepository.findByUserId(1L)).thenReturn(Optional.of(testEnterprise));
         when(auctionOrderRepository.save(any(AuctionOrder.class))).thenAnswer(invocation -> {
             AuctionOrder order = invocation.getArgument(0);
@@ -96,10 +102,8 @@ class DoubleAuctionServiceTest {
             return order;
         });
 
-        // When
         AuctionOrderResponse response = doubleAuctionService.placeBuyOrder(currentUser, orderRequest);
 
-        // Then
         assertNotNull(response);
         assertEquals(1, response.getDirection());
         assertEquals(new BigDecimal("100.00"), response.getQuantity());
@@ -108,37 +112,42 @@ class DoubleAuctionServiceTest {
     }
 
     @Test
-    @DisplayName("提交买入挂单失败-企业不存在")
+    @DisplayName("placeBuyOrder fails when enterprise is missing")
     void testPlaceBuyOrderFailEnterpriseNotFound() {
-        // Given
         when(enterpriseRepository.findByUserId(1L)).thenReturn(Optional.empty());
 
-        // When & Then
-        assertThrows(TradeException.class, () -> 
-            doubleAuctionService.placeBuyOrder(currentUser, orderRequest));
+        assertThrows(TradeException.class, () ->
+                doubleAuctionService.placeBuyOrder(currentUser, orderRequest));
         verify(auctionOrderRepository, never()).save(any());
     }
 
-    // ========== TDD Cycle 2: H17 买入挂单未验证配额 ==========
-
     @Test
-    @DisplayName("买入挂单失败-请求量超过企业可交易配额")
+    @DisplayName("placeBuyOrder fails when quantity exceeds tradable quota")
     void testPlaceBuyOrderFailInsufficientQuota() {
-        // 企业可交易配额只有 500，但买入请求 1000
         orderRequest.setQuantity(new BigDecimal("1000.00"));
-
         when(enterpriseRepository.findByUserId(1L)).thenReturn(Optional.of(testEnterprise));
 
-        // RED: 当前实现不检查买入方配额（BUG），此测试应失败
-        assertThrows(TradeException.class,
-                () -> doubleAuctionService.placeBuyOrder(currentUser, orderRequest));
+        assertThrows(TradeException.class, () ->
+                doubleAuctionService.placeBuyOrder(currentUser, orderRequest));
         verify(auctionOrderRepository, never()).save(any());
     }
 
     @Test
-    @DisplayName("提交卖出挂单成功")
+    @DisplayName("placeBuyOrder rejects negative price before repository access")
+    void testPlaceBuyOrderFailNegativePrice() {
+        orderRequest.setPrice(new BigDecimal("-1.00"));
+
+        TradeException ex = assertThrows(TradeException.class, () ->
+                doubleAuctionService.placeBuyOrder(currentUser, orderRequest));
+
+        assertEquals(ErrorCode.PARAM_ERROR, ex.getCode());
+        verify(enterpriseRepository, never()).findByUserId(any());
+        verify(auctionOrderRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("placeSellOrder succeeds")
     void testPlaceSellOrderSuccess() {
-        // Given
         when(enterpriseRepository.findByUserId(1L)).thenReturn(Optional.of(testEnterprise));
         when(auctionOrderRepository.save(any(AuctionOrder.class))).thenAnswer(invocation -> {
             AuctionOrder order = invocation.getArgument(0);
@@ -146,49 +155,54 @@ class DoubleAuctionServiceTest {
             return order;
         });
 
-        // When
         AuctionOrderResponse response = doubleAuctionService.placeSellOrder(currentUser, orderRequest);
 
-        // Then
         assertNotNull(response);
         assertEquals(2, response.getDirection());
         verify(auctionOrderRepository, times(1)).save(any(AuctionOrder.class));
     }
 
     @Test
-    @DisplayName("提交卖出挂单失败-可交易配额不足")
+    @DisplayName("placeSellOrder fails when quantity exceeds tradable quota")
     void testPlaceSellOrderFailInsufficientQuota() {
-        // Given
-        orderRequest.setQuantity(new BigDecimal("1000.00")); // More than tradable (500)
+        orderRequest.setQuantity(new BigDecimal("1000.00"));
         when(enterpriseRepository.findByUserId(1L)).thenReturn(Optional.of(testEnterprise));
 
-        // When & Then
-        assertThrows(TradeException.class, () -> 
-            doubleAuctionService.placeSellOrder(currentUser, orderRequest));
+        assertThrows(TradeException.class, () ->
+                doubleAuctionService.placeSellOrder(currentUser, orderRequest));
         verify(auctionOrderRepository, never()).save(any());
     }
 
     @Test
-    @DisplayName("执行撮合-无匹配机会")
+    @DisplayName("placeSellOrder rejects zero quantity before repository access")
+    void testPlaceSellOrderFailZeroQuantity() {
+        orderRequest.setQuantity(BigDecimal.ZERO);
+
+        TradeException ex = assertThrows(TradeException.class, () ->
+                doubleAuctionService.placeSellOrder(currentUser, orderRequest));
+
+        assertEquals(ErrorCode.PARAM_ERROR, ex.getCode());
+        verify(enterpriseRepository, never()).findByUserId(any());
+        verify(auctionOrderRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("executeMatching returns empty list when there is no opportunity")
     void testExecuteMatchingNoOpportunity() {
-        // Given
         when(auctionOrderRepository.findByDirectionAndStatusInAndDeletedFalseOrderByPriceDesc(eq(1), anyList()))
                 .thenReturn(Collections.emptyList());
         when(auctionOrderRepository.findByDirectionAndStatusInAndDeletedFalseOrderByPriceAsc(eq(2), anyList()))
                 .thenReturn(Collections.emptyList());
 
-        // When
         var results = doubleAuctionService.executeMatching();
 
-        // Then
         assertNotNull(results);
         assertTrue(results.isEmpty());
     }
 
     @Test
-    @DisplayName("执行撮合-成功匹配")
+    @DisplayName("executeMatching settles one match")
     void testExecuteMatchingSuccess() {
-        // Given
         AuctionOrder buyOrder = AuctionOrder.builder()
                 .orderNo("B20240101001")
                 .userId(1L)
@@ -252,10 +266,8 @@ class DoubleAuctionServiceTest {
         when(userRepository.findById(2L)).thenReturn(Optional.of(seller));
         when(auctionOrderRepository.save(any(AuctionOrder.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        // When
         var results = doubleAuctionService.executeMatching();
 
-        // Then
         assertNotNull(results);
         assertEquals(1, results.size());
         verify(matchingResultRepository, atLeastOnce()).save(any(MatchingResult.class));
@@ -263,9 +275,8 @@ class DoubleAuctionServiceTest {
     }
 
     @Test
-    @DisplayName("分页查询挂单")
+    @DisplayName("listOrders returns paged responses")
     void testListOrders() {
-        // Given
         AuctionOrder order = AuctionOrder.builder()
                 .orderNo("B20240101001")
                 .userId(1L)
@@ -280,18 +291,15 @@ class DoubleAuctionServiceTest {
         Page<AuctionOrder> page = new PageImpl<>(Arrays.asList(order));
         when(auctionOrderRepository.findByDeletedFalse(any(Pageable.class))).thenReturn(page);
 
-        // When
         Page<AuctionOrderResponse> result = doubleAuctionService.listOrders(null, null, 1, 10);
 
-        // Then
         assertNotNull(result);
         assertEquals(1, result.getContent().size());
     }
 
     @Test
-    @DisplayName("查询我的挂单")
+    @DisplayName("listMyOrders returns current user orders")
     void testListMyOrders() {
-        // Given
         AuctionOrder order = AuctionOrder.builder()
                 .orderNo("B20240101001")
                 .userId(1L)
@@ -306,18 +314,15 @@ class DoubleAuctionServiceTest {
         Page<AuctionOrder> page = new PageImpl<>(Arrays.asList(order));
         when(auctionOrderRepository.findByUserIdAndDeletedFalse(eq(1L), any(Pageable.class))).thenReturn(page);
 
-        // When
         Page<AuctionOrderResponse> result = doubleAuctionService.listMyOrders(currentUser, null, null, 1, 10);
 
-        // Then
         assertNotNull(result);
         assertEquals(1, result.getContent().size());
     }
 
     @Test
-    @DisplayName("查询撮合结果")
+    @DisplayName("listMatchingResults returns user-related settlements")
     void testListMatchingResults() {
-        // Given
         MatchingResult match = MatchingResult.builder()
                 .matchNo("MT20240101001")
                 .buyOrderId(1L)
@@ -339,27 +344,23 @@ class DoubleAuctionServiceTest {
         when(matchingResultRepository.findByUserIdRelated(eq(1L), any(Pageable.class))).thenReturn(page);
         when(userRepository.findAllById(any())).thenReturn(Arrays.asList(buyer, seller));
 
-        // When
         Page<MatchingResultResponse> result = doubleAuctionService.listMatchingResults(currentUser, 1, 10);
 
-        // Then
         assertNotNull(result);
         assertEquals(1, result.getContent().size());
     }
 
-    // ==================== C6: Matching Engine Concurrent Lock ====================
-
     @Test
-    @DisplayName("executeMatching方法应使用@DistributedLock防止并发撮合")
+    @DisplayName("executeMatching uses DistributedLock instead of synchronized")
     void testExecuteMatchingHasDistributedLock() throws Exception {
-        // Verify the method has @DistributedLock annotation instead of synchronized
         var method = DoubleAuctionService.class.getMethod("executeMatching");
         var annotation = method.getAnnotation(com.oaiss.chain.annotation.DistributedLock.class);
+
         assertNotNull(annotation,
                 "executeMatching() must have @DistributedLock annotation for distributed concurrency control");
         assertEquals("'auction:matching'", annotation.key(),
                 "@DistributedLock key must be 'auction:matching'");
         assertFalse(java.lang.reflect.Modifier.isSynchronized(method.getModifiers()),
-                "executeMatching() must NOT be synchronized — use @DistributedLock instead");
+                "executeMatching() must NOT be synchronized; use @DistributedLock instead");
     }
 }

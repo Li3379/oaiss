@@ -1,12 +1,24 @@
 package com.oaiss.chain.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.protobuf.ByteString;
+import com.google.protobuf.Timestamp;
 import com.oaiss.chain.config.FabricProperties;
 import com.oaiss.chain.exception.BlockchainException;
+import io.grpc.Status;
+import io.grpc.CallOptions;
+import org.hyperledger.fabric.client.BlockEventsRequest;
+import org.hyperledger.fabric.client.CloseableIterator;
 import org.hyperledger.fabric.client.Contract;
 import org.hyperledger.fabric.client.EndorseException;
-import io.grpc.Status;
-import io.grpc.StatusRuntimeException;
+import org.hyperledger.fabric.client.Network;
+import org.hyperledger.fabric.protos.common.Block;
+import org.hyperledger.fabric.protos.common.BlockData;
+import org.hyperledger.fabric.protos.common.BlockHeader;
+import org.hyperledger.fabric.protos.common.ChannelHeader;
+import org.hyperledger.fabric.protos.common.Envelope;
+import org.hyperledger.fabric.protos.common.Header;
+import org.hyperledger.fabric.protos.common.Payload;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -15,17 +27,36 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.Map;
+import java.util.function.UnaryOperator;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class FabricBlockchainServiceTest {
 
     @Mock
     private Contract carbonContract;
+
+    @Mock
+    private Network fabricNetwork;
+
+    @Mock
+    private BlockEventsRequest.Builder blockEventsRequestBuilder;
+
+    @Mock
+    private BlockEventsRequest blockEventsRequest;
+
+    @Mock
+    private CloseableIterator<Block> blockIterator;
 
     private FabricProperties props;
     private ObjectMapper objectMapper;
@@ -38,7 +69,13 @@ class FabricBlockchainServiceTest {
         props.setChaincodeName("carbon-chaincode");
         props.setMspId("Org1MSP");
         objectMapper = new ObjectMapper();
-        service = new FabricBlockchainService(carbonContract, props, objectMapper);
+        service = new FabricBlockchainService(carbonContract, fabricNetwork, props, objectMapper);
+
+        lenient().when(fabricNetwork.newBlockEventsRequest()).thenReturn(blockEventsRequestBuilder);
+        lenient().when(blockEventsRequestBuilder.startBlock(anyLong())).thenReturn(blockEventsRequestBuilder);
+        lenient().when(blockEventsRequestBuilder.build()).thenReturn(blockEventsRequest);
+        lenient().when(blockEventsRequest.getEvents(org.mockito.ArgumentMatchers.<UnaryOperator<CallOptions>>any()))
+                .thenReturn(blockIterator);
     }
 
     @Test
@@ -66,25 +103,29 @@ class FabricBlockchainServiceTest {
     }
 
     @Test
-    void queryTransaction_shouldEvaluateTransaction() throws Exception {
-        String expected = "{\"txId\":\"tx123\",\"data\":\"value\"}";
-        when(carbonContract.evaluateTransaction(eq("GetTransactionByID"), eq("tx123")))
-                .thenReturn(expected.getBytes(StandardCharsets.UTF_8));
+    void queryTransaction_shouldReadFromHistoricalBlockEvents() {
+        Block block = createBlock(9L, "tx123", "2026-05-31T00:00:00Z");
+        when(blockIterator.hasNext()).thenReturn(true, false);
+        when(blockIterator.next()).thenReturn(block);
 
         String result = service.queryTransaction("tx123");
 
-        assertEquals(expected, result);
+        assertTrue(result.contains("\"txHash\":\"tx123\""));
+        assertTrue(result.contains("\"blockNumber\":9"));
+        verify(blockEventsRequestBuilder).startBlock(0L);
     }
 
     @Test
-    void queryBlock_shouldEvaluateTransaction() throws Exception {
-        String expected = "{\"blockNumber\":5,\"data\":\"blockdata\"}";
-        when(carbonContract.evaluateTransaction(eq("QueryBlock"), eq("5")))
-                .thenReturn(expected.getBytes(StandardCharsets.UTF_8));
+    void queryBlock_shouldReadSpecificBlockFromEventStream() {
+        Block block = createBlock(5L, "tx-block-5", "2026-05-31T01:00:00Z");
+        when(blockIterator.hasNext()).thenReturn(true, false);
+        when(blockIterator.next()).thenReturn(block);
 
         String result = service.queryBlock(5L);
 
-        assertEquals(expected, result);
+        assertTrue(result.contains("\"blockNumber\":5"));
+        assertTrue(result.contains("\"txCount\":1"));
+        verify(blockEventsRequestBuilder).startBlock(5L);
     }
 
     @Test
@@ -138,9 +179,8 @@ class FabricBlockchainServiceTest {
     }
 
     @Test
-    void listTransactions_whenEmptyResponse_shouldReturnEmptyPage() throws Exception {
-        when(carbonContract.evaluateTransaction(eq("ListTransactions"), eq("1"), eq("10")))
-                .thenReturn("[]".getBytes(StandardCharsets.UTF_8));
+    void listTransactions_whenNoHistoricalBlocks_shouldReturnEmptyPage() {
+        when(blockIterator.hasNext()).thenReturn(false);
 
         Page<Map<String, Object>> page = service.listTransactions(1, 10);
 
@@ -148,14 +188,66 @@ class FabricBlockchainServiceTest {
     }
 
     @Test
-    void listTransactions_whenValidJsonArray_shouldReturnPage() throws Exception {
-        String json = "[{\"txId\":\"tx1\",\"data\":\"d1\"},{\"txId\":\"tx2\",\"data\":\"d2\"}]";
-        when(carbonContract.evaluateTransaction(eq("ListTransactions"), eq("1"), eq("10")))
-                .thenReturn(json.getBytes(StandardCharsets.UTF_8));
+    void listTransactions_whenHistoricalBlocksExist_shouldReturnDescendingTransactionPage() {
+        Block olderBlock = createBlock(2L, "tx-old", "2026-05-31T00:00:00Z");
+        Block newerBlock = createBlock(3L, "tx-new", "2026-05-31T01:00:00Z");
+        when(blockIterator.hasNext()).thenReturn(true, true, false);
+        when(blockIterator.next()).thenReturn(olderBlock, newerBlock);
 
         Page<Map<String, Object>> page = service.listTransactions(1, 10);
 
         assertEquals(2, page.getContent().size());
-        assertEquals("tx1", page.getContent().get(0).get("txId"));
+        assertEquals("tx-new", page.getContent().get(0).get("txHash"));
+        assertEquals("tx-old", page.getContent().get(1).get("txHash"));
+    }
+
+    @Test
+    void listLatestBlocks_shouldReturnDescendingPage() {
+        Block olderBlock = createBlock(1L, "tx-1", "2026-05-31T00:00:00Z");
+        Block newerBlock = createBlock(2L, "tx-2", "2026-05-31T01:00:00Z");
+        when(blockIterator.hasNext()).thenReturn(true, true, false);
+        when(blockIterator.next()).thenReturn(olderBlock, newerBlock);
+
+        Page<Map<String, Object>> page = service.listLatestBlocks(1, 10);
+
+        assertEquals(2, page.getContent().size());
+        assertEquals(2L, ((Number) page.getContent().get(0).get("blockNumber")).longValue());
+        assertEquals(1L, ((Number) page.getContent().get(1).get("blockNumber")).longValue());
+    }
+
+    private Block createBlock(long blockNumber, String txId, String timestamp) {
+        Instant instant = Instant.parse(timestamp);
+        ChannelHeader channelHeader = ChannelHeader.newBuilder()
+                .setChannelId("mychannel")
+                .setTxId(txId)
+                .setType(3)
+                .setTimestamp(Timestamp.newBuilder()
+                        .setSeconds(instant.getEpochSecond())
+                        .setNanos(instant.getNano())
+                        .build())
+                .build();
+
+        Header header = Header.newBuilder()
+                .setChannelHeader(channelHeader.toByteString())
+                .build();
+
+        Payload payload = Payload.newBuilder()
+                .setHeader(header)
+                .build();
+
+        Envelope envelope = Envelope.newBuilder()
+                .setPayload(payload.toByteString())
+                .build();
+
+        return Block.newBuilder()
+                .setHeader(BlockHeader.newBuilder()
+                        .setNumber(blockNumber)
+                        .setPreviousHash(ByteString.copyFromUtf8("prev-" + blockNumber))
+                        .setDataHash(ByteString.copyFromUtf8("hash-" + blockNumber))
+                        .build())
+                .setData(BlockData.newBuilder()
+                        .addData(envelope.toByteString())
+                        .build())
+                .build();
     }
 }

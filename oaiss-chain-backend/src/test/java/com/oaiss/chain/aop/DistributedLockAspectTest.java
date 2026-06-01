@@ -121,12 +121,11 @@ class DistributedLockAspectTest {
         void withWaitTime_UsesTryLockWithRetry() throws Throwable {
             // Arrange
             Method methodWithWait = TestService.class.getMethod("methodWithSpEL", Long.class);
-            DistributedLock annotation = methodWithWait.getAnnotation(DistributedLock.class);
 
             when(joinPoint.getSignature()).thenReturn(signature);
             when(signature.getMethod()).thenReturn(methodWithWait);
             when(joinPoint.getArgs()).thenReturn(new Object[]{123L});
-            when(redisLockService.tryLockWithRetry(anyString(), anyLong(), anyLong(), any(TimeUnit.class)))
+            when(redisLockService.tryLockWithRetry(anyString(), anyLong(), any(TimeUnit.class), anyLong(), any(TimeUnit.class)))
                     .thenReturn("lock-value-retry");
             when(joinPoint.proceed()).thenReturn("result");
             when(redisLockService.releaseLock(anyString(), anyString())).thenReturn(true);
@@ -139,8 +138,9 @@ class DistributedLockAspectTest {
             verify(redisLockService).tryLockWithRetry(
                     eq("user:123"),
                     eq(1000L),
+                    eq(TimeUnit.MILLISECONDS),
                     eq(60L),
-                    eq(TimeUnit.MILLISECONDS)
+                    eq(TimeUnit.SECONDS)
             );
         }
 
@@ -164,7 +164,13 @@ class DistributedLockAspectTest {
                     eq(30L),
                     eq(TimeUnit.SECONDS)
             );
-            verify(redisLockService, never()).tryLockWithRetry(anyString(), anyLong(), anyLong(), any(TimeUnit.class));
+            verify(redisLockService, never()).tryLockWithRetry(
+                    anyString(),
+                    anyLong(),
+                    any(TimeUnit.class),
+                    anyLong(),
+                    any(TimeUnit.class)
+            );
         }
 
         @Test
@@ -233,7 +239,7 @@ class DistributedLockAspectTest {
             when(joinPoint.getSignature()).thenReturn(signature);
             when(signature.getMethod()).thenReturn(methodWithCustomError);
             when(joinPoint.getArgs()).thenReturn(new Object[]{1L});
-            when(redisLockService.tryLockWithRetry(anyString(), anyLong(), anyLong(), any(TimeUnit.class)))
+            when(redisLockService.tryLockWithRetry(anyString(), anyLong(), any(TimeUnit.class), anyLong(), any(TimeUnit.class)))
                     .thenReturn(null);
 
             // Act & Assert
@@ -342,6 +348,24 @@ class DistributedLockAspectTest {
             // Assert - should handle null gracefully
             assertThat(result).isEqualTo("user:null");
         }
+
+        @Test
+        @DisplayName("危险SpEL表达式 - 拒绝解析")
+        void dangerousSpelExpression_Rejected() throws Throwable {
+            // Arrange
+            String expression = "T(java.lang.Runtime).getRuntime().exec('calc')";
+            Method method = TestService.class.getMethod("methodWithSpEL", Long.class);
+
+            java.lang.reflect.Method parseMethod = DistributedLockAspect.class.getDeclaredMethod(
+                    "parseLockKey", String.class, Method.class, Object[].class
+            );
+            parseMethod.setAccessible(true);
+
+            // Act / Assert
+            assertThatThrownBy(() -> parseMethod.invoke(aspect, expression, method, new Object[]{1L}))
+                    .hasCauseInstanceOf(IllegalArgumentException.class)
+                    .hasRootCauseMessage("Unsupported distributed lock key expression: " + expression);
+        }
     }
 
     @Nested
@@ -359,8 +383,9 @@ class DistributedLockAspectTest {
             when(redisLockService.tryLockWithRetry(
                     eq("user:999"),
                     eq(1000L),
+                    eq(TimeUnit.MILLISECONDS),
                     eq(60L),
-                    eq(TimeUnit.MILLISECONDS)
+                    eq(TimeUnit.SECONDS)
             )).thenReturn("lock-uuid");
             when(joinPoint.proceed()).thenReturn("processed");
             when(redisLockService.releaseLock(eq("user:999"), eq("lock-uuid"))).thenReturn(true);
@@ -370,7 +395,7 @@ class DistributedLockAspectTest {
 
             // Assert
             assertThat(result).isEqualTo("processed");
-            verify(redisLockService).tryLockWithRetry("user:999", 1000L, 60L, TimeUnit.MILLISECONDS);
+            verify(redisLockService).tryLockWithRetry("user:999", 1000L, TimeUnit.MILLISECONDS, 60L, TimeUnit.SECONDS);
             verify(redisLockService).releaseLock("user:999", "lock-uuid");
         }
 

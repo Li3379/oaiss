@@ -7,6 +7,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.Map;
+import org.springframework.data.domain.Page;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -128,5 +129,31 @@ class MockBlockchainServiceTest {
         assertEquals(1, status.get("orderers"));
         assertEquals("MOCK", status.get("mode"));
         assertNotNull(status.get("timestamp"));
+    }
+
+    @Test
+    @DisplayName("测试交易列表分页")
+    void testListTransactions() {
+        Page<Map<String, Object>> page = blockchainService.listTransactions(2, 3);
+
+        assertEquals(3, page.getContent().size());
+        assertEquals(100, page.getTotalElements());
+        assertEquals(1, page.getNumber());
+        assertEquals(3, page.getSize());
+        assertTrue(page.getContent().get(0).containsKey("txHash"));
+        assertTrue(page.getContent().get(0).containsKey("blockNumber"));
+    }
+
+    @Test
+    @DisplayName("测试最新区块列表分页")
+    void testListLatestBlocks() {
+        Page<Map<String, Object>> page = blockchainService.listLatestBlocks(1, 4);
+
+        assertEquals(4, page.getContent().size());
+        assertEquals(10000, page.getTotalElements());
+        assertEquals(0, page.getNumber());
+        assertEquals(4, page.getSize());
+        assertEquals("GENESIS", page.getContent().get(0).get("blockType"));
+        assertTrue(page.getContent().get(1).containsKey("blockHash"));
     }
 }

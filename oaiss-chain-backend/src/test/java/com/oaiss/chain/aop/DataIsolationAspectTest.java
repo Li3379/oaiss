@@ -1,6 +1,7 @@
 package com.oaiss.chain.aop;
 
 import com.oaiss.chain.annotation.DataIsolation;
+import com.oaiss.chain.enums.UserTypeEnum;
 import com.oaiss.chain.exception.BusinessException;
 import com.oaiss.chain.security.EnterpriseContextHolder;
 import com.oaiss.chain.security.JwtUserDetails;
@@ -82,7 +83,7 @@ class DataIsolationAspectTest {
     void handleDataIsolation_AdminSkip_ShouldProceed() throws Throwable {
         setupMethodMock(true, true);
         JwtUserDetails admin = JwtUserDetails.builder()
-                .userId(2L).username("admin").userType(99)
+                .userId(2L).username("admin").userType(UserTypeEnum.ADMIN.getCode())
                 .roles(List.of("ADMIN")).build();
         setSecurityContext(admin);
         when(joinPoint.proceed()).thenReturn("admin_result");
@@ -117,7 +118,7 @@ class DataIsolationAspectTest {
     void handleDataIsolation_AdminNotSkip_ShouldProceed() throws Throwable {
         setupMethodMock(true, false);
         JwtUserDetails admin = JwtUserDetails.builder()
-                .userId(2L).username("admin").userType(99)
+                .userId(2L).username("admin").userType(UserTypeEnum.ADMIN.getCode())
                 .roles(List.of("ADMIN")).build();
         setSecurityContext(admin);
         when(joinPoint.proceed()).thenReturn("admin_checked");

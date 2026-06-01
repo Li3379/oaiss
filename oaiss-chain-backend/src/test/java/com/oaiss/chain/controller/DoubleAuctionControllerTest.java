@@ -117,6 +117,27 @@ class DoubleAuctionControllerTest {
     }
 
     @Test
+    @DisplayName("提交买入挂单失败-负价格参数校验")
+    void testPlaceBuyOrderValidationFailNegativePrice() throws Exception {
+        UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
+                enterpriseUser, null, List.of(new SimpleGrantedAuthority("ROLE_ENTERPRISE")));
+        SecurityContextHolder.getContext().setAuthentication(auth);
+
+        AuctionOrderRequest request = new AuctionOrderRequest();
+        request.setDirection(1);
+        request.setPrice(new BigDecimal("-1.00"));
+        request.setQuantity(new BigDecimal("1000"));
+
+        mockMvc.perform(post("/auction/buy")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(1001));
+
+        verify(doubleAuctionService, never()).placeBuyOrder(any(), any());
+    }
+
+    @Test
     @DisplayName("提交卖出挂单成功")
     void testPlaceSellOrderSuccess() throws Exception {
         UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
@@ -148,6 +169,27 @@ class DoubleAuctionControllerTest {
                 .andExpect(jsonPath("$.data.direction").value(2));
 
         verify(doubleAuctionService).placeSellOrder(any(JwtUserDetails.class), any(AuctionOrderRequest.class));
+    }
+
+    @Test
+    @DisplayName("提交卖出挂单失败-零数量参数校验")
+    void testPlaceSellOrderValidationFailZeroQuantity() throws Exception {
+        UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
+                enterpriseUser, null, List.of(new SimpleGrantedAuthority("ROLE_ENTERPRISE")));
+        SecurityContextHolder.getContext().setAuthentication(auth);
+
+        AuctionOrderRequest request = new AuctionOrderRequest();
+        request.setDirection(2);
+        request.setPrice(new BigDecimal("100.00"));
+        request.setQuantity(BigDecimal.ZERO);
+
+        mockMvc.perform(post("/auction/sell")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(1001));
+
+        verify(doubleAuctionService, never()).placeSellOrder(any(), any());
     }
 
     @Test

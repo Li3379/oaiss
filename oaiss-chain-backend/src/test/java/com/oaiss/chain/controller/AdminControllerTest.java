@@ -2,6 +2,9 @@ package com.oaiss.chain.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.oaiss.chain.constant.ErrorCode;
+import com.oaiss.chain.entity.AccountPermissionList;
+import com.oaiss.chain.entity.EnterpriseAdmission;
+import com.oaiss.chain.entity.ReviewerQualification;
 import com.oaiss.chain.entity.User;
 import com.oaiss.chain.exception.BusinessException;
 import com.oaiss.chain.repository.UserRepository;
@@ -403,5 +406,117 @@ class AdminControllerTest {
                 .andExpect(jsonPath("$.data.totalUsers").value(10000));
 
         verify(userRepository, times(1)).count();
+    }
+
+    @Test
+    @DisplayName("获取系统配置-成功")
+    void testGetConfigSuccess() throws Exception {
+        mockMvc.perform(get("/admin/config"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.systemName").exists())
+                .andExpect(jsonPath("$.data.enableBlockChain").value(true));
+    }
+
+    @Test
+    @DisplayName("获取权限列表-成功")
+    void testGetPermissionsSuccess() throws Exception {
+        AccountPermissionList permission = AccountPermissionList.builder()
+                .permissionCode("admin:user:list")
+                .permissionName("用户列表")
+                .sortOrder(1)
+                .build();
+        when(permissionRepository.findByDeletedFalseOrderBySortOrderAsc()).thenReturn(List.of(permission));
+
+        mockMvc.perform(get("/admin/permissions"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data[0].permissionCode").value("admin:user:list"));
+    }
+
+    @Test
+    @DisplayName("签发企业准入证书-成功")
+    void testIssueAdmissionSuccess() throws Exception {
+        EnterpriseAdmission admission = EnterpriseAdmission.builder()
+                .enterpriseId(1L)
+                .certificateNo("EA-001")
+                .build();
+        when(enterpriseAdmissionService.issueCertificate(1L)).thenReturn(admission);
+
+        mockMvc.perform(post("/admin/enterprise-admission/1/issue"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.certificateNo").value("EA-001"));
+    }
+
+    @Test
+    @DisplayName("吊销企业准入证书-成功")
+    void testRevokeAdmissionSuccess() throws Exception {
+        mockMvc.perform(delete("/admin/enterprise-admission/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200));
+
+        verify(enterpriseAdmissionService).revokeCertificate(1L);
+    }
+
+    @Test
+    @DisplayName("查询企业准入证书列表-成功")
+    void testListAdmissionsSuccess() throws Exception {
+        EnterpriseAdmission admission = EnterpriseAdmission.builder()
+                .enterpriseId(1L)
+                .certificateNo("EA-002")
+                .build();
+        when(enterpriseAdmissionService.listCertificates(eq(1), eq(2), eq(5)))
+                .thenReturn(new PageImpl<>(List.of(admission)));
+
+        mockMvc.perform(get("/admin/enterprise-admission")
+                        .param("status", "1")
+                        .param("page", "2")
+                        .param("size", "5"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content[0].certificateNo").value("EA-002"));
+    }
+
+    @Test
+    @DisplayName("签发审核员资格证-成功")
+    void testIssueQualificationSuccess() throws Exception {
+        ReviewerQualification qualification = ReviewerQualification.builder()
+                .reviewerId(2L)
+                .certificateNo("RV-001")
+                .qualificationType("碳核查")
+                .build();
+        when(reviewerQualificationService.issueCertificate(2L)).thenReturn(qualification);
+
+        mockMvc.perform(post("/admin/reviewer-qualification/2/issue"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.certificateNo").value("RV-001"));
+    }
+
+    @Test
+    @DisplayName("吊销审核员资格证-成功")
+    void testRevokeQualificationSuccess() throws Exception {
+        mockMvc.perform(delete("/admin/reviewer-qualification/2"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200));
+
+        verify(reviewerQualificationService).revokeCertificate(2L);
+    }
+
+    @Test
+    @DisplayName("查询审核员资格证列表-成功")
+    void testListQualificationsSuccess() throws Exception {
+        ReviewerQualification qualification = ReviewerQualification.builder()
+                .reviewerId(2L)
+                .certificateNo("RV-002")
+                .qualificationType("碳审计")
+                .build();
+        when(reviewerQualificationService.listCertificates(eq(1), eq(1), eq(10)))
+                .thenReturn(new PageImpl<>(List.of(qualification)));
+
+        mockMvc.perform(get("/admin/reviewer-qualification")
+                        .param("status", "1")
+                        .param("page", "1")
+                        .param("size", "10"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content[0].certificateNo").value("RV-002"));
     }
 }

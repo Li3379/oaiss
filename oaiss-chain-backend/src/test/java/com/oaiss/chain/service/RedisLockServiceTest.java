@@ -10,6 +10,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -86,15 +87,16 @@ class RedisLockServiceTest {
     void testReleaseLockSuccess() {
         // Given
         String lockValue = "test-lock-value";
-        when(valueOperations.get(anyString())).thenReturn(lockValue);
-        when(redisTemplate.delete(anyString())).thenReturn(true);
+        when(redisTemplate.execute(any(), anyList(), eq(lockValue))).thenReturn(1L);
 
         // When
         boolean result = redisLockService.releaseLock("test-lock", lockValue);
 
         // Then
         assertTrue(result);
-        verify(redisTemplate, times(1)).delete(anyString());
+        verify(redisTemplate, times(1)).execute(any(), eq(List.of("oaiss:lock:test-lock")), eq(lockValue));
+        verify(valueOperations, never()).get(anyString());
+        verify(redisTemplate, never()).delete(anyString());
     }
 
     @Test
@@ -102,13 +104,14 @@ class RedisLockServiceTest {
     void testReleaseLockFailValueMismatch() {
         // Given
         String lockValue = "test-lock-value";
-        when(valueOperations.get(anyString())).thenReturn("different-value");
+        when(redisTemplate.execute(any(), anyList(), eq(lockValue))).thenReturn(0L);
 
         // When
         boolean result = redisLockService.releaseLock("test-lock", lockValue);
 
         // Then
         assertFalse(result);
+        verify(valueOperations, never()).get(anyString());
         verify(redisTemplate, never()).delete(anyString());
     }
 
@@ -174,5 +177,26 @@ class RedisLockServiceTest {
 
         // Then
         assertFalse(result);
+    }
+
+    @Test
+    @DisplayName("带重试获取锁时使用独立的等待/过期时间单位")
+    void testTryLockWithRetryUsesIndependentUnits() {
+        // Given
+        when(valueOperations.setIfAbsent(anyString(), anyString(), eq(60L), eq(TimeUnit.SECONDS)))
+                .thenReturn(true);
+
+        // When
+        String lockValue = redisLockService.tryLockWithRetry(
+                "test-lock",
+                1000,
+                TimeUnit.MILLISECONDS,
+                60,
+                TimeUnit.SECONDS
+        );
+
+        // Then
+        assertNotNull(lockValue);
+        verify(valueOperations).setIfAbsent(anyString(), anyString(), eq(60L), eq(TimeUnit.SECONDS));
     }
 }

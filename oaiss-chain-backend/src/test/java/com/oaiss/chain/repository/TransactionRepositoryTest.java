@@ -1,6 +1,7 @@
 package com.oaiss.chain.repository;
 
 import com.oaiss.chain.entity.Transaction;
+import com.oaiss.chain.entity.User;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -30,6 +31,9 @@ class TransactionRepositoryTest {
     @Autowired
     private TransactionRepository transactionRepository;
 
+    @Autowired
+    private UserRepository userRepository;
+
     private Transaction transaction1;
     private Transaction transaction2;
     private Transaction transaction3;
@@ -37,6 +41,7 @@ class TransactionRepositoryTest {
 
     @BeforeEach
     void setUp() {
+        userRepository.deleteAll();
         transactionRepository.deleteAll();
         
         LocalDateTime now = LocalDateTime.now();

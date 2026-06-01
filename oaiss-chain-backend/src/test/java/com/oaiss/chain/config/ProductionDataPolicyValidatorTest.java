@@ -59,4 +59,14 @@ class ProductionDataPolicyValidatorTest {
 
         assertDoesNotThrow(validator::validateOnStartup);
     }
+
+    @Test
+    @DisplayName("staging 环境允许保留演练种子数据")
+    void validateOnStartup_stagingProfile_shouldSkipDemoUserBlock() {
+        when(environment.getActiveProfiles()).thenReturn(new String[]{"staging"});
+
+        ProductionDataPolicyValidator validator = new ProductionDataPolicyValidator(environment, jdbcTemplate);
+
+        assertDoesNotThrow(validator::validateOnStartup);
+    }
 }
