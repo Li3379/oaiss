@@ -8,18 +8,18 @@ spring:
   datasource:
     url: jdbc:mysql://127.0.0.1:3306/oaiss_chain?useSSL=false&serverTimezone=Asia/Shanghai&characterEncoding=UTF-8&allowPublicKeyRetrieval=true
     username: root
-    password: ${DB_PASSWORD:Oa1ssDb2026Pr0dSecureP4ss}
+    password: ${DB_PASSWORD}
 
   data:
     redis:
       host: 127.0.0.1
       port: 6379
-      password: ${REDIS_PASSWORD:oaiss_redis_dev_2026}
+      password: ${REDIS_PASSWORD}
 
 minio:
   endpoint: http://127.0.0.1:9002
-  access-key: ${MINIO_ACCESS_KEY:minioadmin}
-  secret-key: ${MINIO_SECRET_KEY:minioadmin}
+  access-key: ${MINIO_ACCESS_KEY}
+  secret-key: ${MINIO_SECRET_KEY}
 
 jwt:
   secret: ${JWT_SECRET:}

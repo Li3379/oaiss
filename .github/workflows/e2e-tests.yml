@@ -156,7 +156,18 @@ jobs:
           fi
 
           set -e
-          cat > strict-release-smoke.env <<'EOF'
+          SMOKE_DB_PASS="SmokeDb$(openssl rand -hex 8)"
+          SMOKE_REDIS_PASS="SmokeRedis$(openssl rand -hex 8)"
+          SMOKE_JWT_SECRET="$(openssl rand -hex 24)"
+          SMOKE_ML_SECRET="$(openssl rand -hex 12)"
+          SMOKE_GRAFANA_PASS="SmokeGrafana$(openssl rand -hex 8)"
+          SMOKE_SMTP_PASS="SmokeSmtp$(openssl rand -hex 8)"
+          SMOKE_WEBHOOK_SECRET="$(openssl rand -hex 12)"
+          SMOKE_FABRIC_CA_PASS="SmokeFabricCA$(openssl rand -hex 8)"
+          SMOKE_COUCHDB_PASS="SmokeCouchDB$(openssl rand -hex 8)"
+          SMOKE_MINIO_ACCESS="SmokeMinioAccess$(openssl rand -hex 4)"
+          SMOKE_MINIO_SECRET="$(openssl rand -hex 12)"
+          cat > strict-release-smoke.env <<EOF
 SPRING_PROFILES_ACTIVE=prod,fabric
 LOG_LEVEL=INFO
 APP_LOG_LEVEL=INFO
@@ -166,7 +177,7 @@ ML_SERVICE_IMAGE=ghcr.io/example-org/oaiss-chain-ml-service:release-smoke-tag
 CORS_ALLOWED_ORIGINS=https://app.example.com
 DB_URL=jdbc:mysql://mysql.example.internal:3306/oaiss_chain?useSSL=true&requireSSL=true&serverTimezone=Asia/Shanghai&characterEncoding=UTF-8
 DB_USERNAME=oaiss_app
-DB_PASSWORD=Str0ngReleaseSmokeDbPass!
+DB_PASSWORD=${SMOKE_DB_PASS}
 DB_POOL_MIN_IDLE=5
 DB_POOL_MAX_SIZE=20
 DB_POOL_CONNECTION_TIMEOUT_MS=30000
@@ -174,29 +185,29 @@ DB_POOL_LEAK_DETECTION_MS=0
 REDIS_HOST=redis.example.internal
 REDIS_PORT=6379
 REDIS_DATABASE=0
-REDIS_PASSWORD=Str0ngReleaseSmokeRedisPass!
-JWT_SECRET=0123456789abcdef0123456789abcdef0123456789abcdef
+REDIS_PASSWORD=${SMOKE_REDIS_PASS}
+JWT_SECRET=${SMOKE_JWT_SECRET}
 JWT_EXPIRATION_MS=3600000
 JWT_REFRESH_EXPIRATION_MS=604800000
 RSA_KEK=QUJDREVGR0hJSktMTU5PUFFSU1RVVldYWVo0MTIzNDU2Nzg5MDE=
 MINIO_ENDPOINT=https://object-storage.example.internal
-MINIO_ACCESS_KEY=releaseSmokeMinioAccessKey01
-MINIO_SECRET_KEY=releaseSmokeMinioSecretKey01
+MINIO_ACCESS_KEY=${SMOKE_MINIO_ACCESS}
+MINIO_SECRET_KEY=${SMOKE_MINIO_SECRET}
 MINIO_BUCKET=oaiss-chain-prod
 MINIO_PRESIGNED_URL_EXPIRY_SECONDS=1800
 ML_LOG_LEVEL=INFO
 ML_SERVICE_URL=http://ml-service:8001
-ML_SERVICE_SECRET=releaseSmokeMlSecret01
+ML_SERVICE_SECRET=${SMOKE_ML_SECRET}
 ML_SERVICE_CONNECT_TIMEOUT=5s
 ML_SERVICE_READ_TIMEOUT=30s
 REQUIRE_OPS_SECRETS=true
 GRAFANA_ADMIN_USER=admin
-GRAFANA_ADMIN_PASSWORD=ReleaseSmokeGrafanaPass!2026
+GRAFANA_ADMIN_PASSWORD=${SMOKE_GRAFANA_PASS}
 ALERT_SMTP_HOST=smtp.example.com
 ALERT_SMTP_USERNAME=alerts@example.com
-ALERT_SMTP_PASSWORD=ReleaseSmokeSmtpPass!2026
+ALERT_SMTP_PASSWORD=${SMOKE_SMTP_PASS}
 ALERT_WEBHOOK_URL=https://alerts.example.com/webhook
-ALERT_WEBHOOK_SECRET=ReleaseSmokeWebhookSecret!2026
+ALERT_WEBHOOK_SECRET=${SMOKE_WEBHOOK_SECRET}
 BACKEND_LOG_DIR=./runtime-logs/backend
 FRONTEND_LOG_DIR=./runtime-logs/frontend
 ML_LOG_DIR=./runtime-logs/ml-service
@@ -212,9 +223,9 @@ FABRIC_KEY_PATH=/run/secrets/fabric/user-key.pem
 FABRIC_CA_ENABLED=true
 FABRIC_CA_ENDPOINT=https://ca.org1.example.internal:7054
 FABRIC_CA_ADMIN_NAME=admin
-FABRIC_CA_ADMIN_PASSWORD=ReleaseSmokeFabricCaPass!2026
+FABRIC_CA_ADMIN_PASSWORD=${SMOKE_FABRIC_CA_PASS}
 FABRIC_COUCHDB_USER=admin
-FABRIC_COUCHDB_PASSWORD=ReleaseSmokeCouchdbPass!2026
+FABRIC_COUCHDB_PASSWORD=${SMOKE_COUCHDB_PASS}
 FABRIC_SECRETS_DIR=./secrets/fabric
 FABRIC_SECRETS_MOUNT_PATH=/run/secrets/fabric
           EOF

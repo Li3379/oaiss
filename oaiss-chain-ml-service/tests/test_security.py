@@ -13,9 +13,11 @@ from app.security import require_ml_service_secret
 
 
 class MlServiceSecurityTest(unittest.TestCase):
+    TEST_SECRET = "test-secret-for-unit-tests-only"
+
     def setUp(self) -> None:
         self.original_secret = settings.ml_service_secret
-        settings.ml_service_secret = "shared-secret"
+        settings.ml_service_secret = self.TEST_SECRET
 
         app = FastAPI()
 
@@ -49,7 +51,7 @@ class MlServiceSecurityTest(unittest.TestCase):
     def test_secured_route_accepts_correct_secret(self) -> None:
         response = self.client.post(
             "/secured",
-            headers={"X-ML-Service-Secret": "shared-secret"},
+            headers={"X-ML-Service-Secret": self.TEST_SECRET},
         )
 
         self.assertEqual(response.status_code, 200)

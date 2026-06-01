@@ -34,6 +34,9 @@ dist-ssr/
 *.tsbuildinfo
 oaiss-chain-frontend/write_script.js
 
+# ----- Go compiled test binaries -----
+*.test
+
 # ----- Build artifacts -----
 build/
 out/
@@ -89,8 +92,8 @@ logs/
 # ----- Chrome debug (browser-harness) -----
 .chrome-debug/
 
-# ----- Graphify cache -----
-graphify-out/cache/
+# ----- Graphify output (regenerated locally, never commit) -----
+graphify-out/
 
 # ----- Tool-generated docs -----
 docs/superpowers/
