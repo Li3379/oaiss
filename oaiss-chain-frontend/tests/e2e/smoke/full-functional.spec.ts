@@ -441,6 +441,29 @@ async function fillVisibleSpinboxes(page: Page, values: string[], timeoutMs = 80
 }
 
 async function fillGenerationFormulaMinimalValidCase(page: Page) {
+  // Fill required reportingYear (el-date-picker type="year", value-format="YYYY")
+  const yearPicker = page.locator('.el-tab-pane:visible .el-date-editor--year').first()
+  if (await yearPicker.count() > 0) {
+    await yearPicker.click()
+    await page.waitForTimeout(300)
+    // Click the current year cell in the year picker panel
+    const yearCell = page.locator('.el-year-table td.available').first()
+    if (await yearCell.count() > 0) {
+      await yearCell.click()
+    } else {
+      await page.keyboard.press('Escape')
+    }
+    await page.waitForTimeout(200)
+  }
+
+  // Fill required enterpriseName (regular el-input, pre-filled from profile if available)
+  const nameInput = page.locator('.el-tab-pane:visible .el-form-item input').nth(1)
+  if (await nameInput.count() > 0) {
+    const currentVal = await nameInput.inputValue().catch(() => '')
+    if (!currentVal) await nameInput.fill('Test Enterprise')
+  }
+
+  // Fill fuel parameters (el-input-number with role="spinbutton")
   const inputs = page.locator('.el-tab-pane:visible input[role="spinbutton"]')
   if ((await inputs.count()) < 23) {
     throw new Error(`Expected at least 23 power-generation spinboxes, got ${await inputs.count()}`)
@@ -452,16 +475,31 @@ async function fillGenerationFormulaMinimalValidCase(page: Page) {
   await inputs.nth(20).fill('1')
   await inputs.nth(21).fill('1')
   await inputs.nth(22).fill('0.9')
-  // Fill required reportingYear and enterpriseName (not spinbuttons)
-  const yearInput = page.locator('.el-tab-pane:visible input[type="number"], .el-tab-pane:visible .el-date-editor input').last()
-  if (await yearInput.count() > 0) await yearInput.fill('2024')
-  const nameInput = page.locator('.el-tab-pane:visible input:not([role="spinbutton"]):not([type="number"])').first()
-  if (await nameInput.count() > 0 && await nameInput.inputValue().then(v => !v).catch(() => true)) {
-    await nameInput.fill('Test Enterprise')
-  }
 }
 
 async function fillGridFormulaMinimalValidCase(page: Page) {
+  // Fill required reportingYear (el-date-picker type="year")
+  const yearPicker = page.locator('.el-tab-pane:visible .el-date-editor--year').first()
+  if (await yearPicker.count() > 0) {
+    await yearPicker.click()
+    await page.waitForTimeout(300)
+    const yearCell = page.locator('.el-year-table td.available').first()
+    if (await yearCell.count() > 0) {
+      await yearCell.click()
+    } else {
+      await page.keyboard.press('Escape')
+    }
+    await page.waitForTimeout(200)
+  }
+
+  // Fill required enterpriseName
+  const nameInput = page.locator('.el-tab-pane:visible .el-form-item input').nth(1)
+  if (await nameInput.count() > 0) {
+    const currentVal = await nameInput.inputValue().catch(() => '')
+    if (!currentVal) await nameInput.fill('Test Enterprise')
+  }
+
+  // Fill grid parameters (el-input-number with role="spinbutton")
   const inputs = page.locator('.el-tab-pane:visible input[role="spinbutton"]')
   if ((await inputs.count()) < 3) {
     throw new Error(`Expected at least 3 power-grid spinboxes, got ${await inputs.count()}`)
@@ -987,8 +1025,9 @@ test.describe('OAISS CHAIN frontend full functional matrix', () => {
         if ((await items.count()) === 0) throw new Error('Direction dropdown has no visible options')
         await items.first().click()
       }
-      await dialog.locator('input[type="number"]').nth(0).fill('1')
-      await dialog.locator('input[type="number"]').nth(1).fill('1')
+      const formInputs = dialog.locator('.el-form-item .el-input input:visible')
+      await formInputs.nth(0).fill('1')
+      await formInputs.nth(1).fill('1')
       await dialog.locator('.el-dialog__footer .el-button--primary').click()
       await waitForSuccessToast(page, 6000)
       await waitForDialogToClose(page, dialog, 8000).catch(() => undefined)
@@ -1009,8 +1048,9 @@ test.describe('OAISS CHAIN frontend full functional matrix', () => {
         if ((await items.count()) < 2) throw new Error('Sell direction option is not visible')
         await items.nth(1).click()
       }
-      await dialog.locator('input[type="number"]').nth(0).fill('1')
-      await dialog.locator('input[type="number"]').nth(1).fill('1')
+      const sellFormInputs = dialog.locator('.el-form-item .el-input input:visible')
+      await sellFormInputs.nth(0).fill('1')
+      await sellFormInputs.nth(1).fill('1')
       await dialog.locator('.el-dialog__footer .el-button--primary').click()
       await waitForSuccessToast(page, 6000)
       await waitForDialogToClose(page, dialog, 8000).catch(() => undefined)
