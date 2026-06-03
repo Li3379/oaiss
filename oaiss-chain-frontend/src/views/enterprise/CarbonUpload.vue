@@ -201,10 +201,10 @@ onMounted(() => fetchData())
     <el-dialog v-model="dialogVisible" :title="t('carbonUpload.dialogCreate')" width="640px" destroy-on-close>
       <el-form ref="formRef" :model="formModel" :rules="formRules" label-width="120px">
         <el-form-item :label="t('carbonUpload.labelAccountingPeriod')" prop="accountingPeriod">
-          <el-input v-model="formModel.accountingPeriod" :placeholder="t('carbonUpload.placeholderPeriod')" />
+          <el-input v-model="formModel.accountingPeriod" :placeholder="t('carbonUpload.placeholderPeriod')" data-testid="create-period" />
         </el-form-item>
         <el-form-item :label="t('carbonUpload.labelReportTitle')" prop="title">
-          <el-input v-model="formModel.title" :placeholder="t('carbonUpload.enterReportTitle')" />
+          <el-input v-model="formModel.title" :placeholder="t('carbonUpload.enterReportTitle')" data-testid="create-title" />
         </el-form-item>
         <el-form-item :label="t('carbonUpload.labelReportType')" prop="reportType">
           <el-select v-model="formModel.reportType" style="width:100%">
@@ -212,13 +212,13 @@ onMounted(() => fetchData())
           </el-select>
         </el-form-item>
         <el-form-item :label="t('carbonUpload.labelEmissionData')" prop="emissionData">
-          <el-input v-model="formModel.emissionData" type="textarea" :rows="6" :placeholder="t('carbonUpload.placeholderEmissionData')" />
+          <el-input v-model="formModel.emissionData" type="textarea" :rows="6" :placeholder="t('carbonUpload.placeholderEmissionData')" data-testid="create-emission" />
         </el-form-item>
         <el-form-item :label="t('carbonUpload.labelMethod')">
-          <el-input v-model="formModel.calculationMethod" type="textarea" :rows="3" :placeholder="t('carbonUpload.placeholderMethod')" />
+          <el-input v-model="formModel.calculationMethod" type="textarea" :rows="3" :placeholder="t('carbonUpload.placeholderMethod')" data-testid="create-method" />
         </el-form-item>
         <el-form-item :label="t('carbonUpload.labelAttachments')">
-          <el-input v-model="formModel.attachments" type="textarea" :rows="3" :placeholder="t('carbonUpload.placeholderAttachments')" />
+          <el-input v-model="formModel.attachments" type="textarea" :rows="3" :placeholder="t('carbonUpload.placeholderAttachments')" data-testid="create-attachments" />
         </el-form-item>
       </el-form>
       <template #footer>

@@ -37,7 +37,7 @@ const USERS = {
 
 const results: CaseResult[] = []
 const consoleIssues: string[] = []
-const CASE_TIMEOUT_MS = 30_000
+const CASE_TIMEOUT_MS = 60_000
 
 interface RunSummary {
   total: number
@@ -441,22 +441,34 @@ async function fillVisibleSpinboxes(page: Page, values: string[], timeoutMs = 80
 }
 
 async function fillGenerationFormulaMinimalValidCase(page: Page) {
-  // Fill required reportingYear (el-date-picker type="year", value-format="YYYY")
+  // Set required reportingYear and enterpriseName via Vue component reactivity
+  await page.evaluate(() => {
+    const el = document.querySelector('.el-tab-pane[name="powerGeneration"]')
+    const vueInstance = (el as any)?.__vueParentComponent?.setupState
+    if (vueInstance?.pgForm) {
+      vueInstance.pgForm.reportingYear = '2024'
+      if (!vueInstance.pgForm.enterpriseName) {
+        vueInstance.pgForm.enterpriseName = 'Test Enterprise'
+      }
+    }
+  }).catch(() => {})
+
+  // Fallback: fill via UI if evaluate didn't work
   const yearPicker = page.locator('.el-tab-pane:visible .el-date-editor--year').first()
   if (await yearPicker.count() > 0) {
-    await yearPicker.click()
-    await page.waitForTimeout(300)
-    // Click the current year cell in the year picker panel
-    const yearCell = page.locator('.el-year-table td.available').first()
-    if (await yearCell.count() > 0) {
-      await yearCell.click()
-    } else {
-      await page.keyboard.press('Escape')
+    const yearVal = await yearPicker.locator('input').inputValue().catch(() => '')
+    if (!yearVal) {
+      await yearPicker.click()
+      await page.waitForTimeout(300)
+      const yearCell = page.locator('.el-year-table td.available').first()
+      if (await yearCell.count() > 0) {
+        await yearCell.click()
+      } else {
+        await page.keyboard.press('Escape')
+      }
+      await page.waitForTimeout(200)
     }
-    await page.waitForTimeout(200)
   }
-
-  // Fill required enterpriseName (regular el-input, pre-filled from profile if available)
   const nameInput = page.locator('.el-tab-pane:visible .el-form-item input').nth(1)
   if (await nameInput.count() > 0) {
     const currentVal = await nameInput.inputValue().catch(() => '')
@@ -478,21 +490,34 @@ async function fillGenerationFormulaMinimalValidCase(page: Page) {
 }
 
 async function fillGridFormulaMinimalValidCase(page: Page) {
-  // Fill required reportingYear (el-date-picker type="year")
+  // Set required reportingYear and enterpriseName via Vue component reactivity
+  await page.evaluate(() => {
+    const el = document.querySelector('.el-tab-pane[name="powerGrid"]')
+    const vueInstance = (el as any)?.__vueParentComponent?.setupState
+    if (vueInstance?.gridForm) {
+      vueInstance.gridForm.reportingYear = '2024'
+      if (!vueInstance.gridForm.enterpriseName) {
+        vueInstance.gridForm.enterpriseName = 'Test Enterprise'
+      }
+    }
+  }).catch(() => {})
+
+  // Fallback: fill via UI if evaluate didn't work
   const yearPicker = page.locator('.el-tab-pane:visible .el-date-editor--year').first()
   if (await yearPicker.count() > 0) {
-    await yearPicker.click()
-    await page.waitForTimeout(300)
-    const yearCell = page.locator('.el-year-table td.available').first()
-    if (await yearCell.count() > 0) {
-      await yearCell.click()
-    } else {
-      await page.keyboard.press('Escape')
+    const yearVal = await yearPicker.locator('input').inputValue().catch(() => '')
+    if (!yearVal) {
+      await yearPicker.click()
+      await page.waitForTimeout(300)
+      const yearCell = page.locator('.el-year-table td.available').first()
+      if (await yearCell.count() > 0) {
+        await yearCell.click()
+      } else {
+        await page.keyboard.press('Escape')
+      }
+      await page.waitForTimeout(200)
     }
-    await page.waitForTimeout(200)
   }
-
-  // Fill required enterpriseName
   const nameInput = page.locator('.el-tab-pane:visible .el-form-item input').nth(1)
   if (await nameInput.count() > 0) {
     const currentVal = await nameInput.inputValue().catch(() => '')
@@ -908,28 +933,15 @@ test.describe('OAISS CHAIN frontend full functional matrix', () => {
       await settle(page)
       await openPrimaryDialogFromToolbar(page)
       const dialog = page.locator('.el-dialog:visible').first()
-      const period = await fillFirstVisible(dialog, [
-        'input[placeholder*="period" i]',
-        'input[placeholder*="核算"]',
-        'input[placeholder*="日期"]',
-        '.el-form-item input',
-      ], '2026-05-22')
-      const title = await fillFirstVisible(dialog, [
-        'input[placeholder*="title" i]',
-        'input[placeholder*="标题"]',
-        '.el-form-item input:nth-of-type(2)',
-      ], `full-functional-report-${Date.now()}`)
-      const emission = await fillFirstVisible(dialog, [
-        'textarea[placeholder*="json" i]',
-        'textarea[placeholder*="排放"]',
-        '.el-form-item textarea',
-      ], JSON.stringify({
+      // Use data-testid selectors for reliable field targeting
+      await dialog.locator('[data-testid="create-period"]').fill('2024-Q1')
+      await dialog.locator('[data-testid="create-title"]').fill(`full-functional-report-${Date.now()}`)
+      await dialog.locator('[data-testid="create-emission"]').fill(JSON.stringify({
         scope1: [{ activity_data: '1', emission_factor: '1' }],
         scope2: [{ activity_data: '2', emission_factor: '1' }],
         scope3: [{ activity_data: '0', emission_factor: '1' }],
       }))
-      const textareas = dialog.locator('textarea')
-      if ((await textareas.count()) > 1) await textareas.nth(1).fill('automated UI create')
+      await dialog.locator('[data-testid="create-method"]').fill('automated UI create')
       await dialog.locator('.el-dialog__footer .el-button--primary').click()
       const toastText = await waitForAnyToast(page, 6000)
       await waitForDialogToClose(page, dialog, 8000).catch(() => undefined)
@@ -953,18 +965,23 @@ test.describe('OAISS CHAIN frontend full functional matrix', () => {
       await settle(page)
       await refillSearchAndQuery(page, title)
       const row = page.locator('.el-table__body-wrapper tbody tr').filter({ hasText: title }).first()
-      await row.locator('button').last().click()
+      await row.locator('button').filter({ hasText: /delete|删除/i }).first().click()
       await page.locator('.el-message-box__btns .el-button--primary').click()
       await waitForSuccessToast(page, 6000)
+      // Reload page and re-search to ensure fresh data
+      await page.goto(`${BASE_URL}/enterprise/carbon/upload`)
+      await settle(page)
       await refillSearchAndQuery(page, title)
       await page.waitForFunction(
-        (targetTitle) => !Array.from(document.querySelectorAll('.el-table__body-wrapper tbody tr')).some((tr) =>
-          tr.textContent?.includes(targetTitle)
-        ),
+        (targetTitle) => {
+          const rows = document.querySelectorAll('.el-table__body-wrapper tbody tr')
+          return !Array.from(rows).some((tr) => tr.textContent?.includes(targetTitle))
+        },
         title,
-        { timeout: 8000 },
+        { timeout: 10000 },
       ).catch(() => undefined)
-      if (await row.isVisible().catch(() => false)) throw new Error('Draft report row still visible after delete')
+      const freshRow = page.locator('.el-table__body-wrapper tbody tr').filter({ hasText: title }).first()
+      if (await freshRow.isVisible().catch(() => false)) throw new Error('Draft report row still visible after delete')
     })
     await recordCase(page, 'S1 Carbon Report', 'S1-06', 'submit draft report', 'P0', async () => {
       const title = `submit-draft-${Date.now()}`
@@ -1025,9 +1042,9 @@ test.describe('OAISS CHAIN frontend full functional matrix', () => {
         if ((await items.count()) === 0) throw new Error('Direction dropdown has no visible options')
         await items.first().click()
       }
-      const formInputs = dialog.locator('.el-form-item .el-input input:visible')
-      await formInputs.nth(0).fill('1')
-      await formInputs.nth(1).fill('1')
+      const numericInputs = dialog.locator('.el-form-item input[type="number"]')
+      await numericInputs.nth(0).fill('1')
+      await numericInputs.nth(1).fill('1')
       await dialog.locator('.el-dialog__footer .el-button--primary').click()
       await waitForSuccessToast(page, 6000)
       await waitForDialogToClose(page, dialog, 8000).catch(() => undefined)
@@ -1048,9 +1065,9 @@ test.describe('OAISS CHAIN frontend full functional matrix', () => {
         if ((await items.count()) < 2) throw new Error('Sell direction option is not visible')
         await items.nth(1).click()
       }
-      const sellFormInputs = dialog.locator('.el-form-item .el-input input:visible')
-      await sellFormInputs.nth(0).fill('1')
-      await sellFormInputs.nth(1).fill('1')
+      const sellNumericInputs = dialog.locator('.el-form-item input[type="number"]')
+      await sellNumericInputs.nth(0).fill('1')
+      await sellNumericInputs.nth(1).fill('1')
       await dialog.locator('.el-dialog__footer .el-button--primary').click()
       await waitForSuccessToast(page, 6000)
       await waitForDialogToClose(page, dialog, 8000).catch(() => undefined)

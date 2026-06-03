@@ -1,6 +1,7 @@
 package com.oaiss.chain.controller;
 
 import com.oaiss.chain.dto.ApiResponse;
+import com.oaiss.chain.dto.ContactUpdateRequest;
 import com.oaiss.chain.entity.Enterprise;
 import com.oaiss.chain.entity.EnterpriseAdmission;
 import com.oaiss.chain.exception.BusinessException;
@@ -13,6 +14,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -96,9 +98,8 @@ public class EnterpriseController {
     @SecurityRequirement(name = "Bearer Authentication")
     public ApiResponse<Void> updateContact(
             @AuthenticationPrincipal JwtUserDetails currentUser,
-            @Parameter(description = "联系人姓名", example = "张三") @RequestParam(required = false) String contactPerson,
-            @Parameter(description = "联系电话", example = "13800138000") @RequestParam(required = false) String contactPhone) {
-        enterpriseService.updateContact(currentUser.getUserId(), contactPerson, contactPhone);
+            @Valid @RequestBody ContactUpdateRequest request) {
+        enterpriseService.updateContact(currentUser.getUserId(), request.getContactPerson(), request.getContactPhone());
         return ApiResponse.success(null, "联系方式更新成功");
     }
 

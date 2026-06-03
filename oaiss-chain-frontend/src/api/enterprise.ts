@@ -13,7 +13,7 @@ export function getQuotaInfo(): Promise<EnterpriseQuotaResponse> {
 export function updateContact(data: { contactPerson: string; contactPhone: string }): Promise<void> {
   if (!data?.contactPerson) return Promise.reject(new Error('Contact person is required'))
   if (!data?.contactPhone) return Promise.reject(new Error('Contact phone is required'))
-  return request.put('/enterprise/contact', null, { params: data })
+  return request.put('/enterprise/contact', data)
 }
 
 export function getMyEnterpriseAdmission(): Promise<EnterpriseAdmissionResponse[]> {
