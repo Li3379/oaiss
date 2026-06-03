@@ -13,12 +13,12 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
+import org.springframework.util.AntPathMatcher;
 import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.stream.Collectors;
 
 /**
  * JWT认证过滤器
@@ -41,15 +41,17 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
      * 注意：context-path为/api/v1，request.getRequestURI()返回完整路径
      * 所以白名单需要包含完整路径前缀
      */
-    private static final List<String> WHITELIST_PATHS = List.of(
+    private static final List<String> WHITELIST_PATTERNS = List.of(
             "/api/v1/auth/login",
             "/api/v1/auth/register",
             "/api/v1/auth/captcha",
             "/api/v1/auth/refresh",
             "/api/v1/auth/check-ip",
-            "/api/v1/captcha/",
-            "/api/v1/actuator/health"
+            "/api/v1/captcha/**",
+            "/api/v1/actuator/health/**"
     );
+
+    private static final AntPathMatcher PATH_MATCHER = new AntPathMatcher();
 
     @Override
     protected void doFilterInternal(
@@ -137,37 +139,36 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     /**
      * 检查路径是否在白名单中
-     * 安全措施：
-     * 1. 先规范化路径（解析 ../ 和 ./ 防止路径遍历）
-     * 2. 精确路径使用 equals 匹配
-     * 3. 前缀路径（以/结尾）使用 startsWith 匹配
+     * 使用Spring AntPathMatcher进行安全的模式匹配：
+     * 1. 先拒绝格式异常路径（双斜杠、URL编码遍历）
+     * 2. 规范化路径遍历序列（../、./）
+     * 3. 使用AntPathMatcher匹配白名单模式
      */
     private boolean isWhitelisted(String requestPath) {
-        String normalizedPath = normalizePath(requestPath);
-        return WHITELIST_PATHS.stream()
-                .anyMatch(whitelist -> {
-                    if (whitelist.endsWith("/")) {
-                        // Prefix match for directory-style paths (e.g., "/captcha/")
-                        return normalizedPath.startsWith(whitelist);
-                    }
-                    // Exact match or immediate sub-path for specific endpoints
-                    return normalizedPath.equals(whitelist)
-                            || normalizedPath.startsWith(whitelist + "/");
-                });
+        if (requestPath == null || requestPath.isEmpty()) {
+            return false;
+        }
+        // Reject malformed paths that AntPathMatcher would normalize
+        if (requestPath.contains("//") || requestPath.contains("%2e") || requestPath.contains("%2E")) {
+            return false;
+        }
+        String normalized = normalizePath(requestPath);
+        return WHITELIST_PATTERNS.stream()
+                .anyMatch(pattern -> PATH_MATCHER.match(pattern, normalized));
     }
 
     /**
-     * 规范化路径，解析 ../ 和 ./ 防止路径遍历攻击
+     * 规范化路径，仅解析 ../ 和 ./ 段。
+     * 保留空段（双斜杠 //）以便 AntPathMatcher 正确拒绝异常路径。
      */
     private String normalizePath(String path) {
         if (path == null || path.isEmpty()) {
             return path;
         }
-        // Resolve . and .. segments
-        String[] segments = path.split("/");
+        String[] segments = path.split("/", -1);
         List<String> resolved = new java.util.ArrayList<>();
         for (String segment : segments) {
-            if (segment.isEmpty() || ".".equals(segment)) {
+            if (".".equals(segment)) {
                 continue;
             }
             if ("..".equals(segment)) {
@@ -178,6 +179,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 resolved.add(segment);
             }
         }
-        return "/" + resolved.stream().collect(Collectors.joining("/"));
+        return String.join("/", resolved);
     }
 }

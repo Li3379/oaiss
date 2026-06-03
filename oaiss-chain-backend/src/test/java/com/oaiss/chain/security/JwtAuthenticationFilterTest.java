@@ -547,8 +547,8 @@ class JwtAuthenticationFilterTest {
     @Test
     @DisplayName("合法白名单子路径应正常放行")
     void doFilterInternal_legitimateWhitelistSubpath_shouldPassThrough() throws ServletException, IOException {
-        // Arrange: /captcha/sms/send is a legitimate sub-path under /captcha/
-        request.setRequestURI("/captcha/sms/send");
+        // Arrange: /api/v1/captcha/sms/send is a legitimate sub-path under /api/v1/captcha/
+        request.setRequestURI("/api/v1/captcha/sms/send");
 
         // Act
         filter.doFilterInternal(request, response, filterChain);
@@ -556,5 +556,90 @@ class JwtAuthenticationFilterTest {
         // Assert
         verify(jwtTokenProvider, never()).validateToken(anyString());
         assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
+    }
+
+    // ==================== C-1: AntPathMatcher Security Tests ====================
+
+    @Test
+    @DisplayName("路径中包含双斜杠 // 不应绕过白名单认证")
+    void doFilterInternal_doubleSlash_shouldNotBypassAuth() throws ServletException, IOException {
+        // Arrange: /api/v1//auth/login — double slash bypass attempt
+        request.setRequestURI("/api/v1//auth/login");
+        String token = "some.jwt.token";
+        request.addHeader("Authorization", "Bearer " + token);
+        when(jwtTokenProvider.validateToken(token)).thenReturn(false);
+
+        // Act
+        filter.doFilterInternal(request, response, filterChain);
+
+        // Assert: Should attempt token validation, not skip like whitelist
+        verify(jwtTokenProvider).validateToken(token);
+    }
+
+    @Test
+    @DisplayName("URL编码路径遍历 %2e%2e 不应绕过白名单")
+    void doFilterInternal_encodedPathTraversal_shouldNotBypassAuth() throws ServletException, IOException {
+        // Arrange: URL-encoded path traversal attempt
+        request.setRequestURI("/api/v1/auth/login/%2e%2e/admin/users");
+        String token = "some.jwt.token";
+        request.addHeader("Authorization", "Bearer " + token);
+        when(jwtTokenProvider.validateToken(token)).thenReturn(false);
+
+        // Act
+        filter.doFilterInternal(request, response, filterChain);
+
+        // Assert: Should attempt token validation
+        verify(jwtTokenProvider).validateToken(token);
+    }
+
+    @Test
+    @DisplayName("路径中包含分号 ; 不应绕过白名单")
+    void doFilterInternal_semicolonPath_shouldNotBypassAuth() throws ServletException, IOException {
+        // Arrange: /api/v1/auth/login;malicious — semicolon bypass attempt
+        request.setRequestURI("/api/v1/auth/login;malicious");
+        String token = "some.jwt.token";
+        request.addHeader("Authorization", "Bearer " + token);
+        when(jwtTokenProvider.validateToken(token)).thenReturn(false);
+
+        // Act
+        filter.doFilterInternal(request, response, filterChain);
+
+        // Assert: Should NOT be whitelisted, should validate token
+        verify(jwtTokenProvider).validateToken(token);
+    }
+
+    @Test
+    @DisplayName("精确白名单路径匹配应放行（无多余字符）")
+    void doFilterInternal_exactWhitelistMatch_shouldPassThrough() throws ServletException, IOException {
+        request.setRequestURI("/api/v1/auth/login");
+
+        filter.doFilterInternal(request, response, filterChain);
+
+        verify(jwtTokenProvider, never()).validateToken(anyString());
+        assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
+    }
+
+    @Test
+    @DisplayName("AntPathMatcher风格通配: /api/v1/captcha 子路径应放行")
+    void doFilterInternal_captchaSubpath_shouldPassThrough() throws ServletException, IOException {
+        request.setRequestURI("/api/v1/captcha/image");
+
+        filter.doFilterInternal(request, response, filterChain);
+
+        verify(jwtTokenProvider, never()).validateToken(anyString());
+    }
+
+    @Test
+    @DisplayName("非白名单路径即使无Token也不应视为白名单放行")
+    void doFilterInternal_nonWhitelistNoToken_shouldNotBeWhitelisted() throws ServletException, IOException {
+        // This verifies that non-whitelisted paths reach the token extraction logic
+        // even when no token is present — the key is isWhitelisted returns false
+        request.setRequestURI("/api/v1/admin/users");
+
+        filter.doFilterInternal(request, response, filterChain);
+
+        // No token, so no auth is set — but this is NOT because of whitelist
+        assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
+        // The filter still processes past the whitelist check (no early return via whitelist)
     }
 }

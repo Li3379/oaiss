@@ -167,7 +167,7 @@ resilience4j:
   timelimiter:
     configs:
       default:
-        timeout-duration: 35s
+        timeout-duration: 28s
 
 # Hyperledger Fabric configuration
 fabric:

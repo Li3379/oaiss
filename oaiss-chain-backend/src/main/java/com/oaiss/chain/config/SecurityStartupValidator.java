@@ -208,6 +208,15 @@ public class SecurityStartupValidator {
             throw new SecurityException("FATAL: SECURITY WARNING: Production CORS_ALLOWED_ORIGINS "
                     + "must not contain localhost or 127.0.0.1.");
         }
+        if (isProduction) {
+            for (String origin : allowedOrigins.split(",")) {
+                String trimmed = origin.trim();
+                if (!trimmed.startsWith("https://") && !trimmed.startsWith("http://")) {
+                    throw new SecurityException("FATAL: SECURITY WARNING: CORS origin '"
+                            + trimmed + "' is not a valid URL (must start with http:// or https://).");
+                }
+            }
+        }
     }
 
     private void validateFabricCa(boolean isProduction) {
@@ -260,6 +269,11 @@ public class SecurityStartupValidator {
 
     private void validateMlServiceSecret(boolean isProduction) {
         if (!isProduction) {
+            if (isBlank(mlServiceSecret)) {
+                log.warn("SECURITY WARNING: ML service secret is blank in non-production environment. "
+                        + "ML service calls will proceed without authentication. "
+                        + "Set ML_SERVICE_SECRET for staging/demo parity.");
+            }
             return;
         }
         if (isBlank(mlServiceSecret)) {

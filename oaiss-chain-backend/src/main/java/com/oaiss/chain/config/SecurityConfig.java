@@ -55,6 +55,8 @@ public class SecurityConfig {
                 // Tokens are stored in sessionStorage (not cookies), so browsers never auto-attach them.
                 // Spring Security 6.x deferred CSRF tokens + filter ordering caused POST requests
                 // to return 401 (misinterpreted as session expiry) instead of the intended 403.
+                // SAFETY: If sessionCreationPolicy is ever changed from STATELESS, or cookie-based
+                // auth is introduced, CSRF MUST be re-enabled. See SecurityStartupValidator for guards.
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(session ->
@@ -103,6 +105,9 @@ public class SecurityConfig {
                                 org.springframework.security.web.header.writers.XXssProtectionHeaderWriter.HeaderValue.ENABLED_MODE_BLOCK))
                         .contentTypeOptions(cto -> {})
                         .frameOptions(frame -> frame.deny())
+                        .httpStrictTransportSecurity(hsts -> hsts
+                                .includeSubDomains(true)
+                                .maxAgeInSeconds(31536000))
                 );
 
         return http.build();

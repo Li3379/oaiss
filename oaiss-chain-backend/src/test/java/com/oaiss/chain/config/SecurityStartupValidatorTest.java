@@ -319,6 +319,49 @@ class SecurityStartupValidatorTest {
         assertDoesNotThrow(validator::validateOnStartup);
     }
 
+    @Test
+    @DisplayName("开发环境+空ML_SERVICE_SECRET应仅警告不阻止启动")
+    void validateOnStartup_devWithBlankMlServiceSecret_shouldOnlyWarn() {
+        when(environment.getActiveProfiles()).thenReturn(new String[]{"dev"});
+        SecurityStartupValidator validator = new SecurityStartupValidator(environment);
+        setField(validator, "jwtSecret", STRONG_JWT_SECRET);
+        setField(validator, "dbPassword", "strongDbPassword123!");
+        setField(validator, "redisPassword", "strongRedisPassword123!");
+        setField(validator, "minioAccessKey", "strong-access-key");
+        setField(validator, "minioSecretKey", "strong-secret-key");
+        setField(validator, "rsaKek", VALID_RSA_KEK);
+        setField(validator, "allowedOrigins", "http://localhost:5173");
+        setField(validator, "mlServiceSecret", "");
+        setField(validator, "fabricEnabled", false);
+
+        // Should NOT throw — just warn via log
+        assertDoesNotThrow(validator::validateOnStartup);
+    }
+
+    @Test
+    @DisplayName("生产环境+CORS包含非URL格式值应抛出SecurityException")
+    void validateOnStartup_productionWithInvalidCorsFormat_shouldThrow() {
+        when(environment.getActiveProfiles()).thenReturn(new String[]{"prod", "fabric"});
+        SecurityStartupValidator validator = new SecurityStartupValidator(environment);
+        setStrongProductionFields(validator);
+        setField(validator, "fabricEnabled", true);
+        setField(validator, "allowedOrigins", "not-a-valid-url, https://app.example.com");
+
+        assertThrows(SecurityException.class, validator::validateOnStartup);
+    }
+
+    @Test
+    @DisplayName("生产环境+CORS包含无协议主机应抛出SecurityException")
+    void validateOnStartup_productionWithCorsMissingScheme_shouldThrow() {
+        when(environment.getActiveProfiles()).thenReturn(new String[]{"prod", "fabric"});
+        SecurityStartupValidator validator = new SecurityStartupValidator(environment);
+        setStrongProductionFields(validator);
+        setField(validator, "fabricEnabled", true);
+        setField(validator, "allowedOrigins", "app.example.com");
+
+        assertThrows(SecurityException.class, validator::validateOnStartup);
+    }
+
     private void setStrongProductionFields(SecurityStartupValidator validator) {
         setField(validator, "jwtSecret", STRONG_JWT_SECRET);
         setField(validator, "dbPassword", "strongDbPassword123!");
