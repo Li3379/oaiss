@@ -42,6 +42,15 @@ extract_field() {
   echo "$json" | { grep -o "\"$field\":[^,}]*" || true; } | head -1 | sed "s/\"$field\"://" | tr -d '"'
 }
 
+# Extract field from nested .data object (e.g., "id" -> .data.id)
+extract_data_field() {
+  local json="$1" field="$2"
+  if command -v jq &>/dev/null; then
+    echo "$json" | jq -r ".data.$field // empty" 2>/dev/null && return
+  fi
+  echo "$json" | { grep -o "\"$field\":[^,}]*" || true; } | head -1 | sed "s/\"$field\"://" | tr -d '"'
+}
+
 # --- Verify backend is up ---
 info "Checking backend availability..."
 curl -sf "$API/auth/login" -o /dev/null -X POST -H "Content-Type: application/json" -d "{\"username\":\"admin\",\"password\":\"$API_PASSWORD\"}" || { fail "Backend not running. Start it first with './scripts/start-backend.sh' or 'scripts\\start-backend.bat'."; exit 1; }
@@ -116,8 +125,8 @@ TRADE07_RESP=$(curl -s -X POST "$API/trade/p2p" \
 TRADE07_CODE=$(extract_field "$TRADE07_RESP" "code")
 TOTAL=$((TOTAL + 1))
 if [[ "$TRADE07_CODE" == "200" ]]; then
-  P2P_ID=$(extract_field "$TRADE07_RESP" "id")
-  P2P_STATUS=$(extract_field "$TRADE07_RESP" "status")
+  P2P_ID=$(extract_data_field "$TRADE07_RESP" "id")
+  P2P_STATUS=$(extract_data_field "$TRADE07_RESP" "status")
   ok "TRADE-07: P2P trade created: id=$P2P_ID, status=$P2P_STATUS (expected 0=PENDING)"
   PASSED=$((PASSED + 1))
 else
@@ -138,7 +147,7 @@ else
 
   TRADE08_CODE=$(extract_field "$TRADE08_RESP" "code")
   if [[ "$TRADE08_CODE" == "200" ]]; then
-    CONFIRM_STATUS=$(extract_field "$TRADE08_RESP" "status")
+    CONFIRM_STATUS=$(extract_data_field "$TRADE08_RESP" "status")
     if [[ "$CONFIRM_STATUS" == "2" ]]; then
       ok "TRADE-08: P2P trade confirmed: status=$CONFIRM_STATUS (COMPLETED)"
       PASSED=$((PASSED + 1))
@@ -211,7 +220,7 @@ if [[ "$TRADE09_CREATE_CODE" != "200" ]]; then
   echo "$TRADE09_CREATE_RESP" >&2
   FAILED=$((FAILED + 1))
 else
-  P2P2_ID=$(extract_field "$TRADE09_CREATE_RESP" "id")
+  P2P2_ID=$(extract_data_field "$TRADE09_CREATE_RESP" "id")
   info "TRADE-09: Second P2P trade created: id=$P2P2_ID"
 
   # Cancel the trade
@@ -220,7 +229,7 @@ else
 
   CANCEL_CODE=$(extract_field "$CANCEL_RESP" "code")
   if [[ "$CANCEL_CODE" == "200" ]]; then
-    CANCEL_STATUS=$(extract_field "$CANCEL_RESP" "status")
+    CANCEL_STATUS=$(extract_data_field "$CANCEL_RESP" "status")
     if [[ "$CANCEL_STATUS" == "3" ]]; then
       ok "TRADE-09: P2P trade cancelled: status=$CANCEL_STATUS (CANCELLED)"
       PASSED=$((PASSED + 1))

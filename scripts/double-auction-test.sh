@@ -42,6 +42,15 @@ extract_field() {
   echo "$json" | { grep -o "\"$field\":[^,}]*" || true; } | head -1 | sed "s/\"$field\"://" | tr -d '"'
 }
 
+# Extract field from nested .data object (e.g., "id" -> .data.id)
+extract_data_field() {
+  local json="$1" field="$2"
+  if command -v jq &>/dev/null; then
+    echo "$json" | jq -r ".data.$field // empty" 2>/dev/null && return
+  fi
+  echo "$json" | { grep -o "\"$field\":[^,}]*" || true; } | head -1 | sed "s/\"$field\"://" | tr -d '"'
+}
+
 # --- Verify backend is up ---
 info "Checking backend availability..."
 curl -sf "$API/auth/login" -o /dev/null -X POST -H "Content-Type: application/json" -d "{\"username\":\"admin\",\"password\":\"$API_PASSWORD\"}" || { fail "Backend not running. Start it first with './scripts/start-backend.sh' or 'scripts\\start-backend.bat'."; exit 1; }
@@ -113,13 +122,13 @@ info "[TRADE-01] Placing buy order (enterprise001, quantity=100, price=50.00)...
 TRADE01_RESP=$(curl -s -X POST "$API/auction/buy" \
   -H "Authorization: Bearer $TOKEN_E1" \
   -H "Content-Type: application/json" \
-  -d '{"quantity": 100, "price": 50.00}')
+  -d '{"direction": 1, "quantity": 100, "price": 50.00}')
 
 TRADE01_CODE=$(extract_field "$TRADE01_RESP" "code")
 TOTAL=$((TOTAL + 1))
 if [[ "$TRADE01_CODE" == "200" ]]; then
-  BUY_ORDER_NO=$(extract_field "$TRADE01_RESP" "orderNo")
-  BUY_ORDER_ID=$(extract_field "$TRADE01_RESP" "id")
+  BUY_ORDER_NO=$(extract_data_field "$TRADE01_RESP" "orderNo")
+  BUY_ORDER_ID=$(extract_data_field "$TRADE01_RESP" "id")
   ok "TRADE-01: Buy order placed: id=$BUY_ORDER_ID, orderNo=$BUY_ORDER_NO"
   PASSED=$((PASSED + 1))
 else
@@ -133,13 +142,13 @@ info "[TRADE-02] Placing sell order (enterprise002, quantity=80, price=45.00)...
 TRADE02_RESP=$(curl -s -X POST "$API/auction/sell" \
   -H "Authorization: Bearer $TOKEN_E2" \
   -H "Content-Type: application/json" \
-  -d '{"quantity": 80, "price": 45.00}')
+  -d '{"direction": 2, "quantity": 80, "price": 45.00}')
 
 TRADE02_CODE=$(extract_field "$TRADE02_RESP" "code")
 TOTAL=$((TOTAL + 1))
 if [[ "$TRADE02_CODE" == "200" ]]; then
-  SELL_ORDER_NO=$(extract_field "$TRADE02_RESP" "orderNo")
-  SELL_ORDER_ID=$(extract_field "$TRADE02_RESP" "id")
+  SELL_ORDER_NO=$(extract_data_field "$TRADE02_RESP" "orderNo")
+  SELL_ORDER_ID=$(extract_data_field "$TRADE02_RESP" "id")
   ok "TRADE-02: Sell order placed: id=$SELL_ORDER_ID, orderNo=$SELL_ORDER_NO"
   PASSED=$((PASSED + 1))
 else
@@ -266,7 +275,7 @@ info "[TRADE-12] Testing insufficient quota order..."
 TRADE12_RESP=$(curl -s -X POST "$API/auction/buy" \
   -H "Authorization: Bearer $TOKEN_E1" \
   -H "Content-Type: application/json" \
-  -d '{"quantity": 999999, "price": 10.00}')
+  -d '{"direction": 1, "quantity": 999999, "price": 10.00}')
 
 TRADE12_CODE=$(extract_field "$TRADE12_RESP" "code")
 TOTAL=$((TOTAL + 1))

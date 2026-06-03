@@ -11,6 +11,7 @@ WORK_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 # Source shared test helpers (provides assert_contains, assert_not_contains,
 # login_user, run_mysql, print_summary, and test counters)
 source "$SCRIPT_DIR/test-helpers.sh"
+DB_PORT=3306 source "$SCRIPT_DIR/db-config.sh"
 
 BASE_URL="http://localhost:8080/api/v1"
 BACKEND_DIR="$WORK_DIR/oaiss-chain-backend/src/main/java/com/oaiss/chain"
