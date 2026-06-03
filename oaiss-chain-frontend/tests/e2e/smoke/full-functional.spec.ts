@@ -605,17 +605,21 @@ async function parseCaptchaPayload(response: Response): Promise<CaptchaPayload> 
   return payload
 }
 
-async function waitForCaptchaCodeFromLog(captchaKey: string, timeoutMs = 4000): Promise<string | null> {
+async function waitForCaptchaCodeFromLog(captchaKey: string, timeoutMs = 10000): Promise<string | null> {
   const deadline = Date.now() + timeoutMs
   const pattern = new RegExp(`generateCaptcha: key=${escapeRegExp(captchaKey)}, code=([A-Z0-9]{4})`, 'g')
   while (Date.now() < deadline) {
-    if (fs.existsSync(BACKEND_LOG_PATH)) {
-      const content = fs.readFileSync(BACKEND_LOG_PATH, 'utf-8')
-      const matches = Array.from(content.matchAll(pattern))
-      const code = matches.at(-1)?.[1]
-      if (code) return code
+    try {
+      if (fs.existsSync(BACKEND_LOG_PATH)) {
+        const content = fs.readFileSync(BACKEND_LOG_PATH, 'utf-8')
+        const matches = Array.from(content.matchAll(pattern))
+        const code = matches.at(-1)?.[1]
+        if (code) return code
+      }
+    } catch {
+      // File might be locked or partially written, retry
     }
-    await new Promise(resolve => setTimeout(resolve, 200))
+    await new Promise(resolve => setTimeout(resolve, 300))
   }
   return null
 }
@@ -934,14 +938,15 @@ test.describe('OAISS CHAIN frontend full functional matrix', () => {
       await openPrimaryDialogFromToolbar(page)
       const dialog = page.locator('.el-dialog:visible').first()
       // Use data-testid selectors for reliable field targeting
-      await dialog.locator('[data-testid="create-period"]').fill('2024-Q1')
-      await dialog.locator('[data-testid="create-title"]').fill(`full-functional-report-${Date.now()}`)
-      await dialog.locator('[data-testid="create-emission"]').fill(JSON.stringify({
+      // el-input renders data-testid on wrapper div, so target input/textarea inside
+      await dialog.locator('[data-testid="create-period"] input').fill('2024-Q1')
+      await dialog.locator('[data-testid="create-title"] input').fill(`full-functional-report-${Date.now()}`)
+      await dialog.locator('[data-testid="create-emission"] textarea').fill(JSON.stringify({
         scope1: [{ activity_data: '1', emission_factor: '1' }],
         scope2: [{ activity_data: '2', emission_factor: '1' }],
         scope3: [{ activity_data: '0', emission_factor: '1' }],
       }))
-      await dialog.locator('[data-testid="create-method"]').fill('automated UI create')
+      await dialog.locator('[data-testid="create-method"] textarea').fill('automated UI create')
       await dialog.locator('.el-dialog__footer .el-button--primary').click()
       const toastText = await waitForAnyToast(page, 6000)
       await waitForDialogToClose(page, dialog, 8000).catch(() => undefined)
@@ -1042,6 +1047,10 @@ test.describe('OAISS CHAIN frontend full functional matrix', () => {
         if ((await items.count()) === 0) throw new Error('Direction dropdown has no visible options')
         await items.first().click()
       }
+      await page.waitForTimeout(300)
+      // Close dropdown by clicking dialog header
+      await dialog.locator('.el-dialog__header').click().catch(() => {})
+      await page.waitForTimeout(200)
       const numericInputs = dialog.locator('.el-form-item input[type="number"]')
       await numericInputs.nth(0).fill('1')
       await numericInputs.nth(1).fill('1')
@@ -1065,6 +1074,9 @@ test.describe('OAISS CHAIN frontend full functional matrix', () => {
         if ((await items.count()) < 2) throw new Error('Sell direction option is not visible')
         await items.nth(1).click()
       }
+      await page.waitForTimeout(300)
+      await dialog.locator('.el-dialog__header').click().catch(() => {})
+      await page.waitForTimeout(200)
       const sellNumericInputs = dialog.locator('.el-form-item input[type="number"]')
       await sellNumericInputs.nth(0).fill('1')
       await sellNumericInputs.nth(1).fill('1')
