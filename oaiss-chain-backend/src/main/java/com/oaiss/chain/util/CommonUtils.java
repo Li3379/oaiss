@@ -241,7 +241,7 @@ public final class CommonUtils {
      */
     public static Long parseLong(String str, Long defaultValue) {
         try {
-            return isNotEmpty(str) ? Long.parseLong(str) : defaultValue;
+            return isNotEmpty(str) ? Long.valueOf(str) : defaultValue;
         } catch (NumberFormatException e) {
             return defaultValue;
         }
@@ -252,7 +252,7 @@ public final class CommonUtils {
      */
     public static Integer parseInteger(String str, Integer defaultValue) {
         try {
-            return isNotEmpty(str) ? Integer.parseInt(str) : defaultValue;
+            return isNotEmpty(str) ? Integer.valueOf(str) : defaultValue;
         } catch (NumberFormatException e) {
             return defaultValue;
         }
@@ -263,7 +263,7 @@ public final class CommonUtils {
      */
     public static Double parseDouble(String str, Double defaultValue) {
         try {
-            return isNotEmpty(str) ? Double.parseDouble(str) : defaultValue;
+            return isNotEmpty(str) ? Double.valueOf(str) : defaultValue;
         } catch (NumberFormatException e) {
             return defaultValue;
         }

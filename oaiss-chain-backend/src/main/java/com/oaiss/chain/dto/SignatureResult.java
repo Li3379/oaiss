@@ -40,7 +40,7 @@ public class SignatureResult {
      * 用于验签结果返回
      */
     @Builder.Default
-    private Boolean valid = null;
+    private Boolean valid = false;
 
     /**
      * 签名者用户ID

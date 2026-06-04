@@ -233,7 +233,6 @@ class AuthServiceTest {
         when(jwtTokenProvider.validateToken("refresh-token")).thenReturn(true);
         when(jwtTokenProvider.isRefreshToken("refresh-token")).thenReturn(true);
         when(jwtTokenProvider.getUsernameFromToken("refresh-token")).thenReturn("testuser");
-        when(jwtTokenProvider.getUserIdFromToken("refresh-token")).thenReturn(1L);
         when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
         when(jwtTokenProvider.generateAccessToken(any(), any(), anyList(), any(), any())).thenReturn("new-access-token");
         when(jwtTokenProvider.generateRefreshToken(any(), any())).thenReturn("new-refresh-token");
@@ -277,7 +276,6 @@ class AuthServiceTest {
         when(jwtTokenProvider.validateToken("refresh-token")).thenReturn(true);
         when(jwtTokenProvider.isRefreshToken("refresh-token")).thenReturn(true);
         when(jwtTokenProvider.getUsernameFromToken("refresh-token")).thenReturn("nonexistent");
-        when(jwtTokenProvider.getUserIdFromToken("refresh-token")).thenReturn(999L);
         when(userRepository.findByUsername("nonexistent")).thenReturn(Optional.empty());
 
         // When & Then
@@ -292,7 +290,6 @@ class AuthServiceTest {
         when(jwtTokenProvider.validateToken("refresh-token")).thenReturn(true);
         when(jwtTokenProvider.isRefreshToken("refresh-token")).thenReturn(true);
         when(jwtTokenProvider.getUsernameFromToken("refresh-token")).thenReturn("testuser");
-        when(jwtTokenProvider.getUserIdFromToken("refresh-token")).thenReturn(1L);
         when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
 
         // When & Then
@@ -310,7 +307,6 @@ class AuthServiceTest {
         when(jwtTokenProvider.validateToken("refresh-token")).thenReturn(true);
         when(jwtTokenProvider.isRefreshToken("refresh-token")).thenReturn(true);
         when(jwtTokenProvider.getUsernameFromToken("refresh-token")).thenReturn("testuser");
-        when(jwtTokenProvider.getUserIdFromToken("refresh-token")).thenReturn(1L);
         when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
         when(enterpriseRepository.findByUserId(1L)).thenReturn(Optional.of(enterprise));
         when(jwtTokenProvider.generateAccessToken(any(), any(), anyList(), any(), any())).thenReturn("new-access-token");

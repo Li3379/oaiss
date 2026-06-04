@@ -6,7 +6,7 @@ import com.oaiss.chain.entity.OperationLog;
 import com.oaiss.chain.repository.OperationLogRepository;
 import com.oaiss.chain.security.JwtUserDetails;
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
@@ -50,8 +50,7 @@ public class AuditLogAspect {
         
         // 获取当前请求
         HttpServletRequest request = getCurrentRequest();
-        HttpServletResponse response = getCurrentResponse();
-        
+
         // 获取当前用户
         Long userId = null;
         String username = "anonymous";
@@ -142,14 +141,6 @@ public class AuditLogAspect {
     private HttpServletRequest getCurrentRequest() {
         ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
         return attributes != null ? attributes.getRequest() : null;
-    }
-
-    /**
-     * 获取当前HTTP响应
-     */
-    private HttpServletResponse getCurrentResponse() {
-        ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
-        return attributes != null ? attributes.getResponse() : null;
     }
 
     /**

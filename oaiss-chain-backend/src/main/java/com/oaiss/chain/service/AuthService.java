@@ -193,7 +193,6 @@ public class AuthService {
         }
 
         String username = jwtTokenProvider.getUsernameFromToken(refreshToken);
-        Long userId = jwtTokenProvider.getUserIdFromToken(refreshToken);
 
         User user = userRepository.findByUsername(username)
                 .orElseThrow(AuthenticationException::tokenInvalid);
@@ -333,8 +332,7 @@ public class AuthService {
 
         String cacheKey = "login_fail_" + username;
         Cache.ValueWrapper wrapper = attemptsCache.get(cacheKey);
-        if (wrapper != null && wrapper.get() instanceof Integer) {
-            int attempts = (Integer) wrapper.get();
+        if (wrapper != null && wrapper.get() instanceof Integer attempts) {
             if (attempts >= MAX_LOGIN_ATTEMPTS) {
                 log.warn("Login rate limited for user: {} ({} attempts)", username, attempts);
                 throw AuthenticationException.loginFailed("登录尝试过于频繁，请稍后再试");
@@ -351,8 +349,8 @@ public class AuthService {
 
         String cacheKey = "login_fail_" + username;
         Cache.ValueWrapper wrapper = attemptsCache.get(cacheKey);
-        int attempts = (wrapper != null && wrapper.get() instanceof Integer)
-                ? (Integer) wrapper.get() : 0;
+        int attempts = (wrapper != null && wrapper.get() instanceof Integer count)
+                ? count : 0;
         attemptsCache.put(cacheKey, attempts + 1);
     }
 

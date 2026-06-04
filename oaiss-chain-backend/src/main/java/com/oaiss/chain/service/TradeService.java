@@ -351,7 +351,7 @@ public class TradeService {
     private String safeTradeTypeText(Integer code) {
         try {
             TradeTypeEnum e = TradeTypeEnum.fromCode(code);
-            return e != null ? e.getDescription() : "未知";
+            return e.getDescription();
         } catch (IllegalArgumentException ex) {
             return "未知";
         }
@@ -360,7 +360,7 @@ public class TradeService {
     private String safeTradeStatusText(Integer code) {
         try {
             TradeStatusEnum e = TradeStatusEnum.fromCode(code);
-            return e != null ? e.getDescription() : "未知";
+            return e.getDescription();
         } catch (IllegalArgumentException ex) {
             return "未知";
         }
