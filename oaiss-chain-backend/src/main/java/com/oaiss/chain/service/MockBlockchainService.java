@@ -202,7 +202,7 @@ public class MockBlockchainService implements BlockchainServicePort {
             Map<String, Object> block = new HashMap<>();
             block.put("blockNumber", baseBlock - i);
             block.put("blockHash", "0x" + UUID.randomUUID().toString().replace("-", "").substring(0, 32));
-            block.put("txCount", (int) (Math.random() * 10) + 1);
+            block.put("txCount", java.util.concurrent.ThreadLocalRandom.current().nextInt(1, 11));
             block.put("timestamp", LocalDateTime.now().minusMinutes(i * 5).toString());
             block.put("blockType", i == 0 ? "GENESIS" : "REGULAR");
             blocks.add(block);

@@ -1,5 +1,6 @@
 package com.oaiss.chain.util;
 
+import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
@@ -19,9 +20,16 @@ public class MessageUtils {
 
     private static MessageSource messageSource;
 
+    private final MessageSource injectedMessageSource;
+
     @Autowired
-    public void setMessageSource(MessageSource messageSource) {
-        MessageUtils.messageSource = messageSource;
+    public MessageUtils(MessageSource messageSource) {
+        this.injectedMessageSource = messageSource;
+    }
+
+    @PostConstruct
+    void init() {
+        messageSource = injectedMessageSource;
     }
 
     /**

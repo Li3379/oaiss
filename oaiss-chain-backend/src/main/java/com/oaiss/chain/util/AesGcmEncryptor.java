@@ -20,7 +20,7 @@ import java.util.Base64;
  * @author OAISS Team
  */
 @Component
-public class AesGcmEncryptor {
+public final class AesGcmEncryptor {
 
     private static final String ALGORITHM = "AES/GCM/NoPadding";
     private static final int GCM_TAG_LENGTH = 128;

@@ -19,8 +19,8 @@ class MessageUtilsTest {
 
     @AfterEach
     void tearDown() {
-        MessageUtils utils = new MessageUtils();
-        utils.setMessageSource(null);
+        // Reset static field via PostConstruct with null
+        new MessageUtils(null).init();
     }
 
     @Test
@@ -34,7 +34,7 @@ class MessageUtilsTest {
     @DisplayName("should resolve message with explicit locale and helpers")
     void shouldResolveWithExplicitLocale() {
         MessageSource messageSource = mock(MessageSource.class);
-        new MessageUtils().setMessageSource(messageSource);
+        new MessageUtils(messageSource).init();
 
         when(messageSource.getMessage(eq("hello"), any(), eq(Locale.US))).thenReturn("hello-en");
         when(messageSource.getMessage(eq("hello"), any(), eq(Locale.SIMPLIFIED_CHINESE))).thenReturn("hello-zh");
@@ -47,7 +47,7 @@ class MessageUtilsTest {
     @DisplayName("should fall back when message lookup throws")
     void shouldFallbackWhenLookupFails() {
         MessageSource messageSource = mock(MessageSource.class);
-        new MessageUtils().setMessageSource(messageSource);
+        new MessageUtils(messageSource).init();
 
         when(messageSource.getMessage(eq("missing"), any(), eq(Locale.US)))
                 .thenThrow(new NoSuchMessageException("missing"));
