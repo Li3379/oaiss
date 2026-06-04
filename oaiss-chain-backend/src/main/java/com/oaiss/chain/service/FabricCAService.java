@@ -23,6 +23,7 @@ import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.PrivateKey;
 import java.security.cert.X509Certificate;
+import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 
 @Service
@@ -65,7 +66,7 @@ public class FabricCAService {
                     .post()
                     .uri(caConfig.getEndpoint() + "/api/v1/enroll")
                     .header("Authorization", "Basic " + Base64.getEncoder().encodeToString(
-                            (caConfig.getAdminName() + ":" + caConfig.getAdminPassword()).getBytes()))
+                            (caConfig.getAdminName() + ":" + caConfig.getAdminPassword()).getBytes(StandardCharsets.UTF_8)))
                     .bodyValue(csrPem)
                     .retrieve()
                     .bodyToMono(String.class)

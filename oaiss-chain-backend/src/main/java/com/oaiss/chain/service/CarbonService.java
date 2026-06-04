@@ -26,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Objects;
 
 @Slf4j
 @Service
@@ -142,7 +143,7 @@ public class CarbonService {
             throw CarbonException.submitFailed(CERTIFY_DECISION_INVALID);
         }
 
-        if (request.getReviewResult() == ReportStatusEnum.ON_CHAIN.getCode()) {
+        if (Objects.equals(request.getReviewResult(), ReportStatusEnum.ON_CHAIN.getCode())) {
             applyApprovedReportSideEffects(report, currentUser.getUserId());
             report.setStatus(ReportStatusEnum.ON_CHAIN.getCode());
         } else {
@@ -246,14 +247,14 @@ public class CarbonService {
 
     private boolean isReviewerDecision(Integer decision) {
         return decision != null
-                && (decision == ReportStatusEnum.APPROVED.getCode()
-                || decision == ReportStatusEnum.REJECTED.getCode());
+                && (decision.equals(ReportStatusEnum.APPROVED.getCode())
+                || decision.equals(ReportStatusEnum.REJECTED.getCode()));
     }
 
     private boolean isCertificationDecision(Integer decision) {
         return decision != null
-                && (decision == ReportStatusEnum.ON_CHAIN.getCode()
-                || decision == ReportStatusEnum.REJECTED.getCode());
+                && (decision.equals(ReportStatusEnum.ON_CHAIN.getCode())
+                || decision.equals(ReportStatusEnum.REJECTED.getCode()));
     }
 
     private String mergeCertificationComment(String existingComment, String certificationComment) {
