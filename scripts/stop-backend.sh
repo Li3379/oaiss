@@ -36,6 +36,28 @@ if [[ "$stopped" == false ]] && command -v netstat >/dev/null 2>&1; then
   fi
 fi
 
+# Fallback: Windows tasklist (for WSL where lsof/netstat can't see Windows processes)
+if [[ "$stopped" == false ]] && command -v tasklist.exe >/dev/null 2>&1; then
+  # Use wmic to find Java processes with oaiss-chain in command line
+  pids=$(wmic.exe process where "name='java.exe' and commandline like '%oaiss-chain%'" get processid 2>/dev/null | grep -oE '[0-9]+' || true)
+  if [[ -z "${pids}" ]]; then
+    # Broader fallback: find Java processes on port 8080 via netstat from Windows
+    pids=$(cmd.exe /c "netstat -ano | findstr :8080 | findstr LISTENING" 2>/dev/null | awk '{print $NF}' | sort -u || true)
+  fi
+  if [[ -n "${pids}" ]]; then
+    for pid in $pids; do
+      [[ -z "$pid" || "$pid" == "0" ]] && continue
+      # Verify it's a Java process before killing
+      pname=$(tasklist.exe //FI "PID eq $pid" //FO CSV 2>/dev/null | grep -i java || true)
+      if [[ -n "$pname" ]]; then
+        echo "[STOP] Stopping Java process $pid via taskkill"
+        taskkill.exe //F //PID "$pid" >/dev/null 2>&1 || true
+        stopped=true
+      fi
+    done
+  fi
+fi
+
 if [[ "$stopped" == false ]]; then
   echo "[STOP] No backend process is listening on :8080"
   exit 0

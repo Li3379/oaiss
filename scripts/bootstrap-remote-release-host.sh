@@ -98,8 +98,15 @@ printf '%s\n' \
     "$FABRIC_SECRETS_DIR"
 
 echo "[INFO] Checking Docker runtime"
-docker --version
-docker compose version
+if command -v docker >/dev/null 2>&1; then
+    docker --version
+    docker compose version
+elif command -v docker.exe >/dev/null 2>&1; then
+    docker.exe --version
+    docker.exe compose version
+else
+    echo "[WARN] Docker not found in PATH"
+fi
 
 cat <<EOF
 

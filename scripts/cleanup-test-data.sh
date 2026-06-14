@@ -16,6 +16,14 @@ echo ""
 print_db_config
 echo ""
 
+# WSL docker detection
+_docker_cmd=""
+if command -v docker >/dev/null 2>&1 && docker ps --format '{{.Names}}' 2>/dev/null | grep -q "^${MYSQL_CONTAINER}$"; then
+    _docker_cmd="docker"
+elif command -v docker.exe >/dev/null 2>&1 && docker.exe ps --format '{{.Names}}' 2>/dev/null | tr -d '\r' | grep -q "^${MYSQL_CONTAINER}$"; then
+    _docker_cmd="docker.exe"
+fi
+
 # 检查MySQL连接
 if ! check_mysql_health; then
     echo "错误: MySQL连接失败"
@@ -23,9 +31,9 @@ if ! check_mysql_health; then
 fi
 
 # 执行清理
-if docker ps --format '{{.Names}}' | grep -q "^${MYSQL_CONTAINER}$"; then
+if [ -n "$_docker_cmd" ]; then
     # 使用Docker容器
-    docker exec -i "$MYSQL_CONTAINER" mysql -u"$DB_USERNAME" -p"$DB_PASSWORD" "$DB_NAME" <<EOF
+    $_docker_cmd exec -i "$MYSQL_CONTAINER" mysql -u"$DB_USERNAME" -p"$DB_PASSWORD" "$DB_NAME" <<EOF
 -- 清理测试相关的排放评级
 DELETE FROM emission_rating
 WHERE remark LIKE '%TEST%'

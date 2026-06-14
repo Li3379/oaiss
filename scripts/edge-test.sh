@@ -11,7 +11,7 @@ WORK_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 # login_user, run_mysql, print_summary, and test counters)
 source "$SCRIPT_DIR/test-helpers.sh"
 
-BASE_URL="http://localhost:8080/api/v1"
+# BASE_URL auto-detected by test-helpers.sh (WSL -> host.docker.internal)
 TIMESTAMP=$(date +%s)
 
 echo "=== 06-03: Edge Cases & Negative Testing (EDGE-01~06) ==="

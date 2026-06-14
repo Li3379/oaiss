@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Auto-optimize Skill — verify repo layout and optional delivery vs final-track bytes.
+# Auto-optimize Skill to verify repo layout and optional delivery vs final-track bytes.
 # Run from repository root:
 #   bash scripts/skill-verify.sh
 #   FINAL_TRACK_FILE=tracks/prompt-d/r09.html DELIVERY_FILE=index.html bash scripts/skill-verify.sh
@@ -16,7 +16,7 @@ FINAL="${FINAL_TRACK_FILE:-}"
 
 fail=0
 
-echo "== Skill verify (repo: $ROOT) =="
+echo "== Skill to verify (repo: $ROOT) =="
 
 ACC="tracks/phase-01-acceptance.md"
 if [[ ! -f "$ACC" ]]; then
@@ -31,7 +31,7 @@ else
     echo "OK: $ACC has no unchecked - [ ] items (or no checklist lines)"
   fi
   if ! grep -qE '^- \[' "$ACC" 2>/dev/null; then
-    echo "WARN: $ACC has no lines like '- [x]' / '- [ ]' — phase-01-spec.md expects at least one acceptance line"
+    echo "WARN: $ACC has no lines like '- [x]' / '- [ ]' for phase-01-spec.md expects at least one acceptance line"
   fi
 fi
 
@@ -50,7 +50,7 @@ else
     fi
     r02=( "${d}"r02.* )
     if [[ ${#r02[@]} -eq 0 ]]; then
-      echo "FAIL: $d missing r02.* (phase-03-inner.md: each prompt track needs ≥2 rounds)"
+      echo "FAIL: $d missing r02.* (phase-03-inner.md: each prompt track needs to rounds)"
       fail=1
     else
       echo "OK: $d has r02 (${r02[0]})"

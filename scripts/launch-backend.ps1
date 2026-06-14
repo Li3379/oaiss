@@ -1,24 +1,21 @@
-param(
+﻿param(
     [switch]$WithFabric
 )
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $projectRoot = Split-Path -Parent $scriptDir
 $backendBatch = Join-Path $scriptDir 'start-backend.bat'
-$arguments = @()
 
+$cmdArgs = "/c `"$backendBatch`""
 if ($WithFabric) {
-    $arguments += '--with-fabric'
+    $cmdArgs = "/c `"$backendBatch`" --with-fabric"
 }
 
 $startProcessParams = @{
-    FilePath = $backendBatch
+    FilePath = 'cmd.exe'
+    ArgumentList = $cmdArgs
     WorkingDirectory = $projectRoot
     WindowStyle = 'Hidden'
-}
-
-if ($arguments.Count -gt 0) {
-    $startProcessParams.ArgumentList = $arguments
 }
 
 Start-Process @startProcessParams

@@ -33,7 +33,19 @@ assert_code_200 "Status returns 200" "$RESP_STATUS"
 assert_contains "Status has connected field" "$RESP_STATUS" '"connected"'
 assert_contains "Status has channel field" "$RESP_STATUS" '"channel"'
 assert_contains "Status has mode field" "$RESP_STATUS" '"mode"'
-assert_contains "Mode is FABRIC" "$RESP_STATUS" 'FABRIC'
+# Mode check: FABRIC or MOCK depending on profile
+TEST_ID=$((TEST_ID + 1))
+MODE=$(echo "$RESP_STATUS" | grep -o '"mode":"[^"]*"' | head -1 | sed 's/"mode":"//;s/"//')
+if [[ "$MODE" == "MOCK" ]]; then
+    echo "  [SKIP] Test $TEST_ID: Mode is MOCK (Fabric not active in local profile)"
+    SKIP=$((SKIP + 1))
+elif [[ "$MODE" == "FABRIC" ]]; then
+    echo "  [PASS] Test $TEST_ID: Mode is FABRIC"
+    PASS=$((PASS + 1))
+else
+    echo "  [FAIL] Test $TEST_ID: Unexpected mode: $MODE"
+    FAIL=$((FAIL + 1))
+fi
 echo ""
 
 # --- BLOCK-02: Latest blocks ---

@@ -37,9 +37,10 @@ E1_USER_ID=""
 if command -v jq >/dev/null 2>&1; then
     E1_USER_ID=$(echo "$RESP_USERS" | jq -r '.data.content[] | select(.userType == 1) | .id' 2>/dev/null | head -1)
 fi
-# Fallback: grep for first id in content (less precise but functional)
+# Fallback: use filtered endpoint to get enterprise user id
 if [ -z "$E1_USER_ID" ]; then
-    E1_USER_ID=$(echo "$RESP_USERS" | grep -o '"id":[0-9]*' | head -1 | cut -d: -f2)
+    RESP_E1=$(curl -s "$BASE_URL/admin/users?userType=1&page=1&size=1" -H "Authorization: Bearer $TOKEN_ADMIN")
+    E1_USER_ID=$(echo "$RESP_E1" | grep -o '"id":[0-9]*' | head -1 | sed 's/"id"://' | tr -d ' ')
 fi
 echo "  enterprise001 userId: $E1_USER_ID"
 echo ""

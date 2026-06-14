@@ -115,5 +115,22 @@ done
 
 export COMPOSE_DISABLE_ENV_FILE=1
 
+# WSL docker detection
+_docker_cmd="docker"
+if grep -qi microsoft /proc/version 2>/dev/null && command -v docker.exe >/dev/null 2>&1; then
+    _docker_cmd="docker.exe"
+elif command -v docker.exe >/dev/null 2>&1 && ! command -v docker >/dev/null 2>&1; then
+    _docker_cmd="docker.exe"
+fi
+
 cd "$PROJECT_ROOT"
-exec docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" "${COMPOSE_ARGS[@]}"
+
+# Convert paths for docker.exe if running in WSL
+if [[ "$_docker_cmd" == "docker.exe" && "$ENV_FILE" == /mnt/* ]]; then
+    ENV_FILE=$(wslpath -w "$ENV_FILE" 2>/dev/null || echo "$ENV_FILE")
+fi
+if [[ "$_docker_cmd" == "docker.exe" && "$COMPOSE_FILE" == /mnt/* ]]; then
+    COMPOSE_FILE=$(wslpath -w "$COMPOSE_FILE" 2>/dev/null || echo "$COMPOSE_FILE")
+fi
+
+exec "$_docker_cmd" compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" "${COMPOSE_ARGS[@]}"

@@ -26,6 +26,18 @@ NC='\033[0m'
 log() { echo -e "${GREEN}[STOP]${NC} $*"; }
 warn() { echo -e "${YELLOW}[WARN]${NC} $*"; }
 
+# WSL docker detection
+if grep -qi microsoft /proc/version 2>/dev/null && command -v docker.exe >/dev/null 2>&1; then
+    DOCKER_BIN="docker.exe"
+elif command -v docker >/dev/null 2>&1; then
+    DOCKER_BIN="docker"
+elif command -v docker.exe >/dev/null 2>&1; then
+    DOCKER_BIN="docker.exe"
+else
+    warn "docker not found, skipping container cleanup"
+    DOCKER_BIN=""
+fi
+
 # 停止本地进程
 log "停止本地进程..."
 if [[ -x "$PROJECT_ROOT/scripts/stop-backend.sh" ]]; then
@@ -45,18 +57,18 @@ done
 
 # 停止基础设施
 log "停止基础设施容器..."
-docker compose -f "$PROJECT_ROOT/docker-compose.infra.yml" down
+if [[ -n "$DOCKER_BIN" ]]; then "$DOCKER_BIN" compose -f "$PROJECT_ROOT/docker-compose.infra.yml" down; fi
 
 # 停止 Fabric
 if [[ "$WITH_FABRIC" == true ]]; then
     log "停止 Fabric 网络..."
-    docker compose -f "$PROJECT_ROOT/docker-compose.fabric.yml" down
+    if [[ -n "$DOCKER_BIN" ]]; then "$DOCKER_BIN" compose -f "$PROJECT_ROOT/docker-compose.fabric.yml" down; fi
 fi
 
 if [[ "$INFRA_ONLY" != true ]]; then
     # 停止全栈 compose（如果之前用 docker compose -f docker-compose.yml 启动）
     log "停止全栈容器（如有）..."
-    docker compose -f "$PROJECT_ROOT/docker-compose.yml" down 2>/dev/null || true
+    if [[ -n "$DOCKER_BIN" ]]; then "$DOCKER_BIN" compose -f "$PROJECT_ROOT/docker-compose.yml" down 2>/dev/null || true; fi
 fi
 
 log "所有服务已停止"

@@ -9,7 +9,7 @@
 
 source "$(dirname "$0")/test-helpers.sh"
 
-check_dependencies mysql
+check_dependencies
 
 echo "=== 05-01: Digital Signatures (SIGN-01~03) ==="
 echo ""
@@ -27,7 +27,7 @@ echo "  enterprise001 token: ${TOKEN_E1:0:20}..."
 echo "  admin token: ${TOKEN_ADMIN:0:20}..."
 
 # Get enterprise001's userId (WR-03: use extract_field)
-E1_USER_ID=$(extract_field "$RESP_E1" "userId")
+E1_USER_ID=$(extract_field "$RESP_E1" "data.userId")
 echo "  enterprise001 userId: $E1_USER_ID"
 echo ""
 
@@ -42,7 +42,7 @@ echo ""
 # --- SIGN-01: RSA Keypair Generation ---
 echo "[2/7] SIGN-01: Generate RSA keypair..."
 
-RESP_GEN=$(curl -s -X POST "$BASE_URL/signature/keypair/generate" \
+RESP_GEN=$(curl -s $CURL_OPTS -X POST "$BASE_URL/signature/keypair/generate" \
     -H "Authorization: Bearer $TOKEN_E1")
 echo "  Generate response: $(echo "$RESP_GEN" | head -c 300)"
 
@@ -57,7 +57,7 @@ echo ""
 # --- Get keypair info ---
 echo "[3/7] SIGN-01: Get keypair info..."
 
-RESP_GET=$(curl -s "$BASE_URL/signature/keypair" \
+RESP_GET=$(curl -s $CURL_OPTS "$BASE_URL/signature/keypair" \
     -H "Authorization: Bearer $TOKEN_E1")
 echo "  Get keypair response: $(echo "$RESP_GET" | head -c 300)"
 
@@ -85,7 +85,7 @@ echo ""
 echo "[5/7] SIGN-02: Sign report data..."
 
 REPORT_DATA='{"reportName":"test-report-2025","totalEmission":1500.50,"period":"2025-Q1"}'
-RESP_SIGN=$(curl -s -X POST "$BASE_URL/signature/sign" \
+RESP_SIGN=$(curl -s $CURL_OPTS -X POST "$BASE_URL/signature/sign" \
     -H "Authorization: Bearer $TOKEN_E1" \
     -H "Content-Type: application/json" \
     -d "$REPORT_DATA")
@@ -94,7 +94,7 @@ echo "  Sign response: $(echo "$RESP_SIGN" | head -c 300)"
 assert_code_200 "Sign returns 200" "$RESP_SIGN"
 assert_contains "Sign has signature data" "$RESP_SIGN" '"signature":'
 
-SIGNATURE=$(extract_field "$RESP_SIGN" "signature")
+SIGNATURE=$(extract_field "$RESP_SIGN" "data.signature")
 echo "  Signature length: ${#SIGNATURE}"
 echo ""
 
@@ -104,7 +104,7 @@ echo "[6/7] SIGN-03: Verify signature (valid + tampered)..."
 # Verify with correct data
 REPORT_DATA_STR=$(echo "$REPORT_DATA" | sed 's/"/\\"/g')
 VERIFY_BODY="{\"reportId\":1,\"signatureData\":\"$SIGNATURE\",\"reportData\":\"$REPORT_DATA_STR\",\"signerId\":$E1_USER_ID}"
-RESP_VERIFY=$(curl -s -X POST "$BASE_URL/signature/verify" \
+RESP_VERIFY=$(curl -s $CURL_OPTS -X POST "$BASE_URL/signature/verify" \
     -H "Authorization: Bearer $TOKEN_ADMIN" \
     -H "Content-Type: application/json" \
     -d "$VERIFY_BODY")
@@ -115,7 +115,7 @@ assert_contains "Valid signature returns true" "$RESP_VERIFY" '"valid":true'
 
 # Verify with tampered data
 TAMPERED_BODY="{\"reportId\":1,\"signatureData\":\"$SIGNATURE\",\"reportData\":\"{\\\"reportName\\\":\\\"TAMPERED\\\",\\\"totalEmission\\\":99999}\",\"signerId\":$E1_USER_ID}"
-RESP_TAMPERED=$(curl -s -X POST "$BASE_URL/signature/verify" \
+RESP_TAMPERED=$(curl -s $CURL_OPTS -X POST "$BASE_URL/signature/verify" \
     -H "Authorization: Bearer $TOKEN_ADMIN" \
     -H "Content-Type: application/json" \
     -d "$TAMPERED_BODY")

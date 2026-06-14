@@ -86,7 +86,7 @@ docker_mysql_exec() {
 run_mysql_query() {
     local query="$1"
     if mysql_container_running; then
-        "$DOCKER_BIN" exec "$MYSQL_CONTAINER" mysql -u"$DB_USERNAME" -p"$DB_PASSWORD" "$DB_NAME" -N -e "$query"
+        "$DOCKER_BIN" exec "$MYSQL_CONTAINER" mysql -u"$DB_USERNAME" -p"$DB_PASSWORD" "$DB_NAME" -N -e "$query" 2>/dev/null
     elif mysql_cli_available; then
         "$MYSQL_BIN" "${MYSQL_ARGS[@]}" -N -e "$query" "$DB_NAME"
     else
@@ -98,7 +98,7 @@ run_mysql_query() {
 exec_mysql_query() {
     local query="$1"
     if mysql_container_running; then
-        "$DOCKER_BIN" exec "$MYSQL_CONTAINER" mysql -u"$DB_USERNAME" -p"$DB_PASSWORD" "$DB_NAME" -e "$query"
+        "$DOCKER_BIN" exec "$MYSQL_CONTAINER" mysql -u"$DB_USERNAME" -p"$DB_PASSWORD" "$DB_NAME" -e "$query" 2>/dev/null
     elif mysql_cli_available; then
         "$MYSQL_BIN" "${MYSQL_ARGS[@]}" -e "$query" "$DB_NAME"
     else

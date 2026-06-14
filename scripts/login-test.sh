@@ -1,50 +1,28 @@
 #!/usr/bin/env bash
+# Login & Authentication Test
+# Tests: login for all 6 roles, token validation, logout, blacklist
 set -euo pipefail
 
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m'
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/test-helpers.sh"
 
-ok()   { echo -e "${GREEN}[OK]${NC} $1"; }
-fail() { echo -e "${RED}[FAIL]${NC} $1"; }
-info() { echo -e "${YELLOW}[..]${NC} $1"; }
+check_backend
 
-detect_api_base() {
-  if [[ -n "${API:-}" ]]; then
-    echo "$API"
-    return
-  fi
+echo "=== Login & Authentication Test ==="
+echo ""
 
-  if grep -qi microsoft /proc/version 2>/dev/null; then
-    echo "http://host.docker.internal:8080/api/v1"
-  else
-    echo "http://localhost:8080/api/v1"
-  fi
-}
-
-API="$(detect_api_base)"
-
-# Verify backend is up first
-info "Checking backend availability..."
-curl -sf -X POST "$API/auth/login" \
-  -H "Content-Type: application/json" \
-  -d '{"username":"admin","password":"admin123"}' -o /dev/null || { fail "Backend not running. Start it first with './scripts/start-backend.sh' or 'scripts\\start-backend.bat'."; exit 1; }
-ok "Backend is reachable"
+ACCOUNTS=(
+  "admin:${TEST_PASSWORD}:4:ADMIN"
+  "enterprise001:${TEST_PASSWORD}:1:ENTERPRISE"
+  "enterprise002:${TEST_PASSWORD}:1:ENTERPRISE"
+  "enterprise003:${TEST_PASSWORD}:1:ENTERPRISE"
+  "reviewer001:${TEST_PASSWORD}:2:REVIEWER"
+  "thirdparty001:${TEST_PASSWORD}:3:THIRD_PARTY"
+)
 
 TOTAL=0
 PASSED=0
 FAILED=0
-
-# Define test accounts: username password expected_userType expected_roleName
-ACCOUNTS=(
-  "admin:admin123:4:ADMIN"
-  "enterprise001:admin123:1:ENTERPRISE"
-  "enterprise002:admin123:1:ENTERPRISE"
-  "enterprise003:admin123:1:ENTERPRISE"
-  "reviewer001:admin123:2:REVIEWER"
-  "thirdparty001:admin123:3:THIRD_PARTY"
-)
 
 for entry in "${ACCOUNTS[@]}"; do
   IFS=':' read -r username password expected_type expected_role <<< "$entry"
@@ -54,26 +32,16 @@ for entry in "${ACCOUNTS[@]}"; do
   info "Testing account: $username (expected userType=$expected_type, role=$expected_role)"
 
   # Step 1: Login
-  LOGIN_RESP=$(curl -s -X POST "$API/auth/login" \
-    -H "Content-Type: application/json" \
-    -d "{\"username\":\"$username\",\"password\":\"$password\"}")
-
-  LOGIN_CODE=$(echo "$LOGIN_RESP" | grep -o '"code":[0-9]*' | head -1 | cut -d: -f2)
+  LOGIN_RESP=$(login_user "$username" "$password")
+  LOGIN_CODE=$(extract_field "$LOGIN_RESP" "code")
   if [[ "$LOGIN_CODE" != "200" ]]; then
-    fail "$username: Login failed (code=$LOGIN_CODE, response=$LOGIN_RESP)"
+    fail "$username: Login failed (code=$LOGIN_CODE)"
     FAILED=$((FAILED + 1))
     continue
   fi
 
-  # Extract token and userType
-  if command -v jq >/dev/null 2>&1; then
-    TOKEN=$(echo "$LOGIN_RESP" | jq -r '.data.accessToken // empty')
-    ACTUAL_TYPE=$(echo "$LOGIN_RESP" | jq -r '.data.userType // empty')
-  else
-    TOKEN=$(echo "$LOGIN_RESP" | grep -o '"accessToken":"[^"]*"' | head -1 | cut -d'"' -f4)
-    ACTUAL_TYPE=$(echo "$LOGIN_RESP" | grep -o '"userType":[0-9]*' | head -1 | cut -d: -f2)
-  fi
-
+  TOKEN=$(extract_field "$LOGIN_RESP" "data.accessToken")
+  ACTUAL_TYPE=$(extract_field "$LOGIN_RESP" "data.userType")
   if [[ -z "$TOKEN" ]]; then
     fail "$username: No accessToken in response"
     FAILED=$((FAILED + 1))
@@ -81,7 +49,7 @@ for entry in "${ACCOUNTS[@]}"; do
   fi
   ok "$username: Login successful (token received, userType=$ACTUAL_TYPE)"
 
-  # Step 2: Verify userType matches expected
+  # Step 2: Verify userType
   if [[ "$ACTUAL_TYPE" != "$expected_type" ]]; then
     fail "$username: userType mismatch (expected=$expected_type, got=$ACTUAL_TYPE)"
     FAILED=$((FAILED + 1))
@@ -89,19 +57,19 @@ for entry in "${ACCOUNTS[@]}"; do
   fi
   ok "$username: userType matches expected ($expected_type)"
 
-  # Step 3: Access protected endpoint with token
-  ME_RESP=$(curl -s "$API/auth/me" -H "Authorization: Bearer $TOKEN")
-  ME_CODE=$(echo "$ME_RESP" | grep -o '"code":[0-9]*' | head -1 | cut -d: -f2)
+  # Step 3: Access protected endpoint
+  ME_RESP=$(curl -s $CURL_OPTS "$BASE_URL/auth/me" -H "Authorization: Bearer $TOKEN")
+  ME_CODE=$(extract_field "$ME_RESP" "code")
   if [[ "$ME_CODE" != "200" ]]; then
-    fail "$username: /auth/me failed with Bearer token (code=$ME_CODE)"
+    fail "$username: /auth/me failed (code=$ME_CODE)"
     FAILED=$((FAILED + 1))
     continue
   fi
   ok "$username: Bearer token works on /auth/me"
 
   # Step 4: Logout
-  LOGOUT_RESP=$(curl -s -X POST "$API/auth/logout" -H "Authorization: Bearer $TOKEN")
-  LOGOUT_CODE=$(echo "$LOGOUT_RESP" | grep -o '"code":[0-9]*' | head -1 | cut -d: -f2)
+  LOGOUT_RESP=$(curl -s $CURL_OPTS -X POST "$BASE_URL/auth/logout" -H "Authorization: Bearer $TOKEN")
+  LOGOUT_CODE=$(extract_field "$LOGOUT_RESP" "code")
   if [[ "$LOGOUT_CODE" != "200" ]]; then
     fail "$username: Logout failed (code=$LOGOUT_CODE)"
     FAILED=$((FAILED + 1))
@@ -110,14 +78,14 @@ for entry in "${ACCOUNTS[@]}"; do
   ok "$username: Logout successful"
 
   # Step 5: Verify token is blacklisted
-  BLACKLIST_RESP=$(curl -s "$API/auth/me" -H "Authorization: Bearer $TOKEN")
-  BLACKLIST_CODE=$(echo "$BLACKLIST_RESP" | grep -o '"code":[0-9]*' | head -1 | cut -d: -f2)
+  BLACKLIST_RESP=$(curl -s $CURL_OPTS "$BASE_URL/auth/me" -H "Authorization: Bearer $TOKEN")
+  BLACKLIST_CODE=$(extract_field "$BLACKLIST_RESP" "code")
   if [[ "$BLACKLIST_CODE" == "200" ]]; then
     fail "$username: Token still valid after logout (blacklist not working)"
     FAILED=$((FAILED + 1))
     continue
   fi
-  ok "$username: Token blacklisted after logout (subsequent request returns $BLACKLIST_CODE)"
+  ok "$username: Token blacklisted after logout (code=$BLACKLIST_CODE)"
 
   PASSED=$((PASSED + 1))
 done

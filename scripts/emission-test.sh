@@ -9,7 +9,7 @@
 
 source "$(dirname "$0")/test-helpers.sh"
 
-check_dependencies mysql
+check_dependencies
 
 echo "=== 05-03: Emission Ratings (EMIT-01~03) ==="
 echo ""
@@ -25,9 +25,9 @@ echo "  admin token: ${TOKEN_ADMIN:0:20}..."
 RESP_E1_LOGIN=$(login_user "enterprise001")
 TOKEN_E1=$(extract_token "$RESP_E1_LOGIN" "enterprise001")
 
-RESP_SCORE=$(curl -s "$BASE_URL/credit/my-score" \
+RESP_SCORE=$(curl -s $CURL_OPTS "$BASE_URL/credit/my-score" \
     -H "Authorization: Bearer $TOKEN_E1")
-E1_ENTERPRISE_ID=$(extract_field "$RESP_SCORE" "enterpriseId")
+E1_ENTERPRISE_ID=$(extract_field "$RESP_SCORE" "data.enterpriseId")
 echo "  enterprise001 enterpriseId: $E1_ENTERPRISE_ID"
 echo ""
 
@@ -37,7 +37,7 @@ validate_integer "E1_ENTERPRISE_ID" "$E1_ENTERPRISE_ID" || exit 1
 # --- EMIT-01: View emission ratings ---
 echo "[2/6] EMIT-01: View emission ratings for enterprise001..."
 
-RESP_RATINGS=$(curl -s "$BASE_URL/emission/ratings/$E1_ENTERPRISE_ID" \
+RESP_RATINGS=$(curl -s $CURL_OPTS "$BASE_URL/emission/ratings/$E1_ENTERPRISE_ID" \
     -H "Authorization: Bearer $TOKEN_ADMIN")
 echo "  Ratings response: $(echo "$RESP_RATINGS" | head -c 400)"
 
@@ -47,7 +47,7 @@ echo ""
 # --- EMIT-01: Create/recalculate rating ---
 echo "[3/6] EMIT-01: Create emission rating..."
 
-RESP_CREATE=$(curl -s -X POST "$BASE_URL/emission/ratings" \
+RESP_CREATE=$(curl -s $CURL_OPTS -X POST "$BASE_URL/emission/ratings" \
     -H "Authorization: Bearer $TOKEN_ADMIN" \
     -H "Content-Type: application/json" \
     -d "{\"enterpriseId\":$E1_ENTERPRISE_ID,\"year\":\"2025\",\"totalEmission\":1500.50,\"revenue\":50000,\"ratedBy\":1}")
@@ -83,7 +83,7 @@ echo ""
 # --- EMIT-02: Industry rankings ---
 echo "[5/6] EMIT-02: Industry rankings for 2025..."
 
-RESP_RANKINGS=$(curl -s "$BASE_URL/emission/rankings/2025" \
+RESP_RANKINGS=$(curl -s $CURL_OPTS "$BASE_URL/emission/rankings/2025" \
     -H "Authorization: Bearer $TOKEN_ADMIN")
 echo "  Rankings response: $(echo "$RESP_RANKINGS" | head -c 400)"
 
@@ -94,7 +94,7 @@ echo ""
 # --- EMIT-03: AI Prediction ---
 echo "[6/6] EMIT-03: AI emission prediction..."
 
-RESP_PREDICT=$(curl -s -X POST "$BASE_URL/emission/predict" \
+RESP_PREDICT=$(curl -s $CURL_OPTS -X POST "$BASE_URL/emission/predict" \
     -H "Authorization: Bearer $TOKEN_ADMIN" \
     -H "Content-Type: application/json" \
     -d "{\"enterpriseId\":$E1_ENTERPRISE_ID,\"predictMonths\":6}")

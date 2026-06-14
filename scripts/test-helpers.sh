@@ -2,43 +2,77 @@
 # Shared test helper library for OAISS CHAIN API test scripts
 # Source this file: source "$(dirname "$0")/test-helpers.sh"
 #
+# Provides: colors, assertions, login, DB helpers, backend check, curl wrapper.
+# All functions are backward-compatible with existing test scripts.
+#
 # Required seed data:
 #   - Users: admin, enterprise001, thirdparty001 (password from TEST_PASSWORD env, default: admin123)
-#   - MySQL accessible at DB_HOST:DB_PORT with DB_USER/DB_PASS credentials
 #   - Backend running at BASE_URL (default: http://localhost:8080/api/v1)
 
 set -euo pipefail
 
-# --- Configuration (overridable via environment) ---
+# ============================================================
+# Colors
+# ============================================================
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
+
+ok()   { echo -e "${GREEN}[OK]${NC} $1"; }
+fail() { echo -e "${RED}[FAIL]${NC} $1"; }
+info() { echo -e "${YELLOW}[..]${NC} $1"; }
+warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
+
+# ============================================================
+# Configuration (overridable via environment)
+# ============================================================
 detect_base_url() {
     if [ -n "${BASE_URL:-}" ]; then
         echo "$BASE_URL"
         return
     fi
-
-    local default_url="http://localhost:8080/api/v1"
+    if [ -n "${API:-}" ]; then
+        echo "$API"
+        return
+    fi
     if grep -qi microsoft /proc/version 2>/dev/null; then
         echo "http://host.docker.internal:8080/api/v1"
     else
-        echo "$default_url"
+        echo "http://localhost:8080/api/v1"
     fi
 }
 
 BASE_URL="$(detect_base_url)"
 TEST_PASSWORD="${TEST_PASSWORD:-admin123}"
-DB_USER="${DB_USER:-root}"
-DB_PASS="${DB_PASS:-123456}"
+API_PASSWORD="${API_PASSWORD:-${TEST_PASSWORD}}"
+CURL_OPTS="${CURL_OPTS:---connect-timeout 10 --max-time 30}"
+ CURL_MAX_RETRIES="${CURL_MAX_RETRIES:-3}"
+ CURL_RETRY_DELAY="${CURL_RETRY_DELAY:-2}"
+
+# --- Database defaults (source db-config.sh for Docker container credentials) ---
+_DB_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -f "$_DB_SCRIPT_DIR/db-config.sh" ]; then
+    DB_PORT=3306 source "$_DB_SCRIPT_DIR/db-config.sh"
+fi
+DB_USER="${DB_USERNAME:-${DB_USER:-root}}"
+DB_PASS="${DB_PASSWORD:-${DB_PASS:-123456}}"
 DB_HOST="${DB_HOST:-127.0.0.1}"
 DB_PORT="${DB_PORT:-3306}"
 DB_NAME="${DB_NAME:-oaiss_chain}"
 
-# --- Test counters ---
+# ============================================================
+# Test counters
+# ============================================================
 PASS=0
 FAIL=0
 SKIP=0
 TEST_ID=0
+TOTAL=0
 
-# --- Dependency checks (IN-01/WR-02) ---
+# ============================================================
+# Dependency checks
+# ============================================================
 check_dependencies() {
     local extra_cmds=("$@")
     for cmd in curl grep cut head "${extra_cmds[@]}"; do
@@ -46,35 +80,89 @@ check_dependencies() {
     done
 }
 
-# --- JSON field extraction with jq fallback (WR-03) ---
+# ============================================================
+# Backend health check
+# ============================================================
+check_backend() {
+    info "Checking backend availability..."
+    curl -sf $CURL_OPTS -X POST "$BASE_URL/auth/login" \
+        -H "Content-Type: application/json" \
+        -d "{\"username\":\"admin\",\"password\":\"$TEST_PASSWORD\"}" -o /dev/null 2>/dev/null \
+        || { fail "Backend not running. Start it first with './scripts/start-backend.sh' or 'scripts\\start-backend.bat'."; exit 1; }
+    ok "Backend is reachable"
+}
+
+# ============================================================
+# JSON field extraction (jq preferred, grep fallback)
+# ============================================================
 extract_field() {
     local json="$1" field="$2"
     if command -v jq >/dev/null 2>&1; then
-        echo "$json" | jq -r ".$field // empty" 2>/dev/null
+        echo "$json" | jq -r ".$field" 2>/dev/null | grep -v '^null$' || true
     else
         if [[ "$field" == *.* ]]; then
             local parent_field child_field
             parent_field="${field%%.*}"
             child_field="${field#*.}"
-            echo "$json" | grep -o "\"$parent_field\":{[^}]*\"$child_field\":\"[^\"]*\"" | head -1 | sed -E "s/.*\"$child_field\":\"([^\"]*)\".*/\1/"
+            { echo "$json" | grep -o "\"$child_field\":[^,}]*" 2>/dev/null | head -1 | sed "s/\"$child_field\"://" | tr -d "\" "; } 2>/dev/null || true
         else
-            echo "$json" | grep -o "\"$field\":\"[^\"]*\"" | head -1 | cut -d'"' -f4
+            { echo "$json" | grep -o "\"$field\":[^,}]*" 2>/dev/null | head -1 | sed "s/\"$field\"://" | tr -d '"'; } 2>/dev/null || true
         fi
     fi
 }
 
-# --- Login helper (WR-01/WR-05) ---
-login_user() {
-    curl -s -X POST "$BASE_URL/auth/login" \
-        -H "Content-Type: application/json" \
-        -d "{\"username\":\"$1\",\"password\":\"$TEST_PASSWORD\"}"
+# Extract from nested .data object (e.g., extract_field_data "$resp" "id" => .data.id)
+extract_data_field() {
+    local json="$1" field="$2"
+    if command -v jq >/dev/null 2>&1; then
+        echo "$json" | jq -r ".data.$field // empty" 2>/dev/null || true
+    else
+        # Fallback: search the entire response for the field (works for flat nesting)
+        { echo "$json" | grep -o "\"$field\":[^,}]*" 2>/dev/null | head -1 | sed "s/\"$field\"://" | tr -d '"'; } 2>/dev/null || true
+    fi
 }
 
-# --- Token extraction with validation (WR-01) ---
+# ============================================================
+# Login helpers
+# ============================================================
+login_user() {
+    curl -s $CURL_OPTS -X POST "$BASE_URL/auth/login" \
+        -H "Content-Type: application/json" \
+        -d "{\"username\":\"$1\",\"password\":\"${2:-$TEST_PASSWORD}\"}"
+}
+
+# Login and return just the token
+login() {
+    local username="$1"
+    local resp
+    resp=$(login_user "$username")
+    local code
+    code=$(extract_field "$resp" "code")
+    if [[ "$code" != "200" ]]; then
+        fail "$username: Login failed (code=$code)"
+        echo "$resp" >&2
+        return 1
+    fi
+    local token
+    token=$(extract_field "$resp" "data.accessToken")
+    if [ -z "$token" ]; then
+        token=$(echo "$resp" | grep -o '"accessToken":"[^"]*"' 2>/dev/null | head -1 | cut -d'"' -f4)
+    fi
+    if [ -z "$token" ]; then
+        fail "$username: No accessToken in response"
+        return 1
+    fi
+    echo "$token"
+}
+
+# Login and extract token, or exit on failure
 extract_token() {
     local resp="$1" username="$2"
     local token
     token=$(extract_field "$resp" "data.accessToken")
+    if [ -z "$token" ]; then
+        token=$(echo "$resp" | grep -o '"accessToken":"[^"]*"' 2>/dev/null | head -1 | cut -d'"' -f4)
+    fi
     if [ -z "$token" ]; then
         echo "  [FATAL] Login failed for $username. Response: $(echo "$resp" | head -c 300)"
         exit 1
@@ -82,29 +170,56 @@ extract_token() {
     echo "$token"
 }
 
-# --- MySQL helper with defaults-extra-file to hide password (CR-01) ---
+# ============================================================
+# MySQL helpers
+# ============================================================
+# Detect docker binary (WSL may need docker.exe)
+_docker_cmd=""
+if command -v docker >/dev/null 2>&1 && docker ps --format '{{.Names}}' 2>/dev/null | grep -q "^oaiss-mysql$"; then
+    _docker_cmd="docker"
+elif command -v docker.exe >/dev/null 2>&1 && docker.exe ps --format '{{.Names}}' 2>/dev/null | tr -d '\r' | grep -q "^oaiss-mysql$"; then
+    _docker_cmd="docker.exe"
+fi
+
 run_mysql() {
     local query="$1"
-    local mysql_cnf
-    mysql_cnf=$(mktemp)
-    cat > "$mysql_cnf" <<EOF
+    local result=""
+
+    # Try Docker exec first (works in WSL without mysql client)
+    if [ -n "$_docker_cmd" ]; then
+        result=$($_docker_cmd exec oaiss-mysql mysql -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -sNe "$query" 2>/dev/null) || {
+            echo "MYSQL_ERROR:$result"
+            return 1
+        }
+        echo "$result"
+        return 0
+    fi
+
+    # Fallback: local mysql client
+    if command -v mysql >/dev/null 2>&1; then
+        local mysql_cnf
+        mysql_cnf=$(mktemp)
+        cat > "$mysql_cnf" <<EOF
 [client]
 user=$DB_USER
 password=$DB_PASS
 host=$DB_HOST
 port=$DB_PORT
 EOF
-    local result
-    result=$(mysql --defaults-extra-file="$mysql_cnf" "$DB_NAME" -sNe "$query" 2>&1) || {
+        result=$(mysql --defaults-extra-file="$mysql_cnf" "$DB_NAME" -sNe "$query" 2>&1) || {
+            rm -f "$mysql_cnf"
+            echo "MYSQL_ERROR:$result"
+            return 1
+        }
         rm -f "$mysql_cnf"
-        echo "MYSQL_ERROR:$result"
-        return 1
-    }
-    rm -f "$mysql_cnf"
-    echo "$result"
+        echo "$result"
+        return 0
+    fi
+
+    echo "MYSQL_ERROR: neither docker nor mysql client available"
+    return 1
 }
 
-# --- Integer validation for SQL variables (CR-02) ---
 validate_integer() {
     local var_name="$1" var_value="$2"
     if ! [[ "$var_value" =~ ^[0-9]+$ ]]; then
@@ -113,7 +228,61 @@ validate_integer() {
     fi
 }
 
-# --- Precise code 200 assertion (CR-03) ---
+# ============================================================
+# Curl wrapper that returns: HTTP_CODE BODY
+# ============================================================
+curl_get() {
+    local url="$1"
+    shift
+    local body; local delay=$CURL_RETRY_DELAY http_code
+    body=$(curl -s $CURL_OPTS -w "\n%{http_code}" "$url" "$@" 2>/dev/null)
+    http_code=$(echo "$body" | tail -1)
+    body=$(echo "$body" | sed '$d')
+    echo "$http_code"
+    echo "$body"
+  }
+  
+  # ============================================================
+  # Curl wrapper with retry logic for rate limiting
+  # ============================================================
+  curl_with_retry() {
+      local url="$1"
+      shift
+      local attempt=0
+      local http_code
+      local body; local delay=$CURL_RETRY_DELAY
+      
+      while [ $attempt -lt $CURL_MAX_RETRIES ]; do
+          body=$(curl -s $CURL_OPTS -w "\n%{http_code}" "$url" "$@" 2>/dev/null)
+          http_code=$(echo "$body" | tail -1)
+          body=$(echo "$body" | sed '$d')
+          
+          # If rate limited (429) or server error (5xx), retry
+          if [[ "$http_code" == "429" ]] || [[ "$http_code" =~ ^5[0-9][0-9]$ ]]; then
+              attempt=$((attempt + 1))
+              if [ $attempt -lt $CURL_MAX_RETRIES ]; then
+                  warn "Rate limited or server error ($http_code), retrying in $delay seconds... (attempt $attempt/$CURL_MAX_RETRIES)"
+                  sleep $delay
+                  # Exponential backoff
+                  delay=$(echo "$delay * 2" | bc)
+              fi
+          else
+              echo "$http_code"
+              echo "$body"
+              return 0
+          fi
+      done
+      
+      # If all retries failed, return the last response
+      warn "All $CURL_MAX_RETRIES attempts failed for $url"
+      echo "$http_code"
+      echo "$body"
+      return 1
+  }
+  
+  # ============================================================
+  # Assertions
+  # ============================================================
 assert_code_200() {
     local test_name="$1" response="$2"
     TEST_ID=$((TEST_ID + 1))
@@ -127,7 +296,6 @@ assert_code_200() {
     fi
 }
 
-# --- Generic assertion: response contains expected string (CR-03: use -F for fixed string) ---
 assert_contains() {
     local test_name="$1" response="$2" expected="$3"
     TEST_ID=$((TEST_ID + 1))
@@ -141,7 +309,6 @@ assert_contains() {
     fi
 }
 
-# --- Assertion: response does NOT contain expected string ---
 assert_not_contains() {
     local test_name="$1" response="$2" expected="$3"
     TEST_ID=$((TEST_ID + 1))
@@ -155,7 +322,21 @@ assert_not_contains() {
     fi
 }
 
-# --- Summary printer (IN-05: includes skip count) ---
+assert_http_code() {
+    local test_name="$1" actual="$2" expected="$3"
+    TEST_ID=$((TEST_ID + 1))
+    if [ "$actual" = "$expected" ]; then
+        echo "  [PASS] Test $TEST_ID: $test_name (HTTP $actual)"
+        PASS=$((PASS + 1))
+    else
+        echo "  [FAIL] Test $TEST_ID: $test_name -- expected HTTP $expected, got $actual"
+        FAIL=$((FAIL + 1))
+    fi
+}
+
+# ============================================================
+# Summary printer
+# ============================================================
 print_summary() {
     echo "========================================"
     echo "Results: $PASS passed, $FAIL failed, $SKIP skipped (total: $TEST_ID tests)"

@@ -8,6 +8,14 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/db-config.sh"
 
+# WSL docker detection
+_docker_cmd=""
+if command -v docker >/dev/null 2>&1 && docker ps --format '{{.Names}}' 2>/dev/null | grep -q "^${MYSQL_CONTAINER}$"; then
+    _docker_cmd="docker"
+elif command -v docker.exe >/dev/null 2>&1 && docker.exe ps --format '{{.Names}}' 2>/dev/null | tr -d '\r' | grep -q "^${MYSQL_CONTAINER}$"; then
+    _docker_cmd="docker.exe"
+fi
+
 echo "=========================================="
 echo "MySQL数据迁移脚本"
 echo "=========================================="
@@ -64,9 +72,9 @@ fi
 echo ""
 echo "步骤3: 重启Docker MySQL..."
 # 停止并删除现有容器
-docker compose -f docker-compose.infra.yml down
+"${_docker_cmd:-docker}" compose -f docker-compose.infra.yml down
 # 重新启动（使用3306端口）
-docker compose -f docker-compose.infra.yml up -d mysql
+"${_docker_cmd:-docker}" compose -f docker-compose.infra.yml up -d mysql
 
 # 等待MySQL就绪
 echo "等待MySQL启动..."
@@ -74,7 +82,7 @@ sleep 10
 
 # 检查健康状态
 for i in {1..30}; do
-    if docker exec "$MYSQL_CONTAINER" mysqladmin ping -h localhost -u"$DB_USERNAME" -p"$DB_PASSWORD" --silent 2>/dev/null; then
+    if "$_docker_cmd" exec "$MYSQL_CONTAINER" mysqladmin ping -h localhost -u"$DB_USERNAME" -p"$DB_PASSWORD" --silent 2>/dev/null; then
         echo "✓ Docker MySQL已就绪"
         break
     fi
@@ -83,7 +91,7 @@ done
 
 echo ""
 echo "步骤4: 导入数据到Docker MySQL..."
-docker exec -i "$MYSQL_CONTAINER" mysql -u"$DB_USERNAME" -p"$DB_PASSWORD" "$DB_NAME" < "$BACKUP_FILE"
+"$_docker_cmd" exec -i "$MYSQL_CONTAINER" mysql -u"$DB_USERNAME" -p"$DB_PASSWORD" "$DB_NAME" < "$BACKUP_FILE"
 
 if [ $? -eq 0 ]; then
     echo "✓ 数据导入成功"
@@ -98,7 +106,7 @@ echo "迁移完成！"
 echo "=========================================="
 echo ""
 echo "验证："
-docker exec "$MYSQL_CONTAINER" mysql -u"$DB_USERNAME" -p"$DB_PASSWORD" -e "
+"$_docker_cmd" exec "$MYSQL_CONTAINER" mysql -u"$DB_USERNAME" -p"$DB_PASSWORD" -e "
     SELECT 'Tables count:' AS info, COUNT(*) AS value FROM information_schema.tables WHERE table_schema = '$DB_NAME'
     UNION ALL
     SELECT 'Carbon reports:', COUNT(*) FROM $DB_NAME.carbon_report

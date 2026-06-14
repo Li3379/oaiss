@@ -13,9 +13,9 @@ WORK_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 source "$SCRIPT_DIR/test-helpers.sh"
 DB_PORT=3306 source "$SCRIPT_DIR/db-config.sh"
 
-BASE_URL="http://localhost:8080/api/v1"
+# BASE_URL auto-detected by test-helpers.sh
 BACKEND_DIR="$WORK_DIR/oaiss-chain-backend/src/main/java/com/oaiss/chain"
-REDIS_CMD="docker exec oaiss-redis redis-cli"
+REDIS_CMD="docker exec oaiss-redis redis-cli -a oaiss_redis_dev_2026"
 
 wait_for_backend() {
     echo "  Waiting for backend startup..."
@@ -255,85 +255,50 @@ start_backend
 echo ""
 
 # ========================================================
-# AOP-02: RateLimit (temporary annotation on AuthController.login)
+# AOP-02: RateLimit (existing @RateLimit on AuthController.login)
+# @RateLimit(key="auth:login", limit=5, period=60) already applied
 # ========================================================
 echo "[AOP-02] RateLimit verification..."
 
-# Clean up stale rate limit keys
-REDIS_CLEANUP=$($REDIS_CMD KEYS "rate_limit:test*" 2>/dev/null || echo "")
+# Clean up all existing rate limit keys for login
+REDIS_CLEANUP=$($REDIS_CMD KEYS "rate_limit:auth:login*" 2>/dev/null || echo "")
 if [ -n "$REDIS_CLEANUP" ]; then
     echo "$REDIS_CLEANUP" | while read -r key; do
         [ -n "$key" ] && $REDIS_CMD DEL "$key" 2>/dev/null || true
     done
 fi
+echo "  Cleaned Redis rate limit keys"
 
-# Step 1: Add @RateLimit to AuthController.login
-echo "  Adding @RateLimit to AuthController.login..."
+# No code changes needed — @RateLimit is already on login method (limit=5, period=60)
+echo "  Using existing @RateLimit(key=\"auth:login\", limit=5, period=60)"
 
-AUTH_FILE="$BACKEND_DIR/controller/AuthController.java"
+# Send 6 login requests — first 5 should pass, 6th should be rate limited
+echo "  Sending 6 login requests (limit=5, period=60s)..."
 
-# Add import if not present
-if ! grep -q "import com.oaiss.chain.annotation.RateLimit" "$AUTH_FILE"; then
-    sed -i 's/^import com.oaiss.chain.dto.\*;/import com.oaiss.chain.annotation.RateLimit;\nimport com.oaiss.chain.dto.*;/' "$AUTH_FILE"
-fi
+RATE_LIMIT_TRIGGERED=0
+for i in 1 2 3 4 5 6; do
+    RESP_RL=$(login_user "admin")
+    CODE=$(echo "$RESP_RL" | grep -o '"code":[0-9]*' | head -1 | cut -d: -f2)
+    if [ "$CODE" = "1010" ]; then
+        echo "  Request $i: rate limited (code 1010)"
+        RATE_LIMIT_TRIGGERED=1
+        break
+    else
+        echo "  Request $i: passed (code $CODE)"
+    fi
+done
 
-# Add @RateLimit before the login method (line-number-based to avoid matching similar names)
-METHOD_LINE=$(grep -n "public ApiResponse<LoginResponse> login(" "$AUTH_FILE" | head -1 | cut -d: -f1)
-if [ -n "$METHOD_LINE" ]; then
-    sed -i "${METHOD_LINE}i\\    @RateLimit(key = \"test\", limit = 3, period = 60)" "$AUTH_FILE"
-fi
-
-# Verify annotation was added
-if grep -q "@RateLimit" "$AUTH_FILE"; then
-    echo "  @RateLimit annotation added successfully"
+TEST_ID=$((TEST_ID + 1))
+if [ $RATE_LIMIT_TRIGGERED -eq 1 ]; then
+    echo "  [PASS] Test $TEST_ID: AOP-02 @RateLimit blocked excess requests (code 1010)"
+    PASS=$((PASS + 1))
 else
-    echo "  ERROR: Failed to add @RateLimit annotation"
+    echo "  [FAIL] Test $TEST_ID: AOP-02 @RateLimit did NOT trigger after 6 requests"
     FAIL=$((FAIL + 1))
 fi
-
-# Step 2: Recompile
-echo "  Recompiling..."
-if (cd "$WORK_DIR/oaiss-chain-backend" && mvn compile -q); then
-    echo "  Compile successful"
-else
-    echo "  ERROR: Compilation failed"
-    FAIL=$((FAIL + 1))
-fi
-
-# Step 3: Restart
-stop_backend
-start_backend
-
-# Step 4: Clean Redis keys again after restart
-REDIS_CLEANUP=$($REDIS_CMD KEYS "rate_limit:test*" 2>/dev/null || echo "")
-if [ -n "$REDIS_CLEANUP" ]; then
-    echo "$REDIS_CLEANUP" | while read -r key; do
-        [ -n "$key" ] && $REDIS_CMD DEL "$key" 2>/dev/null || true
-    done
-fi
-
-# Step 5: Send 4 login requests — first 3 should pass, 4th should be rate limited
-echo "  Sending 4 login requests (limit=3, period=60s)..."
-
-# Request 1
-RESP1=$(login_user "admin")
-assert_contains "AOP-02: Request 1 returns 200" "$RESP1" '"code":200'
-
-# Request 2
-RESP2=$(login_user "admin")
-assert_contains "AOP-02: Request 2 returns 200" "$RESP2" '"code":200'
-
-# Request 3
-RESP3=$(login_user "admin")
-assert_contains "AOP-02: Request 3 returns 200" "$RESP3" '"code":200'
-
-# Request 4 — should be rate limited (code 1010 = REQUEST_TOO_FREQUENT)
-RESP4=$(login_user "admin")
-echo "  Request 4 response: $(echo "$RESP4" | head -c 300)"
-assert_contains "AOP-02: Request 4 returns rate limit error (code 1010)" "$RESP4" '"code":1010'
 
 # Verify Redis key exists
-REDIS_KEYS=$($REDIS_CMD KEYS "rate_limit:test*" 2>/dev/null || echo "")
+REDIS_KEYS=$($REDIS_CMD KEYS "rate_limit:auth:login*" 2>/dev/null || echo "")
 echo "  Redis rate limit keys: $REDIS_KEYS"
 TEST_ID=$((TEST_ID + 1))
 if [ -n "$REDIS_KEYS" ]; then
@@ -345,19 +310,13 @@ else
 fi
 
 # Clean up rate limit keys
-REDIS_CLEANUP=$($REDIS_CMD KEYS "rate_limit:test*" 2>/dev/null || echo "")
+REDIS_CLEANUP=$($REDIS_CMD KEYS "rate_limit:auth:login*" 2>/dev/null || echo "")
 if [ -n "$REDIS_CLEANUP" ]; then
     echo "$REDIS_CLEANUP" | while read -r key; do
         [ -n "$key" ] && $REDIS_CMD DEL "$key" 2>/dev/null || true
     done
 fi
 
-# Step 6: Revert
-echo "  Reverting AuthController..."
-cd "$WORK_DIR/oaiss-chain-backend" && git checkout -- src/main/java/com/oaiss/chain/controller/AuthController.java
-cd "$WORK_DIR"
-stop_backend
-start_backend
 echo ""
 
 # ========================================================

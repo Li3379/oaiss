@@ -10,7 +10,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # login_user, run_mysql, print_summary, and test counters)
 source "$SCRIPT_DIR/test-helpers.sh"
 
-BASE_URL="http://localhost:8080/api/v1"
+# BASE_URL auto-detected by test-helpers.sh
 
 # Cleanup temp files on exit
 cleanup() { rm -f /tmp/swagger_resp_body.json /tmp/swagger_auth_resp_body.json; }
@@ -115,7 +115,7 @@ echo ""
 # Test unauthenticated access to swagger-ui.html
 echo "[BUG-02] Unauthenticated access to swagger-ui.html..."
 SWAGGER_RESP=$(curl -s -w "\n%{http_code}" -o /tmp/swagger_resp_body.json \
-    "http://localhost:8080/api/v1/swagger-ui.html" 2>/dev/null || true)
+    "$BASE_URL/swagger-ui.html" 2>/dev/null || true)
 SWAGGER_HTTP=$(echo "$SWAGGER_RESP" | tail -1)
 SWAGGER_BODY=$(cat /tmp/swagger_resp_body.json 2>/dev/null || echo "")
 
@@ -145,7 +145,7 @@ echo ""
 echo "[BUG-02] Authenticated access to swagger-ui.html..."
 SWAGGER_AUTH_RESP=$(curl -s -w "\n%{http_code}" -o /tmp/swagger_auth_resp_body.json \
     -H "Authorization: Bearer $TOKEN_ADMIN" \
-    "http://localhost:8080/api/v1/swagger-ui.html" 2>/dev/null || true)
+    "$BASE_URL/swagger-ui.html" 2>/dev/null || true)
 SWAGGER_AUTH_HTTP=$(echo "$SWAGGER_AUTH_RESP" | tail -1)
 SWAGGER_AUTH_BODY=$(cat /tmp/swagger_auth_resp_body.json 2>/dev/null || echo "")
 
