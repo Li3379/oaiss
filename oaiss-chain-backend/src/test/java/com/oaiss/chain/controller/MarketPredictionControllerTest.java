@@ -128,4 +128,19 @@ class MarketPredictionControllerTest {
                 .andExpect(jsonPath("$.data.modelVersion").value("N/A"));
     }
 
+    @Test
+    @DisplayName("POST /ai/market/trend - should rethrow BusinessException when code is not INSUFFICIENT_DATA")
+    @WithMockUser(roles = "ENTERPRISE")
+    void shouldRethrowBusinessExceptionWhenCodeIsNotInsufficientData() throws Exception {
+        when(marketPredictionService.predictMarketTrend(anyInt()))
+                .thenThrow(new BusinessException(ErrorCode.ML_SERVICE_ERROR, "ML service unavailable"));
+
+        mockMvc.perform(post("/ai/market/trend")
+                        .with(csrf())
+                        .param("horizonDays", "30")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(ErrorCode.ML_SERVICE_ERROR));
+    }
+
 }

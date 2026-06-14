@@ -69,4 +69,16 @@ class ProductionDataPolicyValidatorTest {
 
         assertDoesNotThrow(validator::validateOnStartup);
     }
+
+    @Test
+    @DisplayName("生产环境查询返回null时应通过")
+    void validateOnStartup_productionWithNullCount_shouldPass() {
+        when(environment.getActiveProfiles()).thenReturn(new String[]{"production"});
+        when(jdbcTemplate.queryForObject(any(String.class), eq(Integer.class), any(Object[].class)))
+                .thenReturn(null);
+
+        ProductionDataPolicyValidator validator = new ProductionDataPolicyValidator(environment, jdbcTemplate);
+
+        assertDoesNotThrow(validator::validateOnStartup);
+    }
 }

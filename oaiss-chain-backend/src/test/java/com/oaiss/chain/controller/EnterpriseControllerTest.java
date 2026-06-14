@@ -59,6 +59,26 @@ class EnterpriseControllerTest {
     }
 
     @Test
+    @DisplayName("GET /enterprise/admission/my should throw when enterpriseId is null")
+    void getMyAdmission_shouldThrowWhenEnterpriseIdIsNull() throws Exception {
+        JwtUserDetails userNoEnterprise = JwtUserDetails.builder()
+                .userId(2L)
+                .username("enterprise_no_id")
+                .enterpriseId(null)
+                .roles(List.of("ENTERPRISE"))
+                .enabled(true)
+                .build();
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(userNoEnterprise, null, userNoEnterprise.getAuthorities())
+        );
+
+        mockMvc.perform(get("/enterprise/admission/my")
+                        .principal(() -> "enterprise_no_id"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(1001));
+    }
+
+    @Test
     @DisplayName("GET /enterprise/admission/my should return admissions")
     void getMyAdmission_shouldReturnAdmissions() throws Exception {
         setAuthentication();

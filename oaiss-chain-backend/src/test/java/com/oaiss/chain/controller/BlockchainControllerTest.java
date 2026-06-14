@@ -12,11 +12,14 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.MediaType;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import static org.mockito.Mockito.*;
@@ -29,12 +32,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  *
  * @author OAISS Team
  */
-@WebMvcTest(value = BlockchainController.class,
-        excludeAutoConfiguration = {
-                org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration.class,
-                org.springframework.boot.autoconfigure.data.jpa.JpaRepositoriesAutoConfiguration.class
-        })
-@ActiveProfiles("test")
+@WebMvcTest(controllers = BlockchainController.class)
 @AutoConfigureMockMvc(addFilters = false)
 class BlockchainControllerTest {
 
@@ -224,15 +222,15 @@ class BlockchainControllerTest {
         @Test
         @DisplayName("查询区块信息-无效区块号(负数)")
         void testQueryBlockInvalidBlockNumber() throws Exception {
-            // Given - IllegalArgumentException会被全局异常处理器处理为500
+            // Given - IllegalArgumentException被全局异常处理器处理为400
             Long blockNumber = -1L;
             when(blockchainService.queryBlock(blockNumber))
                     .thenThrow(new IllegalArgumentException("区块号不能为负数"));
 
-            // When & Then - IllegalArgumentException未被专门处理，返回500
+            // When & Then - IllegalArgumentException被处理为400
             mockMvc.perform(get("/blockchain/block/{blockNumber}", blockNumber)
                             .contentType(MediaType.APPLICATION_JSON))
-                    .andExpect(status().isInternalServerError());
+                    .andExpect(status().isBadRequest());
 
             verify(blockchainService, times(1)).queryBlock(blockNumber);
         }
@@ -460,6 +458,150 @@ class BlockchainControllerTest {
                     .andExpect(jsonPath("$.code").value(200));
 
             verify(blockchainService, times(1)).queryBlock(blockNumber);
+        }
+    }
+
+    // ==================== List Transactions Tests ====================
+
+    @Nested
+    @DisplayName("查询交易列表测试")
+    class ListTransactionsTests {
+
+        @Test
+        @DisplayName("查询交易列表成功")
+        void testListTransactionsSuccess() throws Exception {
+            // Given
+            Map<String, Object> tx1 = new HashMap<>();
+            tx1.put("txHash", "tx_hash_1");
+            tx1.put("status", "VALID");
+            Map<String, Object> tx2 = new HashMap<>();
+            tx2.put("txHash", "tx_hash_2");
+            tx2.put("status", "VALID");
+
+            Page<Map<String, Object>> page = new PageImpl<>(List.of(tx1, tx2), PageRequest.of(0, 20), 2);
+            when(blockchainService.listTransactions(1, 20)).thenReturn(page);
+
+            // When & Then
+            mockMvc.perform(get("/blockchain/transactions")
+                            .param("page", "1")
+                            .param("size", "20")
+                            .contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.code").value(200))
+                    .andExpect(jsonPath("$.data.content").isArray())
+                    .andExpect(jsonPath("$.data.content[0].txHash").value("tx_hash_1"));
+
+            verify(blockchainService, times(1)).listTransactions(1, 20);
+        }
+
+        @Test
+        @DisplayName("查询交易列表-空列表")
+        void testListTransactionsEmpty() throws Exception {
+            // Given
+            Page<Map<String, Object>> emptyPage = new PageImpl<>(List.of(), PageRequest.of(0, 20), 0);
+            when(blockchainService.listTransactions(1, 20)).thenReturn(emptyPage);
+
+            // When & Then
+            mockMvc.perform(get("/blockchain/transactions")
+                            .param("page", "1")
+                            .param("size", "20")
+                            .contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.code").value(200))
+                    .andExpect(jsonPath("$.data.content").isArray())
+                    .andExpect(jsonPath("$.data.content").isEmpty());
+
+            verify(blockchainService, times(1)).listTransactions(1, 20);
+        }
+
+        @Test
+        @DisplayName("查询交易列表-自定义分页参数")
+        void testListTransactionsCustomPageParams() throws Exception {
+            // Given
+            Page<Map<String, Object>> page = new PageImpl<>(List.of(), PageRequest.of(2, 10), 25);
+            when(blockchainService.listTransactions(3, 10)).thenReturn(page);
+
+            // When & Then
+            mockMvc.perform(get("/blockchain/transactions")
+                            .param("page", "3")
+                            .param("size", "10")
+                            .contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.code").value(200));
+
+            verify(blockchainService, times(1)).listTransactions(3, 10);
+        }
+    }
+
+    // ==================== List Latest Blocks Tests ====================
+
+    @Nested
+    @DisplayName("获取最新区块列表测试")
+    class ListLatestBlocksTests {
+
+        @Test
+        @DisplayName("获取最新区块列表成功")
+        void testListLatestBlocksSuccess() throws Exception {
+            // Given
+            Map<String, Object> block1 = new HashMap<>();
+            block1.put("blockNumber", 100L);
+            block1.put("txCount", 5);
+            Map<String, Object> block2 = new HashMap<>();
+            block2.put("blockNumber", 99L);
+            block2.put("txCount", 3);
+
+            Page<Map<String, Object>> page = new PageImpl<>(List.of(block1, block2), PageRequest.of(0, 20), 2);
+            when(blockchainService.listLatestBlocks(1, 20)).thenReturn(page);
+
+            // When & Then
+            mockMvc.perform(get("/blockchain/blocks/latest")
+                            .param("page", "1")
+                            .param("size", "20")
+                            .contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.code").value(200))
+                    .andExpect(jsonPath("$.data.content").isArray())
+                    .andExpect(jsonPath("$.data.content[0].blockNumber").value(100));
+
+            verify(blockchainService, times(1)).listLatestBlocks(1, 20);
+        }
+
+        @Test
+        @DisplayName("获取最新区块列表-空列表")
+        void testListLatestBlocksEmpty() throws Exception {
+            // Given
+            Page<Map<String, Object>> emptyPage = new PageImpl<>(List.of(), PageRequest.of(0, 20), 0);
+            when(blockchainService.listLatestBlocks(1, 20)).thenReturn(emptyPage);
+
+            // When & Then
+            mockMvc.perform(get("/blockchain/blocks/latest")
+                            .param("page", "1")
+                            .param("size", "20")
+                            .contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.code").value(200))
+                    .andExpect(jsonPath("$.data.content").isArray())
+                    .andExpect(jsonPath("$.data.content").isEmpty());
+
+            verify(blockchainService, times(1)).listLatestBlocks(1, 20);
+        }
+
+        @Test
+        @DisplayName("获取最新区块列表-自定义分页参数")
+        void testListLatestBlocksCustomPageParams() throws Exception {
+            // Given
+            Page<Map<String, Object>> page = new PageImpl<>(List.of(), PageRequest.of(0, 5), 0);
+            when(blockchainService.listLatestBlocks(1, 5)).thenReturn(page);
+
+            // When & Then
+            mockMvc.perform(get("/blockchain/blocks/latest")
+                            .param("page", "1")
+                            .param("size", "5")
+                            .contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.code").value(200));
+
+            verify(blockchainService, times(1)).listLatestBlocks(1, 5);
         }
     }
 }

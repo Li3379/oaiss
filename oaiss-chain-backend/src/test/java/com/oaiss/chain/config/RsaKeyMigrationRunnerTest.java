@@ -83,4 +83,16 @@ class RsaKeyMigrationRunnerTest {
         assertTrue(keyPair.getEncrypted());
         verify(rsaKeyPairRepository).save(keyPair);
     }
+
+    @Test
+    @DisplayName("migrateSingleKey should skip null private key")
+    void migrateSingleKey_shouldSkipNullKey() {
+        RsaKeyPair keyPair = RsaKeyPair.builder().userId(4L).privateKey(null).encrypted(false).build();
+        keyPair.setId(20L);
+
+        runner.migrateSingleKey(keyPair);
+
+        verify(aesGcmEncryptor, never()).encrypt(anyString());
+        verify(rsaKeyPairRepository, never()).save(any());
+    }
 }

@@ -112,4 +112,44 @@ class EnterpriseServiceTest {
 
         assertThrows(RuntimeException.class, () -> enterpriseService.getEnterpriseById(8L));
     }
+
+    @Test
+    @DisplayName("getQuotaInfo throws when enterprise is missing")
+    void getQuotaInfo_whenMissing_throws() {
+        when(enterpriseRepository.findByUserIdAndDeletedFalse(20L)).thenReturn(Optional.empty());
+
+        assertThrows(RuntimeException.class, () -> enterpriseService.getQuotaInfo(20L));
+    }
+
+    @Test
+    @DisplayName("getEnterpriseById throws when enterprise not found")
+    void getEnterpriseById_whenNotFound_throws() {
+        when(enterpriseRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThrows(RuntimeException.class, () -> enterpriseService.getEnterpriseById(99L));
+    }
+
+    @Test
+    @DisplayName("updateContact handles null contactPerson and contactPhone")
+    void updateContact_handlesNullValues() {
+        when(enterpriseRepository.findByUserIdAndDeletedFalse(20L)).thenReturn(Optional.of(enterprise));
+
+        enterpriseService.updateContact(20L, null, null);
+
+        assertEquals("Old Contact", enterprise.getContactPerson());
+        assertEquals("010-0000", enterprise.getContactPhone());
+        verify(enterpriseRepository).save(enterprise);
+    }
+
+    @Test
+    @DisplayName("updateContact applies valid non-blank values")
+    void updateContact_appliesValidValues() {
+        when(enterpriseRepository.findByUserIdAndDeletedFalse(20L)).thenReturn(Optional.of(enterprise));
+
+        enterpriseService.updateContact(20L, "New Contact", "13800000000");
+
+        assertEquals("New Contact", enterprise.getContactPerson());
+        assertEquals("13800000000", enterprise.getContactPhone());
+        verify(enterpriseRepository).save(enterprise);
+    }
 }

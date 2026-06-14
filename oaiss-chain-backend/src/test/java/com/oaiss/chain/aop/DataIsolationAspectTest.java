@@ -141,6 +141,34 @@ class DataIsolationAspectTest {
         assertEquals("reviewer_ok", result);
     }
 
+    // ==================== Branch Coverage: Unauthenticated non-null auth in getCurrentUser (line 94) ====================
+
+    @Test
+    @DisplayName("数据隔离 - 未认证但非null的authentication应抛出异常")
+    void handleDataIsolation_UnauthenticatedNonNullAuth_ShouldThrow() {
+        setupMethodMock(true, true);
+        // 2-arg constructor → authenticated = false
+        UsernamePasswordAuthenticationToken auth =
+                new UsernamePasswordAuthenticationToken("user", null);
+        SecurityContextHolder.getContext().setAuthentication(auth);
+
+        assertThrows(BusinessException.class, () -> dataIsolationAspect.handleDataIsolation(joinPoint));
+    }
+
+    // ==================== Branch Coverage: Non-JwtUserDetails principal in getCurrentUser (line 96) ====================
+
+    @Test
+    @DisplayName("数据隔离 - 非JwtUserDetails的principal应抛出异常")
+    void handleDataIsolation_NonJwtUserDetailsPrincipal_ShouldThrow() {
+        setupMethodMock(true, true);
+        // 3-arg constructor → authenticated = true, but principal is String
+        UsernamePasswordAuthenticationToken auth =
+                new UsernamePasswordAuthenticationToken("string_principal", null, List.of());
+        SecurityContextHolder.getContext().setAuthentication(auth);
+
+        assertThrows(BusinessException.class, () -> dataIsolationAspect.handleDataIsolation(joinPoint));
+    }
+
     private void setupMethodMock(boolean enabled, boolean skipAdmin) {
         when(joinPoint.getSignature()).thenReturn(methodSignature);
         Method method;

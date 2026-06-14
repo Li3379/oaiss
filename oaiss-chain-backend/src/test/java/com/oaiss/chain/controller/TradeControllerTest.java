@@ -10,8 +10,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
-import org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
@@ -21,7 +19,6 @@ import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
@@ -37,12 +34,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * TradeController Unit Tests
  * 碳交易控制器单元测试
  */
-@WebMvcTest(value = TradeController.class, 
-        excludeAutoConfiguration = {
-                org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration.class,
-                org.springframework.boot.autoconfigure.data.jpa.JpaRepositoriesAutoConfiguration.class
-        })
-@ActiveProfiles("test")
+@WebMvcTest(controllers = TradeController.class)
 @AutoConfigureMockMvc(addFilters = false)
 class TradeControllerTest {
 
@@ -674,8 +666,8 @@ class TradeControllerTest {
     void testListMyTradesForbidden() throws Exception {
         // Given - Admin cannot access my-trades (admin uses /list)
         // Note: Security filters are disabled, authorization handled by service
-        UsernamePasswordAuthenticationToken authentication = 
-                new UsernamePasswordAuthenticationToken(adminUser, null, 
+        UsernamePasswordAuthenticationToken authentication =
+                new UsernamePasswordAuthenticationToken(adminUser, null,
                         List.of(new SimpleGrantedAuthority("ROLE_ADMIN")));
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
@@ -691,5 +683,110 @@ class TradeControllerTest {
 
         verify(tradeService, times(1)).listMyTrades(
                 any(JwtUserDetails.class), isNull(), isNull(), isNull(), isNull(), isNull(), isNull(), isNull(), eq(1), eq(10));
+    }
+
+    // ==================== Branch Coverage: parseDateTime ====================
+
+    @Test
+    @DisplayName("查询我的交易-传入日期格式startTime应解析为当天零点")
+    void testListMyTrades_DateOnlyStartTime() throws Exception {
+        UsernamePasswordAuthenticationToken authentication =
+                new UsernamePasswordAuthenticationToken(enterpriseUser, null,
+                        List.of(new SimpleGrantedAuthority("ROLE_ENTERPRISE")));
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+
+        Page<TradeResponse> page = new PageImpl<>(List.of(tradeResponse));
+        // parseDateTime("2024-06-15") -> LocalDate.parse -> 2024-06-15T00:00
+        when(tradeService.listMyTrades(
+                any(JwtUserDetails.class), isNull(), isNull(), isNull(), isNull(), isNull(),
+                eq(java.time.LocalDateTime.of(2024, 6, 15, 0, 0, 0)), isNull(), eq(1), eq(10)))
+                .thenReturn(page);
+
+        mockMvc.perform(get("/trade/my-trades")
+                        .param("startTime", "2024-06-15"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200));
+
+        verify(tradeService).listMyTrades(
+                any(JwtUserDetails.class), isNull(), isNull(), isNull(), isNull(), isNull(),
+                eq(java.time.LocalDateTime.of(2024, 6, 15, 0, 0, 0)), isNull(), eq(1), eq(10));
+    }
+
+    @Test
+    @DisplayName("查询我的交易-传入无效时间字符串应解析为null")
+    void testListMyTrades_InvalidTimeFormat() throws Exception {
+        UsernamePasswordAuthenticationToken authentication =
+                new UsernamePasswordAuthenticationToken(enterpriseUser, null,
+                        List.of(new SimpleGrantedAuthority("ROLE_ENTERPRISE")));
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+
+        Page<TradeResponse> page = new PageImpl<>(List.of(tradeResponse));
+        // parseDateTime("not-a-date") -> fails both patterns -> returns null
+        when(tradeService.listMyTrades(
+                any(JwtUserDetails.class), isNull(), isNull(), isNull(), isNull(), isNull(),
+                isNull(), isNull(), eq(1), eq(10)))
+                .thenReturn(page);
+
+        mockMvc.perform(get("/trade/my-trades")
+                        .param("startTime", "not-a-date"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200));
+
+        verify(tradeService).listMyTrades(
+                any(JwtUserDetails.class), isNull(), isNull(), isNull(), isNull(), isNull(),
+                isNull(), isNull(), eq(1), eq(10));
+    }
+
+    @Test
+    @DisplayName("查询我的交易-传入完整日期时间格式应正确解析")
+    void testListMyTrades_FullDateTimeFormat() throws Exception {
+        UsernamePasswordAuthenticationToken authentication =
+                new UsernamePasswordAuthenticationToken(enterpriseUser, null,
+                        List.of(new SimpleGrantedAuthority("ROLE_ENTERPRISE")));
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+
+        Page<TradeResponse> page = new PageImpl<>(List.of(tradeResponse));
+        java.time.LocalDateTime expectedStart = java.time.LocalDateTime.of(2024, 6, 15, 10, 30, 0);
+        java.time.LocalDateTime expectedEnd = java.time.LocalDateTime.of(2024, 6, 20, 18, 0, 0);
+        when(tradeService.listMyTrades(
+                any(JwtUserDetails.class), isNull(), isNull(), isNull(), isNull(), isNull(),
+                eq(expectedStart), eq(expectedEnd), eq(1), eq(10)))
+                .thenReturn(page);
+
+        mockMvc.perform(get("/trade/my-trades")
+                        .param("startTime", "2024-06-15 10:30:00")
+                        .param("endTime", "2024-06-20 18:00:00"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200));
+
+        verify(tradeService).listMyTrades(
+                any(JwtUserDetails.class), isNull(), isNull(), isNull(), isNull(), isNull(),
+                eq(expectedStart), eq(expectedEnd), eq(1), eq(10));
+    }
+
+    @Test
+    @DisplayName("查询我的交易-传入空白字符串时间应视为null")
+    void testListMyTrades_BlankTimeString() throws Exception {
+        UsernamePasswordAuthenticationToken authentication =
+                new UsernamePasswordAuthenticationToken(enterpriseUser, null,
+                        List.of(new SimpleGrantedAuthority("ROLE_ENTERPRISE")));
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+
+        Page<TradeResponse> page = new PageImpl<>(List.of(tradeResponse));
+        // parseDateTime("   ") -> isBlank() -> returns null
+        when(tradeService.listMyTrades(
+                any(JwtUserDetails.class), isNull(), isNull(), isNull(), isNull(), isNull(),
+                isNull(), isNull(), eq(1), eq(10)))
+                .thenReturn(page);
+
+        mockMvc.perform(get("/trade/my-trades")
+                        .param("startTime", "   ")
+                        .param("endTime", "   "))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200));
+
+        verify(tradeService).listMyTrades(
+                any(JwtUserDetails.class), isNull(), isNull(), isNull(), isNull(), isNull(),
+                isNull(), isNull(), eq(1), eq(10));
     }
 }

@@ -81,4 +81,30 @@ class MlServiceConfigTest {
         RecordedRequest request = mockWebServer.takeRequest();
         assertNull(request.getHeader("X-ML-Service-Secret"));
     }
+
+    @Test
+    @DisplayName("ML service secret为null时不应附加请求头")
+    void mlWebClient_withNullSecret_shouldNotAttachHeader() throws Exception {
+        MlServiceConfig config = new MlServiceConfig();
+        config.setUrl(mockWebServer.url("/").toString());
+        config.setSecret(null);
+        config.setConnectTimeout(Duration.ofSeconds(2));
+        config.setReadTimeout(Duration.ofSeconds(2));
+
+        WebClient webClient = config.mlWebClient(WebClient.builder());
+
+        mockWebServer.enqueue(new MockResponse()
+                .setBody("{\"ok\":true}")
+                .setHeader("Content-Type", "application/json"));
+
+        webClient.post()
+                .uri("/predict/emission/forecast")
+                .bodyValue("{\"sample\":true}")
+                .retrieve()
+                .bodyToMono(String.class)
+                .block(Duration.ofSeconds(5));
+
+        RecordedRequest request = mockWebServer.takeRequest();
+        assertNull(request.getHeader("X-ML-Service-Secret"));
+    }
 }

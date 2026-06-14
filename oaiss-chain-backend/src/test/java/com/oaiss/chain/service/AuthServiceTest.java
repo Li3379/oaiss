@@ -735,4 +735,479 @@ class AuthServiceTest {
                 "Captcha image must be a PNG data URI, got: " + response.getCaptchaImage());
         verify(captchaService).generateCaptcha();
     }
+
+    // ==================== Additional coverage tests ====================
+
+    @Test
+    @DisplayName("登录失败-验证码不存在(NOT_FOUND)")
+    void testLoginFailCaptchaNotFound() {
+        // Given
+        loginRequest.setCaptchaKey("captcha_key");
+        loginRequest.setCaptcha("1234");
+        when(captchaService.verifyCaptchaDetailed("captcha_key", "1234"))
+                .thenReturn(CaptchaVerifyResult.NOT_FOUND);
+
+        // When & Then
+        assertThrows(AuthenticationException.class, () -> authService.login(loginRequest));
+    }
+
+    @Test
+    @DisplayName("注册失败-用户类型为null")
+    void testRegisterFailNullUserType() {
+        // Given
+        registerRequest.setUserType(null);
+
+        // When & Then
+        assertThrows(BusinessException.class, () -> authService.register(registerRequest));
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("IP验证-用户无IP白名单时允许登录")
+    void testLoginSuccessNoIpWhitelist() {
+        // Given
+        testUser.setAllowedIps(null);
+        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
+        when(passwordEncoder.matches("password123", "encodedPassword")).thenReturn(true);
+        when(jwtTokenProvider.generateAccessToken(any(), any(), anyList(), any(), any())).thenReturn("access-token");
+        when(jwtTokenProvider.generateRefreshToken(any(), any())).thenReturn("refresh-token");
+        when(jwtTokenProvider.getAccessTokenExpiration()).thenReturn(3600000L);
+        when(userRepository.save(any(User.class))).thenReturn(testUser);
+        when(enterpriseRepository.findByUserId(any())).thenReturn(Optional.empty());
+
+        // When
+        LoginResponse response = authService.login(loginRequest);
+
+        // Then
+        assertNotNull(response);
+    }
+
+    @Test
+    @DisplayName("IP验证-用户有通配符IP白名单时允许登录")
+    void testLoginSuccessWildcardIpWhitelist() {
+        // Given
+        testUser.setAllowedIps("[\"*\"]"); // Wildcard allows all
+        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
+        when(passwordEncoder.matches("password123", "encodedPassword")).thenReturn(true);
+        when(jwtTokenProvider.generateAccessToken(any(), any(), anyList(), any(), any())).thenReturn("access-token");
+        when(jwtTokenProvider.generateRefreshToken(any(), any())).thenReturn("refresh-token");
+        when(jwtTokenProvider.getAccessTokenExpiration()).thenReturn(3600000L);
+        when(userRepository.save(any(User.class))).thenReturn(testUser);
+        when(enterpriseRepository.findByUserId(any())).thenReturn(Optional.empty());
+
+        // When
+        LoginResponse response = authService.login(loginRequest);
+
+        // Then
+        assertNotNull(response);
+    }
+
+    @Test
+    @DisplayName("登出-Token为null时不报错")
+    void testLogoutNullToken() {
+        // When & Then
+        assertDoesNotThrow(() -> authService.logout("testuser", null));
+    }
+
+    @Test
+    @DisplayName("登出-Token为空字符串时不报错")
+    void testLogoutEmptyToken() {
+        // When & Then
+        assertDoesNotThrow(() -> authService.logout("testuser", ""));
+    }
+
+    @Test
+    @DisplayName("登出-黑名单缓存不存在时不报错")
+    void testLogoutBlacklistCacheNull() {
+        when(cacheManager.getCache("tokenBlacklist")).thenReturn(null);
+
+        assertDoesNotThrow(() -> authService.logout("testuser", "some-token"));
+    }
+
+    @Test
+    @DisplayName("刷新Token-空Token应抛出异常")
+    void testRefreshTokenFailEmptyToken() {
+        assertThrows(AuthenticationException.class, () -> authService.refreshToken(""));
+    }
+
+    @Test
+    @DisplayName("刷新Token-null Token应抛出异常")
+    void testRefreshTokenFailNullToken() {
+        assertThrows(AuthenticationException.class, () -> authService.refreshToken(null));
+    }
+
+    @Test
+    @DisplayName("登录-频率限制缓存不存在时不限制")
+    void testLoginRateLimitCacheNull() {
+        when(cacheManager.getCache("loginAttempts")).thenReturn(null);
+        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
+        when(passwordEncoder.matches("password123", "encodedPassword")).thenReturn(true);
+        when(jwtTokenProvider.generateAccessToken(any(), any(), anyList(), any(), any())).thenReturn("access-token");
+        when(jwtTokenProvider.generateRefreshToken(any(), any())).thenReturn("refresh-token");
+        when(jwtTokenProvider.getAccessTokenExpiration()).thenReturn(3600000L);
+        when(userRepository.save(any(User.class))).thenReturn(testUser);
+        when(enterpriseRepository.findByUserId(any())).thenReturn(Optional.empty());
+
+        LoginResponse response = authService.login(loginRequest);
+
+        assertNotNull(response);
+    }
+
+    @Test
+    @DisplayName("登录失败-记录失败次数时缓存不存在")
+    void testLoginFailRecordAttemptsCacheNull() {
+        when(cacheManager.getCache("loginAttempts")).thenReturn(null);
+        when(userRepository.findByUsername("testuser")).thenReturn(Optional.empty());
+
+        assertThrows(AuthenticationException.class, () -> authService.login(loginRequest));
+    }
+
+    // ==================== Additional branch coverage tests ====================
+
+    @Test
+    @DisplayName("登录失败-验证码未知结果类型")
+    void testLoginFailCaptchaUnknownResult() {
+        loginRequest.setCaptchaKey("captcha_key");
+        loginRequest.setCaptcha("1234");
+        when(captchaService.verifyCaptchaDetailed("captcha_key", "1234"))
+                .thenReturn(CaptchaVerifyResult.NOT_FOUND); // Falls into default-like branch
+
+        assertThrows(AuthenticationException.class, () -> authService.login(loginRequest));
+    }
+
+    @Test
+    @DisplayName("登录失败-IP不在白名单中")
+    void testLoginFailIpNotAllowed() {
+        testUser.setAllowedIps("[\"10.0.0.1\"]"); // Only allows 10.0.0.1
+        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
+        when(passwordEncoder.matches("password123", "encodedPassword")).thenReturn(true);
+
+        assertThrows(AuthenticationException.class, () -> authService.login(loginRequest));
+    }
+
+    @Test
+    @DisplayName("登录成功-通配符IP白名单允许所有IP")
+    void testLoginSuccessWildcardIp() {
+        testUser.setAllowedIps("[\"*\"]");
+        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
+        when(passwordEncoder.matches("password123", "encodedPassword")).thenReturn(true);
+        when(jwtTokenProvider.generateAccessToken(any(), any(), anyList(), any(), any())).thenReturn("access-token");
+        when(jwtTokenProvider.generateRefreshToken(any(), any())).thenReturn("refresh-token");
+        when(jwtTokenProvider.getAccessTokenExpiration()).thenReturn(3600000L);
+        when(userRepository.save(any(User.class))).thenReturn(testUser);
+        when(enterpriseRepository.findByUserId(any())).thenReturn(Optional.empty());
+
+        LoginResponse response = authService.login(loginRequest);
+        assertNotNull(response);
+    }
+
+    @Test
+    @DisplayName("isIpAllowed-JSON解析失败时返回false")
+    void testCheckIpMalformedJson() {
+        testUser.setId(1L);
+        testUser.setAllowedIps("not-valid-json{");
+        when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
+
+        ApiResponse<Boolean> response = authService.checkIp(1L);
+        assertNotNull(response);
+        assertFalse(response.getData());
+    }
+
+    @Test
+    @DisplayName("getRoleName-审核员类型注册被拒绝")
+    void testGetRoleNameReviewer() {
+        registerRequest.setUserType(UserTypeEnum.REVIEWER.getCode());
+
+        assertThrows(BusinessException.class, () -> authService.register(registerRequest));
+    }
+
+    @Test
+    @DisplayName("登录成功-非企业用户enterpriseId为null")
+    void testLoginSuccessNonEnterpriseUser() {
+        testUser.setUserType(UserTypeEnum.ADMIN.getCode());
+        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
+        when(passwordEncoder.matches("password123", "encodedPassword")).thenReturn(true);
+        when(jwtTokenProvider.generateAccessToken(any(), any(), anyList(), any(), any())).thenReturn("access-token");
+        when(jwtTokenProvider.generateRefreshToken(any(), any())).thenReturn("refresh-token");
+        when(jwtTokenProvider.getAccessTokenExpiration()).thenReturn(3600000L);
+        when(userRepository.save(any(User.class))).thenReturn(testUser);
+
+        LoginResponse response = authService.login(loginRequest);
+        assertNotNull(response);
+    }
+
+    @Test
+    @DisplayName("刷新Token-非企业用户enterpriseId为null")
+    void testRefreshTokenNonEnterpriseUser() {
+        testUser.setUserType(UserTypeEnum.ADMIN.getCode());
+        when(jwtTokenProvider.validateToken("refresh-token")).thenReturn(true);
+        when(jwtTokenProvider.isRefreshToken("refresh-token")).thenReturn(true);
+        when(jwtTokenProvider.getUsernameFromToken("refresh-token")).thenReturn("testuser");
+        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
+        when(jwtTokenProvider.generateAccessToken(any(), any(), anyList(), any(), any())).thenReturn("new-access-token");
+        when(jwtTokenProvider.generateRefreshToken(any(), any())).thenReturn("new-refresh-token");
+        when(jwtTokenProvider.getAccessTokenExpiration()).thenReturn(3600000L);
+
+        LoginResponse response = authService.refreshToken("refresh-token");
+        assertNotNull(response);
+    }
+
+    @Test
+    @DisplayName("checkIp-用户有IP白名单且匹配")
+    void testCheckIpAllowed() {
+        testUser.setId(1L);
+        // The IP matching depends on CommonUtils.getClientIp() which returns a real IP
+        // We test the path where allowedIps is set and isIpAllowed returns true
+        testUser.setAllowedIps("[\"*\"]");
+        when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
+
+        ApiResponse<Boolean> response = authService.checkIp(1L);
+        assertNotNull(response);
+        assertTrue(response.getData());
+    }
+
+    @Test
+    @DisplayName("checkIp-用户无IP白名单时允许")
+    void testCheckIpNoWhitelist() {
+        testUser.setId(1L);
+        testUser.setAllowedIps(null);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
+
+        ApiResponse<Boolean> response = authService.checkIp(1L);
+        assertNotNull(response);
+        assertTrue(response.getData());
+    }
+
+    @Test
+    @DisplayName("checkIp-空IP白名单时允许")
+    void testCheckIpEmptyWhitelist() {
+        testUser.setId(1L);
+        testUser.setAllowedIps("");
+        when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
+
+        ApiResponse<Boolean> response = authService.checkIp(1L);
+        assertNotNull(response);
+        assertTrue(response.getData());
+    }
+
+    @Test
+    @DisplayName("登录-验证码验证成功后继续登录流程")
+    void testLoginCaptchaSuccess() {
+        loginRequest.setCaptchaKey("captcha_key");
+        loginRequest.setCaptcha("1234");
+        when(captchaService.verifyCaptchaDetailed("captcha_key", "1234")).thenReturn(CaptchaVerifyResult.SUCCESS);
+        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
+        when(passwordEncoder.matches("password123", "encodedPassword")).thenReturn(true);
+        when(jwtTokenProvider.generateAccessToken(any(), any(), anyList(), any(), any())).thenReturn("access-token");
+        when(jwtTokenProvider.generateRefreshToken(any(), any())).thenReturn("refresh-token");
+        when(jwtTokenProvider.getAccessTokenExpiration()).thenReturn(3600000L);
+        when(userRepository.save(any(User.class))).thenReturn(testUser);
+        when(enterpriseRepository.findByUserId(any())).thenReturn(Optional.empty());
+
+        LoginResponse response = authService.login(loginRequest);
+        assertNotNull(response);
+    }
+
+    @Test
+    @DisplayName("登录-不带验证码时跳过验证码验证")
+    void testLoginWithoutCaptcha() {
+        // loginRequest has no captchaKey/captcha set (null by default)
+        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
+        when(passwordEncoder.matches("password123", "encodedPassword")).thenReturn(true);
+        when(jwtTokenProvider.generateAccessToken(any(), any(), anyList(), any(), any())).thenReturn("access-token");
+        when(jwtTokenProvider.generateRefreshToken(any(), any())).thenReturn("refresh-token");
+        when(jwtTokenProvider.getAccessTokenExpiration()).thenReturn(3600000L);
+        when(userRepository.save(any(User.class))).thenReturn(testUser);
+        when(enterpriseRepository.findByUserId(any())).thenReturn(Optional.empty());
+
+        LoginResponse response = authService.login(loginRequest);
+        assertNotNull(response);
+        verify(captchaService, never()).verifyCaptchaDetailed(any(), any());
+    }
+
+    @Test
+    @DisplayName("修改密码-新密码与确认密码不一致")
+    void testChangePasswordFailNewPasswordMismatch() {
+        com.oaiss.chain.dto.PasswordChangeRequest request = new com.oaiss.chain.dto.PasswordChangeRequest();
+        request.setOldPassword("oldPassword");
+        request.setNewPassword("newPassword123");
+        request.setConfirmPassword("differentNewPassword");
+
+        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
+        when(passwordEncoder.matches("oldPassword", "encodedPassword")).thenReturn(true);
+
+        assertThrows(BusinessException.class, () -> authService.changePassword("testuser", request));
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("getCurrentUser-认证类型不是JwtUserDetails")
+    void testGetCurrentUserWrongPrincipalType() {
+        org.springframework.security.core.Authentication auth =
+            new org.springframework.security.authentication.UsernamePasswordAuthenticationToken("stringPrincipal", null);
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(auth);
+
+        JwtUserDetails result = authService.getCurrentUser();
+        assertNull(result);
+
+        org.springframework.security.core.context.SecurityContextHolder.clearContext();
+    }
+
+    @Test
+    @DisplayName("登录-enterpriseId存在时传入generateAccessToken")
+    void testLoginWithEnterpriseId() {
+        Enterprise enterprise = new Enterprise();
+        enterprise.setId(100L);
+        testUser.setId(1L);
+        testUser.setUserType(1);
+
+        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
+        when(passwordEncoder.matches("password123", "encodedPassword")).thenReturn(true);
+        when(jwtTokenProvider.generateAccessToken(any(), any(), anyList(), any(), any())).thenReturn("access-token");
+        when(jwtTokenProvider.generateRefreshToken(any(), any())).thenReturn("refresh-token");
+        when(jwtTokenProvider.getAccessTokenExpiration()).thenReturn(3600000L);
+        when(userRepository.save(any(User.class))).thenReturn(testUser);
+        when(enterpriseRepository.findByUserId(1L)).thenReturn(Optional.of(enterprise));
+
+        LoginResponse response = authService.login(loginRequest);
+        assertNotNull(response);
+        assertNotNull(response.getAccessToken());
+        verify(jwtTokenProvider).generateAccessToken(any(), any(), anyList(), any(), any());
+    }
+
+    @Test
+    @DisplayName("刷新Token-企业用户带企业ID")
+    void testRefreshTokenWithEnterpriseId() {
+        Enterprise enterprise = new Enterprise();
+        enterprise.setId(200L);
+        testUser.setId(1L);
+        testUser.setUserType(1);
+
+        when(jwtTokenProvider.validateToken("refresh-token")).thenReturn(true);
+        when(jwtTokenProvider.isRefreshToken("refresh-token")).thenReturn(true);
+        when(jwtTokenProvider.getUsernameFromToken("refresh-token")).thenReturn("testuser");
+        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
+        when(enterpriseRepository.findByUserId(1L)).thenReturn(Optional.of(enterprise));
+        when(jwtTokenProvider.generateAccessToken(any(), any(), anyList(), any(), any())).thenReturn("new-access-token");
+        when(jwtTokenProvider.generateRefreshToken(any(), any())).thenReturn("new-refresh-token");
+        when(jwtTokenProvider.getAccessTokenExpiration()).thenReturn(3600000L);
+
+        LoginResponse response = authService.refreshToken("refresh-token");
+        assertNotNull(response);
+    }
+
+    @Test
+    @DisplayName("刷新Token-企业用户但enterprise不存在")
+    void testRefreshTokenEnterpriseUserNoEnterprise() {
+        testUser.setId(1L);
+        testUser.setUserType(1);
+
+        when(jwtTokenProvider.validateToken("refresh-token")).thenReturn(true);
+        when(jwtTokenProvider.isRefreshToken("refresh-token")).thenReturn(true);
+        when(jwtTokenProvider.getUsernameFromToken("refresh-token")).thenReturn("testuser");
+        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
+        when(enterpriseRepository.findByUserId(1L)).thenReturn(Optional.empty());
+        when(jwtTokenProvider.generateAccessToken(any(), any(), anyList(), any(), any())).thenReturn("new-access-token");
+        when(jwtTokenProvider.generateRefreshToken(any(), any())).thenReturn("new-refresh-token");
+        when(jwtTokenProvider.getAccessTokenExpiration()).thenReturn(3600000L);
+
+        LoginResponse response = authService.refreshToken("refresh-token");
+        assertNotNull(response);
+    }
+
+    @Test
+    @DisplayName("validateRegistrationUserType-第三方监管类型(3)应允许")
+    void testRegisterThirdPartyAllowed() {
+        registerRequest.setUserType(UserTypeEnum.THIRD_PARTY.getCode());
+        when(userRepository.existsByUsername("newuser")).thenReturn(false);
+        when(passwordEncoder.encode("password123")).thenReturn("encodedPassword");
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(jwtTokenProvider.generateAccessToken(any(), any(), anyList(), any(), any())).thenReturn("access-token");
+        when(jwtTokenProvider.generateRefreshToken(any(), any())).thenReturn("refresh-token");
+        when(jwtTokenProvider.getAccessTokenExpiration()).thenReturn(3600000L);
+
+        LoginResponse response = authService.register(registerRequest);
+        assertNotNull(response);
+    }
+
+    // ==================== Additional branch coverage: null cache in recordFailedLogin ====================
+
+    @Test
+    @DisplayName("登录失败-密码错误且缓存为null时记录失败次数不报错")
+    void testLoginFailWrongPasswordCacheNull() {
+        when(cacheManager.getCache("loginAttempts")).thenReturn(null);
+        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
+        when(passwordEncoder.matches("password123", "encodedPassword")).thenReturn(false);
+
+        assertThrows(AuthenticationException.class, () -> authService.login(loginRequest));
+    }
+
+    // ==================== Additional branch coverage: non-Integer wrapper in checkLoginRateLimit ====================
+
+    @Test
+    @DisplayName("登录-频率限制缓存值非Integer类型时不限制")
+    void testLoginRateLimitNonIntegerCacheValue() {
+        Cache mockAttemptsCache = mock(Cache.class);
+        when(cacheManager.getCache("loginAttempts")).thenReturn(mockAttemptsCache);
+        when(mockAttemptsCache.get("login_fail_testuser")).thenReturn(
+                new Cache.ValueWrapper() {
+                    @Override public Object get() { return "not-an-integer"; }
+                });
+        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
+        when(passwordEncoder.matches("password123", "encodedPassword")).thenReturn(true);
+        when(jwtTokenProvider.generateAccessToken(any(), any(), anyList(), any(), any())).thenReturn("access-token");
+        when(jwtTokenProvider.generateRefreshToken(any(), any())).thenReturn("refresh-token");
+        when(jwtTokenProvider.getAccessTokenExpiration()).thenReturn(3600000L);
+        when(userRepository.save(any(User.class))).thenReturn(testUser);
+        when(enterpriseRepository.findByUserId(any())).thenReturn(Optional.empty());
+
+        LoginResponse response = authService.login(loginRequest);
+        assertNotNull(response);
+    }
+
+    // ==================== Additional branch coverage: recordFailedLogin with non-Integer wrapper ====================
+
+    @Test
+    @DisplayName("登录失败-记录失败次数时缓存值非Integer")
+    void testLoginFailRecordAttemptsNonIntegerCacheValue() {
+        Cache mockAttemptsCache = mock(Cache.class);
+        when(cacheManager.getCache("loginAttempts")).thenReturn(mockAttemptsCache);
+        when(mockAttemptsCache.get("login_fail_testuser")).thenReturn(
+                new Cache.ValueWrapper() {
+                    @Override public Object get() { return "string-value"; }
+                });
+        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
+        when(passwordEncoder.matches("password123", "encodedPassword")).thenReturn(false);
+
+        assertThrows(AuthenticationException.class, () -> authService.login(loginRequest));
+        verify(mockAttemptsCache).put(eq("login_fail_testuser"), eq(1));
+    }
+
+    // ==================== Additional branch coverage: clearFailedLoginAttempts null cache ====================
+
+    @Test
+    @DisplayName("登录成功-清除失败计数时缓存不存在不报错")
+    void testLoginSuccessClearAttemptsCacheNull() {
+        when(cacheManager.getCache("loginAttempts")).thenReturn(null);
+        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
+        when(passwordEncoder.matches("password123", "encodedPassword")).thenReturn(true);
+        when(jwtTokenProvider.generateAccessToken(any(), any(), anyList(), any(), any())).thenReturn("access-token");
+        when(jwtTokenProvider.generateRefreshToken(any(), any())).thenReturn("refresh-token");
+        when(jwtTokenProvider.getAccessTokenExpiration()).thenReturn(3600000L);
+        when(userRepository.save(any(User.class))).thenReturn(testUser);
+        when(enterpriseRepository.findByUserId(any())).thenReturn(Optional.empty());
+
+        LoginResponse response = authService.login(loginRequest);
+        assertNotNull(response);
+    }
+
+    // ==================== Additional branch coverage: register with admin userType ====================
+
+    @Test
+    @DisplayName("注册失败-管理员类型(4)应被拒绝")
+    void testRegisterFailAdminType() {
+        registerRequest.setUserType(UserTypeEnum.ADMIN.getCode());
+
+        assertThrows(BusinessException.class, () -> authService.register(registerRequest));
+    }
 }

@@ -167,4 +167,185 @@ class FabricCAServiceTest {
                 .build(keyPair.getPrivate());
         return new JcaX509CertificateConverter().getCertificate(certBuilder.build(signer));
     }
+
+    @Test
+    void registerEnrollment_extractsCertFromRootLevelCertKey() throws Exception {
+        KeyPair testKeyPair = KeyPairGenerator.getInstance("EC").generateKeyPair();
+        X509Certificate testCert = generateSelfSignedCert(testKeyPair);
+        String certBase64 = Base64.getEncoder().encodeToString(testCert.getEncoded());
+        String caResponseJson = "{\"cert\":\"" + certBase64 + "\"}";
+
+        WebClient webClient = mock(WebClient.class);
+        WebClient.RequestBodyUriSpec requestBodyUriSpec = mock(WebClient.RequestBodyUriSpec.class);
+        WebClient.RequestHeadersSpec<?> headersSpec = mock(WebClient.RequestHeadersSpec.class);
+        WebClient.ResponseSpec responseSpec = mock(WebClient.ResponseSpec.class);
+
+        when(webClientBuilder.build()).thenReturn(webClient);
+        when(webClient.post()).thenReturn(requestBodyUriSpec);
+        when(requestBodyUriSpec.uri(anyString())).thenReturn(requestBodyUriSpec);
+        when(requestBodyUriSpec.header(anyString(), anyString())).thenReturn(requestBodyUriSpec);
+        doReturn(headersSpec).when(requestBodyUriSpec).bodyValue(any());
+        when(headersSpec.retrieve()).thenReturn(responseSpec);
+        when(responseSpec.bodyToMono(String.class)).thenReturn(Mono.just(caResponseJson));
+
+        FabricCAService service = new FabricCAService(props, webClientBuilder);
+        FabricCAService.EnrollmentResult result = service.registerEnrollment();
+
+        assertNotNull(result);
+        assertNotNull(result.identity());
+    }
+
+    @Test
+    void registerEnrollment_extractsCertFromRootLevelCertCapitalKey() throws Exception {
+        KeyPair testKeyPair = KeyPairGenerator.getInstance("EC").generateKeyPair();
+        X509Certificate testCert = generateSelfSignedCert(testKeyPair);
+        String certBase64 = Base64.getEncoder().encodeToString(testCert.getEncoded());
+        String caResponseJson = "{\"Cert\":\"" + certBase64 + "\"}";
+
+        WebClient webClient = mock(WebClient.class);
+        WebClient.RequestBodyUriSpec requestBodyUriSpec = mock(WebClient.RequestBodyUriSpec.class);
+        WebClient.RequestHeadersSpec<?> headersSpec = mock(WebClient.RequestHeadersSpec.class);
+        WebClient.ResponseSpec responseSpec = mock(WebClient.ResponseSpec.class);
+
+        when(webClientBuilder.build()).thenReturn(webClient);
+        when(webClient.post()).thenReturn(requestBodyUriSpec);
+        when(requestBodyUriSpec.uri(anyString())).thenReturn(requestBodyUriSpec);
+        when(requestBodyUriSpec.header(anyString(), anyString())).thenReturn(requestBodyUriSpec);
+        doReturn(headersSpec).when(requestBodyUriSpec).bodyValue(any());
+        when(headersSpec.retrieve()).thenReturn(responseSpec);
+        when(responseSpec.bodyToMono(String.class)).thenReturn(Mono.just(caResponseJson));
+
+        FabricCAService service = new FabricCAService(props, webClientBuilder);
+        FabricCAService.EnrollmentResult result = service.registerEnrollment();
+
+        assertNotNull(result);
+        assertNotNull(result.identity());
+    }
+
+    @Test
+    void registerEnrollment_extractsCertFromResultCertLowercase() throws Exception {
+        KeyPair testKeyPair = KeyPairGenerator.getInstance("EC").generateKeyPair();
+        X509Certificate testCert = generateSelfSignedCert(testKeyPair);
+        String certBase64 = Base64.getEncoder().encodeToString(testCert.getEncoded());
+        String caResponseJson = "{\"result\":{\"cert\":\"" + certBase64 + "\"}}";
+
+        WebClient webClient = mock(WebClient.class);
+        WebClient.RequestBodyUriSpec requestBodyUriSpec = mock(WebClient.RequestBodyUriSpec.class);
+        WebClient.RequestHeadersSpec<?> headersSpec = mock(WebClient.RequestHeadersSpec.class);
+        WebClient.ResponseSpec responseSpec = mock(WebClient.ResponseSpec.class);
+
+        when(webClientBuilder.build()).thenReturn(webClient);
+        when(webClient.post()).thenReturn(requestBodyUriSpec);
+        when(requestBodyUriSpec.uri(anyString())).thenReturn(requestBodyUriSpec);
+        when(requestBodyUriSpec.header(anyString(), anyString())).thenReturn(requestBodyUriSpec);
+        doReturn(headersSpec).when(requestBodyUriSpec).bodyValue(any());
+        when(headersSpec.retrieve()).thenReturn(responseSpec);
+        when(responseSpec.bodyToMono(String.class)).thenReturn(Mono.just(caResponseJson));
+
+        FabricCAService service = new FabricCAService(props, webClientBuilder);
+        FabricCAService.EnrollmentResult result = service.registerEnrollment();
+
+        assertNotNull(result);
+        assertNotNull(result.identity());
+    }
+
+    @Test
+    void registerEnrollment_throwsWhenNoCertInResponse() {
+        String caResponseJson = "{\"result\":{\"data\":\"no cert here\"}}";
+
+        WebClient webClient = mock(WebClient.class);
+        WebClient.RequestBodyUriSpec requestBodyUriSpec = mock(WebClient.RequestBodyUriSpec.class);
+        WebClient.RequestHeadersSpec<?> headersSpec = mock(WebClient.RequestHeadersSpec.class);
+        WebClient.ResponseSpec responseSpec = mock(WebClient.ResponseSpec.class);
+
+        when(webClientBuilder.build()).thenReturn(webClient);
+        when(webClient.post()).thenReturn(requestBodyUriSpec);
+        when(requestBodyUriSpec.uri(anyString())).thenReturn(requestBodyUriSpec);
+        when(requestBodyUriSpec.header(anyString(), anyString())).thenReturn(requestBodyUriSpec);
+        doReturn(headersSpec).when(requestBodyUriSpec).bodyValue(any());
+        when(headersSpec.retrieve()).thenReturn(responseSpec);
+        when(responseSpec.bodyToMono(String.class)).thenReturn(Mono.just(caResponseJson));
+
+        FabricCAService service = new FabricCAService(props, webClientBuilder);
+        RuntimeException ex = assertThrows(RuntimeException.class, service::registerEnrollment);
+        assertTrue(ex.getMessage().contains("Fabric CA enrollment failed"));
+    }
+
+    @Test
+    void registerEnrollment_redactsPasswordFromErrorMessage() {
+        // Mock WebClient to throw an exception with basic auth credentials in message
+        WebClient webClient = mock(WebClient.class);
+        WebClient.RequestBodyUriSpec requestBodyUriSpec = mock(WebClient.RequestBodyUriSpec.class);
+        WebClient.RequestHeadersSpec<?> headersSpec = mock(WebClient.RequestHeadersSpec.class);
+        WebClient.ResponseSpec responseSpec = mock(WebClient.ResponseSpec.class);
+
+        when(webClientBuilder.build()).thenReturn(webClient);
+        when(webClient.post()).thenReturn(requestBodyUriSpec);
+        when(requestBodyUriSpec.uri(anyString())).thenReturn(requestBodyUriSpec);
+        when(requestBodyUriSpec.header(anyString(), anyString())).thenReturn(requestBodyUriSpec);
+        doReturn(headersSpec).when(requestBodyUriSpec).bodyValue(any());
+        when(headersSpec.retrieve()).thenReturn(responseSpec);
+        when(responseSpec.bodyToMono(String.class))
+                .thenReturn(Mono.error(new RuntimeException("Basic dXNlcjpwYXNzd29yZA== failed")));
+
+        FabricCAService service = new FabricCAService(props, webClientBuilder);
+        RuntimeException ex = assertThrows(RuntimeException.class, service::registerEnrollment);
+        assertFalse(ex.getMessage().contains("dXNlcjpwYXNzd29yZA=="),
+                "Password should be redacted from error message");
+    }
+
+    @Test
+    void registerEnrollment_handlesNullErrorMessage() {
+        WebClient webClient = mock(WebClient.class);
+        WebClient.RequestBodyUriSpec requestBodyUriSpec = mock(WebClient.RequestBodyUriSpec.class);
+        WebClient.RequestHeadersSpec<?> headersSpec = mock(WebClient.RequestHeadersSpec.class);
+        WebClient.ResponseSpec responseSpec = mock(WebClient.ResponseSpec.class);
+
+        when(webClientBuilder.build()).thenReturn(webClient);
+        when(webClient.post()).thenReturn(requestBodyUriSpec);
+        when(requestBodyUriSpec.uri(anyString())).thenReturn(requestBodyUriSpec);
+        when(requestBodyUriSpec.header(anyString(), anyString())).thenReturn(requestBodyUriSpec);
+        doReturn(headersSpec).when(requestBodyUriSpec).bodyValue(any());
+        when(headersSpec.retrieve()).thenReturn(responseSpec);
+        when(responseSpec.bodyToMono(String.class))
+                .thenReturn(Mono.error(new RuntimeException((String) null)));
+
+        FabricCAService service = new FabricCAService(props, webClientBuilder);
+        RuntimeException ex = assertThrows(RuntimeException.class, service::registerEnrollment);
+        assertTrue(ex.getMessage().contains("unknown error"));
+    }
+
+    // ==================== Additional branch coverage tests ====================
+
+    @Test
+    void registerEnrollment_failsWhenCaUnavailable() {
+        when(webClientBuilder.build()).thenThrow(new RuntimeException("Connection refused"));
+
+        FabricCAService service = new FabricCAService(props, webClientBuilder);
+
+        RuntimeException ex = assertThrows(RuntimeException.class, service::registerEnrollment);
+        assertTrue(ex.getMessage().contains("Fabric CA enrollment failed"));
+        assertFalse(ex.getMessage().contains("secret-password"),
+                "Exception message must not contain admin password");
+    }
+
+    @Test
+    void registerEnrollment_invalidJsonResponse_throwsException() {
+        WebClient webClient = mock(WebClient.class);
+        WebClient.RequestBodyUriSpec requestBodyUriSpec = mock(WebClient.RequestBodyUriSpec.class);
+        WebClient.RequestHeadersSpec<?> headersSpec = mock(WebClient.RequestHeadersSpec.class);
+        WebClient.ResponseSpec responseSpec = mock(WebClient.ResponseSpec.class);
+
+        when(webClientBuilder.build()).thenReturn(webClient);
+        when(webClient.post()).thenReturn(requestBodyUriSpec);
+        when(requestBodyUriSpec.uri(anyString())).thenReturn(requestBodyUriSpec);
+        when(requestBodyUriSpec.header(anyString(), anyString())).thenReturn(requestBodyUriSpec);
+        doReturn(headersSpec).when(requestBodyUriSpec).bodyValue(any());
+        when(headersSpec.retrieve()).thenReturn(responseSpec);
+        when(responseSpec.bodyToMono(String.class)).thenReturn(Mono.just("not-valid-json"));
+
+        FabricCAService service = new FabricCAService(props, webClientBuilder);
+        RuntimeException ex = assertThrows(RuntimeException.class, service::registerEnrollment);
+        assertTrue(ex.getMessage().contains("Fabric CA enrollment failed"));
+    }
 }

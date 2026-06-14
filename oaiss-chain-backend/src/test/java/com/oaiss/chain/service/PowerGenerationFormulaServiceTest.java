@@ -152,4 +152,237 @@ class PowerGenerationFormulaServiceTest {
                 () -> service.calculate(baseRequest));
         assertEquals(ErrorCode.PARAM_ERROR, exception.getCode());
     }
+
+    @Test
+    @DisplayName("脱硫转化率大于1应抛出BusinessException")
+    void calculate_desulfConversionRateGreaterThanOne_throwsBusinessException() {
+        baseRequest.setDesulfConversionRate(new BigDecimal("1.5"));
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> service.calculate(baseRequest));
+        assertEquals(ErrorCode.DATA_OUT_OF_RANGE, exception.getCode());
+        assertTrue(exception.getMessage().contains("脱硫转化率"));
+    }
+
+    @Test
+    @DisplayName("脱硫参数部分为null时不计算脱硫排放")
+    void calculate_partialDesulfParams_zeroDesulfEmission() {
+        baseRequest.setCarbonateConsumed(new BigDecimal("10"));
+        baseRequest.setDesulfEmissionFactor(null); // null → desulf = 0
+        baseRequest.setDesulfConversionRate(new BigDecimal("0.5"));
+
+        PowerGenerationCalculationResponse response = service.calculate(baseRequest);
+
+        assertEquals(0, response.getDesulfurizationEmission().compareTo(BigDecimal.ZERO));
+    }
+
+    @Test
+    @DisplayName("脱硫参数部分为零时不计算脱硫排放")
+    void calculate_zeroDesulfParams_zeroDesulfEmission() {
+        baseRequest.setCarbonateConsumed(BigDecimal.ZERO);
+        baseRequest.setDesulfEmissionFactor(new BigDecimal("0.44"));
+        baseRequest.setDesulfConversionRate(new BigDecimal("0.5"));
+
+        PowerGenerationCalculationResponse response = service.calculate(baseRequest);
+
+        assertEquals(0, response.getDesulfurizationEmission().compareTo(BigDecimal.ZERO));
+    }
+
+    @Test
+    @DisplayName("多种燃料同时计算正确汇总")
+    void calculate_multipleFuels_correctTotal() {
+        baseRequest.setRawCoalFc(new BigDecimal("100"));
+        baseRequest.setRawCoalNcv(new BigDecimal("20"));
+        baseRequest.setRawCoalCc(new BigDecimal("0.025"));
+        baseRequest.setRawCoalOf(new BigDecimal("0.98"));
+
+        baseRequest.setCleanedCoalFc(new BigDecimal("50"));
+        baseRequest.setCleanedCoalNcv(new BigDecimal("25"));
+        baseRequest.setCleanedCoalCc(new BigDecimal("0.030"));
+        baseRequest.setCleanedCoalOf(new BigDecimal("0.95"));
+
+        PowerGenerationCalculationResponse response = service.calculate(baseRequest);
+
+        assertEquals(2, response.getFuelDetails().size());
+        assertTrue(response.getTotalEmission().compareTo(BigDecimal.ZERO) > 0);
+    }
+
+    @Test
+    @DisplayName("FC为零时不添加到燃料详情列表")
+    void calculate_zeroFc_notInFuelDetails() {
+        baseRequest.setRawCoalFc(BigDecimal.ZERO);
+        baseRequest.setRawCoalNcv(new BigDecimal("20"));
+        baseRequest.setRawCoalCc(new BigDecimal("0.025"));
+        baseRequest.setRawCoalOf(new BigDecimal("0.98"));
+
+        PowerGenerationCalculationResponse response = service.calculate(baseRequest);
+
+        assertTrue(response.getFuelDetails().isEmpty());
+    }
+
+    @Test
+    @DisplayName("null脱硫转化率不抛异常")
+    void calculate_nullDesulfConversionRate_noException() {
+        baseRequest.setDesulfConversionRate(null);
+
+        PowerGenerationCalculationResponse response = service.calculate(baseRequest);
+
+        assertNotNull(response);
+        assertEquals(0, response.getDesulfurizationEmission().compareTo(BigDecimal.ZERO));
+    }
+
+    @Test
+    @DisplayName("负数洗精煤消耗量应抛出BusinessException")
+    void calculate_negativeCleanedCoalFc_throwsBusinessException() {
+        baseRequest.setCleanedCoalFc(new BigDecimal("-5"));
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> service.calculate(baseRequest));
+        assertEquals(ErrorCode.DATA_OUT_OF_RANGE, exception.getCode());
+        assertTrue(exception.getMessage().contains("洗精煤"));
+    }
+
+    @Test
+    @DisplayName("洗精煤碳氧化率大于1应抛出BusinessException")
+    void calculate_cleanedCoalOfGreaterThanOne_throwsBusinessException() {
+        baseRequest.setCleanedCoalFc(new BigDecimal("100"));
+        baseRequest.setCleanedCoalOf(new BigDecimal("2.0"));
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> service.calculate(baseRequest));
+        assertEquals(ErrorCode.DATA_OUT_OF_RANGE, exception.getCode());
+        assertTrue(exception.getMessage().contains("洗精煤"));
+    }
+
+    @Test
+    @DisplayName("其他洗煤负消耗量应抛出BusinessException")
+    void calculate_negativeOtherWashedCoalFc_throwsBusinessException() {
+        baseRequest.setOtherWashedCoalFc(new BigDecimal("-10"));
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> service.calculate(baseRequest));
+        assertEquals(ErrorCode.DATA_OUT_OF_RANGE, exception.getCode());
+        assertTrue(exception.getMessage().contains("其他洗煤"));
+    }
+
+    @Test
+    @DisplayName("型煤碳氧化率大于1应抛出BusinessException")
+    void calculate_briquetteOfGreaterThanOne_throwsBusinessException() {
+        baseRequest.setBriquetteFc(new BigDecimal("100"));
+        baseRequest.setBriquetteOf(new BigDecimal("2.0"));
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> service.calculate(baseRequest));
+        assertEquals(ErrorCode.DATA_OUT_OF_RANGE, exception.getCode());
+        assertTrue(exception.getMessage().contains("型煤"));
+    }
+
+    @Test
+    @DisplayName("其他煤负消耗量应抛出BusinessException")
+    void calculate_negativeOtherCoalFc_throwsBusinessException() {
+        baseRequest.setOtherCoalFc(new BigDecimal("-5"));
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> service.calculate(baseRequest));
+        assertEquals(ErrorCode.DATA_OUT_OF_RANGE, exception.getCode());
+        assertTrue(exception.getMessage().contains("其他煤"));
+    }
+
+    @Test
+    @DisplayName("其他煤碳氧化率大于1应抛出BusinessException")
+    void calculate_otherCoalOfGreaterThanOne_throwsBusinessException() {
+        baseRequest.setOtherCoalFc(new BigDecimal("100"));
+        baseRequest.setOtherCoalOf(new BigDecimal("2.0"));
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> service.calculate(baseRequest));
+        assertEquals(ErrorCode.DATA_OUT_OF_RANGE, exception.getCode());
+        assertTrue(exception.getMessage().contains("其他煤"));
+    }
+
+    @Test
+    @DisplayName("型煤负消耗量应抛出BusinessException")
+    void calculate_negativeBriquetteFc_throwsBusinessException() {
+        baseRequest.setBriquetteFc(new BigDecimal("-5"));
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> service.calculate(baseRequest));
+        assertEquals(ErrorCode.DATA_OUT_OF_RANGE, exception.getCode());
+        assertTrue(exception.getMessage().contains("型煤"));
+    }
+
+    @Test
+    @DisplayName("其他洗煤碳氧化率大于1应抛出BusinessException")
+    void calculate_otherWashedCoalOfGreaterThanOne_throwsBusinessException() {
+        baseRequest.setOtherWashedCoalFc(new BigDecimal("100"));
+        baseRequest.setOtherWashedCoalOf(new BigDecimal("2.0"));
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> service.calculate(baseRequest));
+        assertEquals(ErrorCode.DATA_OUT_OF_RANGE, exception.getCode());
+        assertTrue(exception.getMessage().contains("其他洗煤"));
+    }
+
+    @Test
+    @DisplayName("FC已填写但NCV为null时应抛出BusinessException")
+    void calculate_fcSetButNcvNull_throwsBusinessException() {
+        baseRequest.setRawCoalFc(new BigDecimal("100"));
+        baseRequest.setRawCoalNcv(null);
+        baseRequest.setRawCoalCc(new BigDecimal("0.025"));
+        baseRequest.setRawCoalOf(new BigDecimal("0.98"));
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> service.calculate(baseRequest));
+        assertEquals(ErrorCode.PARAM_ERROR, exception.getCode());
+    }
+
+    @Test
+    @DisplayName("FC已填写但CC为null时应抛出BusinessException")
+    void calculate_fcSetButCcNull_throwsBusinessException() {
+        baseRequest.setRawCoalFc(new BigDecimal("100"));
+        baseRequest.setRawCoalNcv(new BigDecimal("20"));
+        baseRequest.setRawCoalCc(null);
+        baseRequest.setRawCoalOf(new BigDecimal("0.98"));
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> service.calculate(baseRequest));
+        assertEquals(ErrorCode.PARAM_ERROR, exception.getCode());
+    }
+
+    @Test
+    @DisplayName("FC已填写但OF为null时应抛出BusinessException")
+    void calculate_fcSetButOfNull_throwsBusinessException() {
+        baseRequest.setRawCoalFc(new BigDecimal("100"));
+        baseRequest.setRawCoalNcv(new BigDecimal("20"));
+        baseRequest.setRawCoalCc(new BigDecimal("0.025"));
+        baseRequest.setRawCoalOf(null);
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> service.calculate(baseRequest));
+        assertEquals(ErrorCode.PARAM_ERROR, exception.getCode());
+    }
+
+    @Test
+    @DisplayName("脱硫排放因子为零时不计算脱硫排放")
+    void calculate_desulfEmissionFactorZero_zeroDesulfEmission() {
+        baseRequest.setCarbonateConsumed(new BigDecimal("10"));
+        baseRequest.setDesulfEmissionFactor(BigDecimal.ZERO);
+        baseRequest.setDesulfConversionRate(new BigDecimal("0.5"));
+
+        PowerGenerationCalculationResponse response = service.calculate(baseRequest);
+
+        assertEquals(0, response.getDesulfurizationEmission().compareTo(BigDecimal.ZERO));
+    }
+
+    @Test
+    @DisplayName("脱硫转化率为零时不计算脱硫排放")
+    void calculate_desulfConversionRateZero_zeroDesulfEmission() {
+        baseRequest.setCarbonateConsumed(new BigDecimal("10"));
+        baseRequest.setDesulfEmissionFactor(new BigDecimal("0.44"));
+        baseRequest.setDesulfConversionRate(BigDecimal.ZERO);
+
+        PowerGenerationCalculationResponse response = service.calculate(baseRequest);
+
+        assertEquals(0, response.getDesulfurizationEmission().compareTo(BigDecimal.ZERO));
+    }
 }

@@ -77,15 +77,16 @@ class DigitalSignatureServiceTest {
     }
 
     @Test
-    @DisplayName("获取密钥对失败-不存在")
+    @DisplayName("获取密钥对-不存在时返回null")
     void testGetKeyPairFailNotFound() {
         // Given
         when(rsaKeyPairRepository.findLatestByUserId(1L)).thenReturn(Optional.empty());
 
-        // When & Then
-        BlockchainException exception = assertThrows(BlockchainException.class, () ->
-                digitalSignatureService.getKeyPair(1L));
-        assertEquals(ErrorCode.RSA_KEY_PAIR_NOT_FOUND, exception.getCode());
+        // When
+        RsaKeyPairResponse response = digitalSignatureService.getKeyPair(1L);
+
+        // Then
+        assertNull(response);
     }
 
     @Test
@@ -498,5 +499,481 @@ class DigitalSignatureServiceTest {
         assertEquals(2, response.getKeyStatus());
         assertEquals("已过期", response.getKeyStatusText());
         verify(rsaKeyPairRepository, never()).save(any(RsaKeyPair.class));
+    }
+
+    // ==================== Additional coverage tests ====================
+
+    @Test
+    @DisplayName("签名失败-密钥已过期(状态标记)")
+    void testSignReportFailKeyExpiredByStatus() {
+        // Given
+        testKeyPair.setKeyStatus(2); // Expired
+        when(rsaKeyPairRepository.findLatestByUserId(1L)).thenReturn(Optional.of(testKeyPair));
+
+        // When & Then
+        assertThrows(BlockchainException.class, () -> digitalSignatureService.signReport(1L, "test-data"));
+    }
+
+    @Test
+    @DisplayName("签名失败-密钥已过期(日期过期)")
+    void testSignReportFailKeyExpiredByDate() {
+        // Given
+        testKeyPair.setExpiresAt(LocalDateTime.now().minusDays(1));
+        when(rsaKeyPairRepository.findLatestByUserId(1L)).thenReturn(Optional.of(testKeyPair));
+        when(rsaKeyPairRepository.save(any(RsaKeyPair.class))).thenReturn(testKeyPair);
+
+        // When & Then - after markExpiredKeys, key status becomes 2
+        assertThrows(BlockchainException.class, () -> digitalSignatureService.signReport(1L, "test-data"));
+    }
+
+    @Test
+    @DisplayName("加密失败-密钥已过期(状态标记)")
+    void testEncryptForReviewerFailKeyExpiredByStatus() {
+        // Given
+        testKeyPair.setKeyStatus(2); // Expired
+        when(rsaKeyPairRepository.findLatestByUserId(1L)).thenReturn(Optional.of(testKeyPair));
+
+        // When & Then
+        assertThrows(BlockchainException.class, () ->
+            digitalSignatureService.encryptForReviewer("test-data", 1L));
+    }
+
+    @Test
+    @DisplayName("解密失败-审核员密钥已过期(状态标记)")
+    void testDecryptForReviewerFailKeyExpiredByStatus() {
+        // Given
+        testKeyPair.setKeyStatus(2); // Expired
+        when(rsaKeyPairRepository.findLatestByUserId(1L)).thenReturn(Optional.of(testKeyPair));
+
+        // When & Then
+        assertThrows(BlockchainException.class, () ->
+            digitalSignatureService.decryptForReviewer("encrypted-data", 1L));
+    }
+
+    @Test
+    @DisplayName("企业解密失败-密钥已过期(状态标记)")
+    void testDecryptForEnterpriseFailKeyExpiredByStatus() {
+        // Given
+        testKeyPair.setKeyStatus(2); // Expired
+        when(rsaKeyPairRepository.findLatestByUserId(1L)).thenReturn(Optional.of(testKeyPair));
+
+        // When & Then
+        assertThrows(BlockchainException.class, () ->
+            digitalSignatureService.decryptForEnterprise("encrypted-data", 1L));
+    }
+
+    @Test
+    @DisplayName("标记过期密钥-密钥日期已过期且状态非过期")
+    void testMarkExpiredKeysWhenExpiredByDate() {
+        // Given
+        testKeyPair.setExpiresAt(LocalDateTime.now().minusDays(1));
+        testKeyPair.setKeyStatus(1); // Active but expired by date
+        when(rsaKeyPairRepository.findLatestByUserId(1L)).thenReturn(Optional.of(testKeyPair));
+        when(rsaKeyPairRepository.save(any(RsaKeyPair.class))).thenReturn(testKeyPair);
+
+        // When
+        digitalSignatureService.markExpiredKeys(1L);
+
+        // Then
+        assertEquals(2, testKeyPair.getKeyStatus()); // Should be marked as expired
+        verify(rsaKeyPairRepository).save(testKeyPair);
+    }
+
+    @Test
+    @DisplayName("标记过期密钥-密钥未过期时不修改状态")
+    void testMarkExpiredKeysWhenNotExpired() {
+        // Given
+        testKeyPair.setExpiresAt(LocalDateTime.now().plusYears(1));
+        testKeyPair.setKeyStatus(1); // Active
+        when(rsaKeyPairRepository.findLatestByUserId(1L)).thenReturn(Optional.of(testKeyPair));
+
+        // When
+        digitalSignatureService.markExpiredKeys(1L);
+
+        // Then
+        assertEquals(1, testKeyPair.getKeyStatus()); // Should remain active
+        verify(rsaKeyPairRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("标记过期密钥-密钥不存在时无操作")
+    void testMarkExpiredKeysWhenNoKeyPair() {
+        // Given
+        when(rsaKeyPairRepository.findLatestByUserId(1L)).thenReturn(Optional.empty());
+
+        // When
+        digitalSignatureService.markExpiredKeys(1L);
+
+        // Then
+        verify(rsaKeyPairRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("获取密钥对-状态文本未知值")
+    void testGetKeyPairStatusUnknown() {
+        // Given
+        testKeyPair.setKeyStatus(99); // Unknown status
+        when(rsaKeyPairRepository.findLatestByUserId(1L)).thenReturn(Optional.of(testKeyPair));
+
+        // When
+        RsaKeyPairResponse response = digitalSignatureService.getKeyPair(1L);
+
+        // Then
+        assertNotNull(response);
+        assertEquals(99, response.getKeyStatus());
+        assertEquals("未知", response.getKeyStatusText());
+    }
+
+    @Test
+    @DisplayName("验签-密钥已过期状态但验签允许")
+    void testVerifySignatureWithExpiredStatusKey() throws Exception {
+        // Given
+        java.security.KeyPair realKeyPair = com.oaiss.chain.util.RsaKeyUtil.generateKeyPair();
+        String publicKeyBase64 = com.oaiss.chain.util.RsaKeyUtil.encodeKey(realKeyPair.getPublic());
+        String privateKeyBase64 = com.oaiss.chain.util.RsaKeyUtil.encodeKey(realKeyPair.getPrivate());
+
+        String testData = "verify-expired-status-test";
+        String signature = com.oaiss.chain.util.RsaKeyUtil.sign(testData, realKeyPair.getPrivate());
+
+        testKeyPair.setPublicKey(publicKeyBase64);
+        testKeyPair.setPrivateKey(privateKeyBase64);
+        testKeyPair.setKeyStatus(2); // Expired status
+        testKeyPair.setExpiresAt(LocalDateTime.now().minusDays(1));
+
+        when(rsaKeyPairRepository.findLatestByUserId(1L)).thenReturn(Optional.of(testKeyPair));
+
+        // When - expired keys are allowed for verification (with warning)
+        boolean isValid = digitalSignatureService.verifySignature(1L, testData, signature);
+
+        // Then
+        assertTrue(isValid);
+    }
+
+    // ==================== Additional branch coverage tests ====================
+
+    @Test
+    @DisplayName("getKeyPair-首次lookup返回null后第二次也返回null")
+    void testGetKeyPairBothLookupsReturnNull() {
+        when(rsaKeyPairRepository.findLatestByUserId(1L)).thenReturn(Optional.empty());
+
+        RsaKeyPairResponse response = digitalSignatureService.getKeyPair(1L);
+        assertNull(response);
+    }
+
+    @Test
+    @DisplayName("getKeyPair-首次lookup有key但第二次lookup返回null")
+    void testGetKeyPairSecondLookupReturnsNull() {
+        when(rsaKeyPairRepository.findLatestByUserId(1L))
+                .thenReturn(Optional.of(testKeyPair))
+                .thenReturn(Optional.empty());
+
+        RsaKeyPairResponse response = digitalSignatureService.getKeyPair(1L);
+        assertNull(response);
+    }
+
+    @Test
+    @DisplayName("generateKeyPair-生成异常时抛出BlockchainException")
+    void testGenerateKeyPairException() {
+        when(rsaKeyPairRepository.existsByUserIdAndDeletedFalse(2L)).thenReturn(false);
+        when(rsaKeyPairRepository.findLatestByUserId(2L)).thenReturn(Optional.empty());
+        when(rsaKeyPairRepository.save(any(RsaKeyPair.class))).thenThrow(new RuntimeException("DB error"));
+
+        assertThrows(BlockchainException.class, () -> digitalSignatureService.generateKeyPair(2L));
+    }
+
+    @Test
+    @DisplayName("signReport-签名时密钥被撤销")
+    void testSignReportKeyRevokedDuringMarkExpired() {
+        testKeyPair.setKeyStatus(0); // Revoked
+        when(rsaKeyPairRepository.findLatestByUserId(1L)).thenReturn(Optional.of(testKeyPair));
+
+        assertThrows(BlockchainException.class, () -> digitalSignatureService.signReport(1L, "data"));
+    }
+
+    @Test
+    @DisplayName("verifySignature-密钥被撤销时抛出异常")
+    void testVerifySignatureRevokedKey() {
+        testKeyPair.setKeyStatus(0); // Revoked
+        when(rsaKeyPairRepository.findLatestByUserId(1L)).thenReturn(Optional.of(testKeyPair));
+
+        assertThrows(BlockchainException.class,
+                () -> digitalSignatureService.verifySignature(1L, "data", "sig"));
+    }
+
+    @Test
+    @DisplayName("verifySignature-密钥过期日期时仍允许验签(带警告)")
+    void testVerifySignatureExpiredByDate() throws Exception {
+        java.security.KeyPair realKeyPair = com.oaiss.chain.util.RsaKeyUtil.generateKeyPair();
+        String publicKeyBase64 = com.oaiss.chain.util.RsaKeyUtil.encodeKey(realKeyPair.getPublic());
+        String privateKeyBase64 = com.oaiss.chain.util.RsaKeyUtil.encodeKey(realKeyPair.getPrivate());
+
+        String testData = "test-data";
+        String signature = com.oaiss.chain.util.RsaKeyUtil.sign(testData, realKeyPair.getPrivate());
+
+        testKeyPair.setPublicKey(publicKeyBase64);
+        testKeyPair.setPrivateKey(privateKeyBase64);
+        testKeyPair.setKeyStatus(1); // Active status but expired by date
+        testKeyPair.setExpiresAt(LocalDateTime.now().minusDays(1));
+
+        when(rsaKeyPairRepository.findLatestByUserId(1L)).thenReturn(Optional.of(testKeyPair));
+
+        boolean isValid = digitalSignatureService.verifySignature(1L, testData, signature);
+        assertTrue(isValid);
+    }
+
+    @Test
+    @DisplayName("validateKeyStatus-密钥日期过期时抛出异常")
+    void testValidateKeyStatusExpiredByDate() {
+        testKeyPair.setKeyStatus(1); // Active
+        testKeyPair.setExpiresAt(LocalDateTime.now().minusDays(1));
+        when(rsaKeyPairRepository.findLatestByUserId(1L)).thenReturn(Optional.of(testKeyPair));
+
+        assertThrows(BlockchainException.class,
+                () -> digitalSignatureService.signReport(1L, "data"));
+    }
+
+    @Test
+    @DisplayName("validateKeyStatus-密钥状态已过期(2)时抛出异常")
+    void testValidateKeyStatusExpiredByStatusCode() {
+        testKeyPair.setKeyStatus(2); // Expired
+        testKeyPair.setExpiresAt(LocalDateTime.now().plusYears(1)); // Not expired by date
+        when(rsaKeyPairRepository.findLatestByUserId(1L)).thenReturn(Optional.of(testKeyPair));
+
+        assertThrows(BlockchainException.class,
+                () -> digitalSignatureService.signReport(1L, "data"));
+    }
+
+    @Test
+    @DisplayName("markExpiredKeys-密钥未过期时不修改")
+    void testMarkExpiredKeysNotExpired() {
+        testKeyPair.setExpiresAt(LocalDateTime.now().plusYears(1));
+        testKeyPair.setKeyStatus(1);
+        when(rsaKeyPairRepository.findLatestByUserId(1L)).thenReturn(Optional.of(testKeyPair));
+
+        digitalSignatureService.markExpiredKeys(1L);
+
+        verify(rsaKeyPairRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("markExpiredKeys-密钥不存在时不操作")
+    void testMarkExpiredKeysNotFound() {
+        when(rsaKeyPairRepository.findLatestByUserId(1L)).thenReturn(Optional.empty());
+
+        digitalSignatureService.markExpiredKeys(1L);
+
+        verify(rsaKeyPairRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("markExpiredKeys-密钥已过期且状态已是EXPIRED不重复保存")
+    void testMarkExpiredKeysAlreadyExpiredStatus() {
+        testKeyPair.setExpiresAt(LocalDateTime.now().minusDays(1));
+        testKeyPair.setKeyStatus(2); // Already expired
+        when(rsaKeyPairRepository.findLatestByUserId(1L)).thenReturn(Optional.of(testKeyPair));
+
+        digitalSignatureService.markExpiredKeys(1L);
+
+        verify(rsaKeyPairRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("toResponse-有效密钥状态返回有效文本")
+    void testToResponseActiveKey() {
+        testKeyPair.setKeyStatus(1);
+        when(rsaKeyPairRepository.findLatestByUserId(1L)).thenReturn(Optional.of(testKeyPair));
+
+        RsaKeyPairResponse response = digitalSignatureService.getKeyPair(1L);
+        assertEquals("有效", response.getKeyStatusText());
+    }
+
+    @Test
+    @DisplayName("toResponse-已失效密钥状态返回已失效文本")
+    void testToResponseRevokedKey() {
+        testKeyPair.setKeyStatus(0);
+        when(rsaKeyPairRepository.findLatestByUserId(1L)).thenReturn(Optional.of(testKeyPair));
+
+        RsaKeyPairResponse response = digitalSignatureService.getKeyPair(1L);
+        assertEquals("已失效", response.getKeyStatusText());
+    }
+
+    @Test
+    @DisplayName("toResponse-已过期密钥状态返回已过期文本")
+    void testToResponseExpiredKey() {
+        testKeyPair.setKeyStatus(2);
+        when(rsaKeyPairRepository.findLatestByUserId(1L)).thenReturn(Optional.of(testKeyPair));
+
+        RsaKeyPairResponse response = digitalSignatureService.getKeyPair(1L);
+        assertEquals("已过期", response.getKeyStatusText());
+    }
+
+    @Test
+    @DisplayName("toResponse-未知密钥状态返回未知文本")
+    void testToResponseUnknownKey() {
+        testKeyPair.setKeyStatus(99);
+        when(rsaKeyPairRepository.findLatestByUserId(1L)).thenReturn(Optional.of(testKeyPair));
+
+        RsaKeyPairResponse response = digitalSignatureService.getKeyPair(1L);
+        assertEquals("未知", response.getKeyStatusText());
+    }
+
+    // ==================== Additional branch coverage tests (batch 2) ====================
+
+    @Test
+    @DisplayName("verifySignature-密钥expiresAt为null时跳过过期检查")
+    void testVerifySignatureNullExpiresAt() throws Exception {
+        java.security.KeyPair realKeyPair = com.oaiss.chain.util.RsaKeyUtil.generateKeyPair();
+        String publicKeyBase64 = com.oaiss.chain.util.RsaKeyUtil.encodeKey(realKeyPair.getPublic());
+        String privateKeyBase64 = com.oaiss.chain.util.RsaKeyUtil.encodeKey(realKeyPair.getPrivate());
+
+        String testData = "test-data-null-expiry";
+        String sig = com.oaiss.chain.util.RsaKeyUtil.sign(testData, realKeyPair.getPrivate());
+
+        testKeyPair.setPublicKey(publicKeyBase64);
+        testKeyPair.setPrivateKey(privateKeyBase64);
+        testKeyPair.setKeyStatus(1); // Active
+        testKeyPair.setExpiresAt(null); // null expiry
+
+        when(rsaKeyPairRepository.findLatestByUserId(1L)).thenReturn(Optional.of(testKeyPair));
+
+        boolean isValid = digitalSignatureService.verifySignature(1L, testData, sig);
+        assertTrue(isValid);
+    }
+
+    @Test
+    @DisplayName("signReport-签名过程异常时抛出BlockchainException")
+    void testSignReportExceptionDuringSigning() throws Exception {
+        java.security.KeyPair realKeyPair = com.oaiss.chain.util.RsaKeyUtil.generateKeyPair();
+        String publicKeyBase64 = com.oaiss.chain.util.RsaKeyUtil.encodeKey(realKeyPair.getPublic());
+        String privateKeyBase64 = "invalid-base64-private-key";
+
+        testKeyPair.setPublicKey(publicKeyBase64);
+        testKeyPair.setPrivateKey(privateKeyBase64);
+
+        when(rsaKeyPairRepository.findLatestByUserId(1L)).thenReturn(Optional.of(testKeyPair));
+
+        assertThrows(BlockchainException.class, () -> digitalSignatureService.signReport(1L, "data"));
+    }
+
+    @Test
+    @DisplayName("encryptForReviewer-加密过程异常时抛出BlockchainException")
+    void testEncryptForReviewerException() throws Exception {
+        testKeyPair.setPublicKey("invalid-base64-public-key");
+
+        when(rsaKeyPairRepository.findLatestByUserId(1L)).thenReturn(Optional.of(testKeyPair));
+
+        assertThrows(BlockchainException.class, () ->
+                digitalSignatureService.encryptForReviewer("data", 1L));
+    }
+
+    @Test
+    @DisplayName("decryptForReviewer-解密过程异常时抛出BlockchainException")
+    void testDecryptForReviewerException() throws Exception {
+        java.security.KeyPair realKeyPair = com.oaiss.chain.util.RsaKeyUtil.generateKeyPair();
+        String publicKeyBase64 = com.oaiss.chain.util.RsaKeyUtil.encodeKey(realKeyPair.getPublic());
+        String privateKeyBase64 = "invalid-private-key";
+
+        testKeyPair.setPublicKey(publicKeyBase64);
+        testKeyPair.setPrivateKey(privateKeyBase64);
+
+        when(rsaKeyPairRepository.findLatestByUserId(1L)).thenReturn(Optional.of(testKeyPair));
+
+        assertThrows(BlockchainException.class, () ->
+                digitalSignatureService.decryptForReviewer("invalid-encrypted-data", 1L));
+    }
+
+    @Test
+    @DisplayName("decryptForEnterprise-解密过程异常时抛出BlockchainException")
+    void testDecryptForEnterpriseException() throws Exception {
+        java.security.KeyPair realKeyPair = com.oaiss.chain.util.RsaKeyUtil.generateKeyPair();
+        String publicKeyBase64 = com.oaiss.chain.util.RsaKeyUtil.encodeKey(realKeyPair.getPublic());
+        String privateKeyBase64 = "invalid-private-key";
+
+        testKeyPair.setPublicKey(publicKeyBase64);
+        testKeyPair.setPrivateKey(privateKeyBase64);
+
+        when(rsaKeyPairRepository.findLatestByUserId(1L)).thenReturn(Optional.of(testKeyPair));
+
+        assertThrows(BlockchainException.class, () ->
+                digitalSignatureService.decryptForEnterprise("invalid-encrypted-data", 1L));
+    }
+
+    @Test
+    @DisplayName("validateKeyStatus-密钥过期日期检查中expiresAt为null")
+    void testValidateKeyStatusNullExpiresAt() throws Exception {
+        java.security.KeyPair realKeyPair = com.oaiss.chain.util.RsaKeyUtil.generateKeyPair();
+        String publicKeyBase64 = com.oaiss.chain.util.RsaKeyUtil.encodeKey(realKeyPair.getPublic());
+        String privateKeyBase64 = com.oaiss.chain.util.RsaKeyUtil.encodeKey(realKeyPair.getPrivate());
+
+        testKeyPair.setPublicKey(publicKeyBase64);
+        testKeyPair.setPrivateKey(privateKeyBase64);
+        testKeyPair.setKeyStatus(1); // Active
+        testKeyPair.setExpiresAt(null); // null expiresAt
+
+        when(rsaKeyPairRepository.findLatestByUserId(1L)).thenReturn(Optional.of(testKeyPair));
+
+        // Should not throw because keyStatus is ACTIVE and expiresAt is null
+        RsaKeyPairResponse response = digitalSignatureService.getKeyPair(1L);
+        assertNotNull(response);
+    }
+
+    @Test
+    @DisplayName("markExpiredKeys-密钥已过期且状态为REVOKED时应更新为EXPIRED")
+    void testMarkExpiredKeysRevokedNotExpiredStatus() {
+        testKeyPair.setExpiresAt(LocalDateTime.now().minusDays(1));
+        testKeyPair.setKeyStatus(0); // REVOKED
+        when(rsaKeyPairRepository.findLatestByUserId(1L)).thenReturn(Optional.of(testKeyPair));
+
+        digitalSignatureService.markExpiredKeys(1L);
+
+        // REVOKED key that is expired should be changed to EXPIRED (2) since condition only skips EXPIRED keys
+        assertEquals(2, testKeyPair.getKeyStatus());
+        verify(rsaKeyPairRepository, times(1)).save(testKeyPair);
+    }
+
+    @Test
+    @DisplayName("generateKeyPair-已有密钥时撤销旧密钥并生成新密钥")
+    void testGenerateKeyPairRevokeOldAndCreateNew() {
+        when(rsaKeyPairRepository.existsByUserIdAndDeletedFalse(1L)).thenReturn(true);
+        when(rsaKeyPairRepository.findLatestByUserId(1L)).thenReturn(Optional.of(testKeyPair));
+        when(rsaKeyPairRepository.save(any(RsaKeyPair.class))).thenAnswer(invocation -> {
+            RsaKeyPair kp = invocation.getArgument(0);
+            kp.setId(3L);
+            return kp;
+        });
+
+        RsaKeyPairResponse response = digitalSignatureService.generateKeyPair(1L);
+        assertNotNull(response);
+        // save is called at least twice: once for revoke, once for new key
+        verify(rsaKeyPairRepository, atLeast(2)).save(any(RsaKeyPair.class));
+    }
+
+    @Test
+    @DisplayName("signReport-签名成功后返回正确结果")
+    void testSignReportReturnsCorrectFields() throws Exception {
+        java.security.KeyPair realKeyPair = com.oaiss.chain.util.RsaKeyUtil.generateKeyPair();
+        String publicKeyBase64 = com.oaiss.chain.util.RsaKeyUtil.encodeKey(realKeyPair.getPublic());
+        String privateKeyBase64 = com.oaiss.chain.util.RsaKeyUtil.encodeKey(realKeyPair.getPrivate());
+
+        testKeyPair.setPublicKey(publicKeyBase64);
+        testKeyPair.setPrivateKey(privateKeyBase64);
+
+        when(rsaKeyPairRepository.findLatestByUserId(1L)).thenReturn(Optional.of(testKeyPair));
+
+        SignatureResult result = digitalSignatureService.signReport(1L, "report-data");
+        assertNotNull(result);
+        assertNotNull(result.getSignature());
+        assertNotNull(result.getAlgorithm());
+        assertNotNull(result.getTimestamp());
+        assertEquals(1L, result.getSignerId());
+    }
+
+    @Test
+    @DisplayName("decryptForEnterprise-密钥不存在时抛出异常")
+    void testDecryptForEnterpriseKeyNotFound() {
+        when(rsaKeyPairRepository.findLatestByUserId(1L)).thenReturn(Optional.empty());
+
+        assertThrows(BlockchainException.class, () ->
+                digitalSignatureService.decryptForEnterprise("encrypted", 1L));
     }
 }

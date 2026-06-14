@@ -486,6 +486,94 @@ class CreditScoreServiceTest {
         assertEquals(5, CreditLevelEnum.values().length);
     }
 
+    // ==================== getScoreByUserId ====================
+
+    @Test
+    @DisplayName("根据用户ID获取信誉分 - 用户不存在")
+    void getScoreByUserId_UserNotFound_ShouldThrow() {
+        when(userRepository.findById(999L)).thenReturn(Optional.empty());
+        assertThrows(IllegalArgumentException.class,
+            () -> creditScoreService.getScoreByUserId(999L));
+    }
+
+    @Test
+    @DisplayName("根据用户ID获取信誉分 - 用户未关联企业")
+    void getScoreByUserId_EnterpriseNotFound_ShouldThrow() {
+        when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
+        when(enterpriseRepository.findByUserIdAndDeletedFalse(1L)).thenReturn(Optional.empty());
+        assertThrows(IllegalArgumentException.class,
+            () -> creditScoreService.getScoreByUserId(1L));
+    }
+
+    @Test
+    @DisplayName("根据用户ID获取信誉分 - 正常返回")
+    void getScoreByUserId_Success() {
+        when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
+        when(enterpriseRepository.findByUserIdAndDeletedFalse(1L)).thenReturn(Optional.of(testEnterprise));
+        when(creditScoreRepository.findByEnterpriseIdAndDeletedFalse(1L)).thenReturn(Optional.of(testCreditScore));
+
+        CreditScoreResponse response = creditScoreService.getScoreByUserId(1L);
+        assertNotNull(response);
+        assertEquals(100, response.getScore());
+    }
+
+    // ==================== getCreditHistoryByUserId ====================
+
+    @Test
+    @DisplayName("根据用户ID获取信誉历史 - 用户不存在")
+    void getCreditHistoryByUserId_UserNotFound_ShouldThrow() {
+        when(userRepository.findById(999L)).thenReturn(Optional.empty());
+        assertThrows(IllegalArgumentException.class,
+            () -> creditScoreService.getCreditHistoryByUserId(999L, null, 1, 10));
+    }
+
+    @Test
+    @DisplayName("根据用户ID获取信誉历史 - 用户未关联企业")
+    void getCreditHistoryByUserId_EnterpriseNotFound_ShouldThrow() {
+        when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
+        when(enterpriseRepository.findByUserIdAndDeletedFalse(1L)).thenReturn(Optional.empty());
+        assertThrows(IllegalArgumentException.class,
+            () -> creditScoreService.getCreditHistoryByUserId(1L, null, 1, 10));
+    }
+
+    @Test
+    @DisplayName("根据用户ID获取信誉历史 - 正常返回")
+    void getCreditHistoryByUserId_Success() {
+        CreditEvent event = buildCreditEvent(1L, 1, -20, 100, 80, 1L);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
+        when(enterpriseRepository.findByUserIdAndDeletedFalse(1L)).thenReturn(Optional.of(testEnterprise));
+        when(creditEventRepository.findByEnterpriseIdAndDeletedFalse(eq(1L), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(event)));
+
+        var response = creditScoreService.getCreditHistoryByUserId(1L, null, 1, 10);
+        assertNotNull(response);
+        assertEquals(1, response.getContent().size());
+    }
+
+    // ==================== getScoreRanking ====================
+
+    @Test
+    @DisplayName("获取信誉排名列表")
+    void getScoreRanking_ShouldReturnPaged() {
+        when(creditScoreRepository.findByDeletedFalse(any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(testCreditScore)));
+
+        var response = creditScoreService.getScoreRanking(1, 10);
+        assertNotNull(response);
+        assertEquals(1, response.getContent().size());
+    }
+
+    @Test
+    @DisplayName("获取信誉排名列表 - 空")
+    void getScoreRanking_ShouldReturnEmpty() {
+        when(creditScoreRepository.findByDeletedFalse(any(Pageable.class)))
+                .thenReturn(new PageImpl<>(Collections.emptyList()));
+
+        var response = creditScoreService.getScoreRanking(1, 10);
+        assertNotNull(response);
+        assertTrue(response.getContent().isEmpty());
+    }
+
     // ==================== Helper ====================
 
     private CreditEvent buildCreditEvent(Long id, int eventType, int points, int before, int after, Long triggeredBy) {

@@ -300,4 +300,65 @@ class CarbonPredictionServiceTest {
         report.setCreatedAt(LocalDateTime.now().minusDays(30));
         return report;
     }
+
+    @Nested
+    @DisplayName("predict - ML response with null forecast data")
+    class NullForecastTests {
+
+        @Test
+        @DisplayName("should handle ML response with null forecast dates")
+        void shouldHandleNullForecastDates() {
+            List<CarbonReport> reports = List.of(
+                    buildReport(BigDecimal.valueOf(1000)),
+                    buildReport(BigDecimal.valueOf(900)));
+
+            when(carbonReportRepository.findByEnterpriseIdAndDeletedFalse(eq(1L), any(PageRequest.class)))
+                    .thenReturn(new PageImpl<>(reports));
+
+            EmissionForecastResponse mlResponse = EmissionForecastResponse.builder()
+                    .enterpriseId(1L)
+                    .forecastDates(null)
+                    .forecastEmissions(null)
+                    .trend("stable")
+                    .confidence(0.5)
+                    .modelVersion("1.0.0")
+                    .build();
+
+            when(mlServiceClient.predictEmission(any(EmissionForecastRequest.class)))
+                    .thenReturn(mlResponse);
+
+            CarbonPredictionResponse response = carbonPredictionService.predict(request);
+
+            assertThat(response).isNotNull();
+            assertThat(response.getPredictions()).isEmpty();
+        }
+
+        @Test
+        @DisplayName("should handle ML response with empty forecast dates")
+        void shouldHandleEmptyForecastDates() {
+            List<CarbonReport> reports = List.of(
+                    buildReport(BigDecimal.valueOf(1000)),
+                    buildReport(BigDecimal.valueOf(900)));
+
+            when(carbonReportRepository.findByEnterpriseIdAndDeletedFalse(eq(1L), any(PageRequest.class)))
+                    .thenReturn(new PageImpl<>(reports));
+
+            EmissionForecastResponse mlResponse = EmissionForecastResponse.builder()
+                    .enterpriseId(1L)
+                    .forecastDates(Collections.emptyList())
+                    .forecastEmissions(Collections.emptyList())
+                    .trend("stable")
+                    .confidence(0.5)
+                    .modelVersion("1.0.0")
+                    .build();
+
+            when(mlServiceClient.predictEmission(any(EmissionForecastRequest.class)))
+                    .thenReturn(mlResponse);
+
+            CarbonPredictionResponse response = carbonPredictionService.predict(request);
+
+            assertThat(response).isNotNull();
+            assertThat(response.getPredictions()).isEmpty();
+        }
+    }
 }

@@ -5,8 +5,10 @@ import com.oaiss.chain.dto.CarbonPredictionRequest;
 import com.oaiss.chain.dto.CarbonPredictionResponse;
 import com.oaiss.chain.dto.EmissionRatingRequest;
 import com.oaiss.chain.entity.EmissionRating;
+import com.oaiss.chain.entity.Enterprise;
 import com.oaiss.chain.repository.EnterpriseRepository;
 import com.oaiss.chain.security.JwtTokenProvider;
+import com.oaiss.chain.security.JwtUserDetails;
 import com.oaiss.chain.service.CarbonPredictionService;
 import com.oaiss.chain.service.EmissionRatingService;
 import org.junit.jupiter.api.BeforeEach;
@@ -17,7 +19,9 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
-import org.springframework.test.context.ActiveProfiles;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
@@ -30,12 +34,7 @@ import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@WebMvcTest(value = EmissionController.class,
-        excludeAutoConfiguration = {
-                org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration.class,
-                org.springframework.boot.autoconfigure.data.jpa.JpaRepositoriesAutoConfiguration.class
-        })
-@ActiveProfiles("test")
+@WebMvcTest(controllers = EmissionController.class)
 @AutoConfigureMockMvc(addFilters = false)
 class EmissionControllerTest {
 
@@ -68,6 +67,58 @@ class EmissionControllerTest {
         emissionRating.setRatingLevel("A");
         emissionRating.setTotalEmission(new BigDecimal("10000.00"));
         emissionRating.setEmissionIntensity(new BigDecimal("0.01"));
+    }
+
+    @Test
+    @DisplayName("获取我的评级成功")
+    void testGetMyRatingSuccess() throws Exception {
+        // Given
+        JwtUserDetails enterpriseUser = JwtUserDetails.builder()
+                .userId(1L)
+                .username("enterprise_user")
+                .userType(1)
+                .roles(List.of("ENTERPRISE"))
+                .enterpriseId(1L)
+                .enabled(true)
+                .build();
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(enterpriseUser, null,
+                        List.of(new SimpleGrantedAuthority("ROLE_ENTERPRISE"))));
+
+        Enterprise enterprise = new Enterprise();
+        enterprise.setId(1L);
+        enterprise.setUserId(1L);
+        when(enterpriseRepository.findByUserId(1L)).thenReturn(java.util.Optional.of(enterprise));
+        when(ratingService.getEnterpriseRatings(1L)).thenReturn(List.of(emissionRating));
+
+        mockMvc.perform(get("/emission/my-rating"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data[0].id").value(1));
+
+        verify(ratingService).getEnterpriseRatings(1L);
+    }
+
+    @Test
+    @DisplayName("获取我的评级-企业不存在")
+    void testGetMyRatingEnterpriseNotFound() throws Exception {
+        // Given
+        JwtUserDetails enterpriseUser = JwtUserDetails.builder()
+                .userId(99L)
+                .username("enterprise_user")
+                .userType(1)
+                .roles(List.of("ENTERPRISE"))
+                .enabled(true)
+                .build();
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(enterpriseUser, null,
+                        List.of(new SimpleGrantedAuthority("ROLE_ENTERPRISE"))));
+
+        when(enterpriseRepository.findByUserId(99L)).thenReturn(java.util.Optional.empty());
+
+        mockMvc.perform(get("/emission/my-rating"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(4004));
     }
 
     @Test

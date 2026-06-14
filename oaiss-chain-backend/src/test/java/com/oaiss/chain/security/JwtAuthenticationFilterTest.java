@@ -642,4 +642,222 @@ class JwtAuthenticationFilterTest {
         assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
         // The filter still processes past the whitelist check (no early return via whitelist)
     }
+
+    // ==================== Branch Coverage: Blacklisted Token ====================
+
+    @Test
+    @DisplayName("黑名单中的Token应直接放行不设置认证")
+    void doFilterInternal_blacklistedToken_shouldSkipAuth() throws ServletException, IOException {
+        String token = "blacklisted.jwt.token";
+        request.setRequestURI("/api/v1/admin/users");
+        request.addHeader("Authorization", "Bearer " + token);
+
+        when(jwtTokenProvider.validateToken(token)).thenReturn(true);
+        Cache.ValueWrapper mockWrapper = mock(Cache.ValueWrapper.class);
+        when(tokenBlacklistCache.get(token)).thenReturn(mockWrapper); // Token is blacklisted
+
+        filter.doFilterInternal(request, response, filterChain);
+
+        assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
+        verify(jwtTokenProvider, never()).getUsernameFromToken(anyString());
+    }
+
+    @Test
+    @DisplayName("cacheManager返回null blacklist时应正常处理Token")
+    void doFilterInternal_nullBlacklistCache_shouldProcessToken() throws ServletException, IOException {
+        String token = "valid.jwt.token";
+        request.setRequestURI("/api/v1/protected");
+        request.addHeader("Authorization", "Bearer " + token);
+
+        when(jwtTokenProvider.validateToken(token)).thenReturn(true);
+        when(cacheManager.getCache("tokenBlacklist")).thenReturn(null); // no blacklist cache
+        when(jwtTokenProvider.getUsernameFromToken(token)).thenReturn("testuser");
+        when(jwtTokenProvider.getUserIdFromToken(token)).thenReturn(1L);
+        when(jwtTokenProvider.getRolesFromToken(token)).thenReturn(List.of("USER"));
+        when(jwtTokenProvider.getUserTypeFromToken(token)).thenReturn(1);
+        when(jwtTokenProvider.getEnterpriseIdFromToken(token)).thenReturn(null);
+
+        filter.doFilterInternal(request, response, filterChain);
+
+        assertThat(SecurityContextHolder.getContext().getAuthentication()).isNotNull();
+    }
+
+    // ==================== Branch Coverage: Path Traversal Edge Cases ====================
+
+    @Test
+    @DisplayName("大写%2E编码路径遍历不应绕过白名单")
+    void doFilterInternal_uppercaseEncodedPathTraversal_shouldNotBypassAuth() throws ServletException, IOException {
+        request.setRequestURI("/api/v1/auth/login/%2E%2E/admin/users");
+        String token = "some.jwt.token";
+        request.addHeader("Authorization", "Bearer " + token);
+        when(jwtTokenProvider.validateToken(token)).thenReturn(false);
+
+        filter.doFilterInternal(request, response, filterChain);
+
+        verify(jwtTokenProvider).validateToken(token);
+    }
+
+    @Test
+    @DisplayName("空路径不应匹配白名单")
+    void doFilterInternal_emptyPath_shouldNotBeWhitelisted() throws ServletException, IOException {
+        request.setRequestURI("");
+
+        filter.doFilterInternal(request, response, filterChain);
+
+        // Empty path is not whitelisted, but no token so just passes through
+        assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
+    }
+
+    @Test
+    @DisplayName("normalizePath-仅包含点段的路径应正确解析")
+    void doFilterInternal_pathWithDotSegments_shouldNormalize() throws ServletException, IOException {
+        // Path: /api/v1/./auth/login -> after normalization /api/v1/auth/login
+        // But // in original path (due to split) will be caught by double-slash check
+        // Test a path with ./ that normalizes cleanly
+        request.setRequestURI("/api/v1/enterprise/./data");
+        String token = "some.jwt.token";
+        request.addHeader("Authorization", "Bearer " + token);
+        when(jwtTokenProvider.validateToken(token)).thenReturn(false);
+
+        filter.doFilterInternal(request, response, filterChain);
+
+        // Should not be whitelisted, should try to validate token
+        verify(jwtTokenProvider).validateToken(token);
+    }
+
+    @Test
+    @DisplayName("normalizePath-路径以..结尾应回退一级")
+    void doFilterInternal_pathWithTrailingDotDot_shouldNormalize() throws ServletException, IOException {
+        // Path: /api/v1/auth/login/.. -> normalizes to /api/v1/auth
+        // Then checks if /api/v1/auth matches any whitelist -> it doesn't
+        request.setRequestURI("/api/v1/auth/login/..");
+        String token = "some.jwt.token";
+        request.addHeader("Authorization", "Bearer " + token);
+        when(jwtTokenProvider.validateToken(token)).thenReturn(false);
+
+        filter.doFilterInternal(request, response, filterChain);
+
+        // /api/v1/auth is not in whitelist, so token validation should happen
+        verify(jwtTokenProvider).validateToken(token);
+    }
+
+    @Test
+    @DisplayName("白名单路径/api/v1/auth/check-ip应直接放行")
+    void doFilterInternal_whitelistedCheckIp_shouldPassThrough() throws ServletException, IOException {
+        request.setRequestURI("/api/v1/auth/check-ip");
+
+        filter.doFilterInternal(request, response, filterChain);
+
+        verify(jwtTokenProvider, never()).validateToken(anyString());
+        assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
+    }
+
+    @Test
+    @DisplayName("有效Token但username已存在认证时应跳过设置")
+    void doFilterInternal_validTokenButExistingAuth_shouldNotOverride() throws ServletException, IOException {
+        String token = "valid.jwt.token";
+        request.setRequestURI("/api/v1/data");
+        request.addHeader("Authorization", "Bearer " + token);
+
+        // Pre-set authentication
+        JwtUserDetails existingUser = JwtUserDetails.builder()
+                .userId(999L)
+                .username("existing")
+                .roles(List.of("USER"))
+                .build();
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(existingUser, null, existingUser.getAuthorities()));
+
+        when(jwtTokenProvider.validateToken(token)).thenReturn(true);
+        when(jwtTokenProvider.getUsernameFromToken(token)).thenReturn("newuser");
+        when(jwtTokenProvider.getUserIdFromToken(token)).thenReturn(1L);
+        when(jwtTokenProvider.getRolesFromToken(token)).thenReturn(List.of("ADMIN"));
+        when(jwtTokenProvider.getUserTypeFromToken(token)).thenReturn(4);
+        when(jwtTokenProvider.getEnterpriseIdFromToken(token)).thenReturn(null);
+
+        filter.doFilterInternal(request, response, filterChain);
+
+        // Should keep existing authentication (SecurityContext already has auth)
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        assertThat(auth.getName()).isEqualTo("existing");
+    }
+
+    // ==================== Branch Coverage: Null Request URI ====================
+
+    @Test
+    @DisplayName("null请求路径不应匹配白名单")
+    void doFilterInternal_nullRequestUri_shouldNotBeWhitelisted() throws ServletException, IOException {
+        // Use a mock request that returns null for getRequestURI
+        jakarta.servlet.http.HttpServletRequest mockRequest = mock(jakarta.servlet.http.HttpServletRequest.class);
+        when(mockRequest.getRequestURI()).thenReturn(null);
+        when(mockRequest.getHeader("Authorization")).thenReturn(null);
+
+        jakarta.servlet.FilterChain mockFilterChain = mock(jakarta.servlet.FilterChain.class);
+
+        filter.doFilterInternal(mockRequest, response, mockFilterChain);
+
+        // null path should not be whitelisted; no token, so just passes through
+        verify(jwtTokenProvider, never()).validateToken(anyString());
+        verify(mockFilterChain).doFilter(mockRequest, response);
+    }
+
+    // ==================== Branch Coverage: normalizePath with leading dotdot ====================
+
+    @Test
+    @DisplayName("normalizePath-多个..段应回退但不崩溃（空列表保护）")
+    void doFilterInternal_pathWithMultipleDotDot_shouldNormalize() throws ServletException, IOException {
+        // Path: /../../something → segments: ["", "..", "..", "something"]
+        // First ".." resolves (removes ""), second ".." should NOT crash (empty list guard)
+        // Result: /something
+        request.setRequestURI("/../../something");
+        String token = "some.jwt.token";
+        request.addHeader("Authorization", "Bearer " + token);
+        when(jwtTokenProvider.validateToken(token)).thenReturn(false);
+
+        filter.doFilterInternal(request, response, filterChain);
+
+        // /something is not whitelisted, should validate token
+        verify(jwtTokenProvider).validateToken(token);
+    }
+
+    // ==================== Branch Coverage: EnterpriseContextHolder.clear on exception ====================
+
+    @Test
+    @DisplayName("认证异常时应同时清除EnterpriseContextHolder")
+    void doFilterInternal_authenticationException_shouldClearEnterpriseContext() throws ServletException, IOException {
+        String token = "problematic.jwt.token";
+        request.setRequestURI("/api/v1/protected");
+        request.addHeader("Authorization", "Bearer " + token);
+
+        when(jwtTokenProvider.validateToken(token)).thenReturn(true);
+        when(jwtTokenProvider.getUsernameFromToken(token)).thenThrow(new RuntimeException("Token error"));
+
+        // Pre-set enterprise context to verify it's cleared
+        EnterpriseContextHolder.setEnterpriseId(100L);
+        EnterpriseContextHolder.setUserId(1L);
+
+        filter.doFilterInternal(request, response, filterChain);
+
+        // Both contexts should be cleared
+        assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
+        assertThat(EnterpriseContextHolder.getEnterpriseId()).isNull();
+        assertThat(EnterpriseContextHolder.getUserId()).isNull();
+    }
+
+    // ==================== Branch Coverage: normalizePath with single dot ====================
+
+    @Test
+    @DisplayName("normalizePath-路径中单个点段应被跳过")
+    void doFilterInternal_pathWithSingleDotSegment_shouldSkipDot() throws ServletException, IOException {
+        // Path: /./api/v1/auth/login → segments: ["", ".", "api", "v1", "auth", "login"]
+        // The "." segment should be skipped during normalization
+        // Result: /api/v1/auth/login → IS whitelisted
+        request.setRequestURI("/./api/v1/auth/login");
+
+        filter.doFilterInternal(request, response, filterChain);
+
+        // Should be whitelisted after normalization
+        verify(jwtTokenProvider, never()).validateToken(anyString());
+        assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
+    }
 }

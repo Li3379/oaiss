@@ -12,8 +12,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
-import org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
@@ -24,7 +22,6 @@ import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
@@ -42,12 +39,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * CarbonController Unit Tests
  * 碳核算控制器单元测试
  */
-@WebMvcTest(value = CarbonController.class, 
-        excludeAutoConfiguration = {
-                org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration.class,
-                org.springframework.boot.autoconfigure.data.jpa.JpaRepositoriesAutoConfiguration.class
-        })
-@ActiveProfiles("test")
+@WebMvcTest(controllers = CarbonController.class)
 @AutoConfigureMockMvc(addFilters = false)
 class CarbonControllerTest {
 
@@ -706,5 +698,119 @@ class CarbonControllerTest {
                 .andExpect(status().isOk());
 
         verify(carbonService, times(1)).reviewReport(any(), any());
+    }
+
+    @Test
+    @DisplayName("认证报告成功")
+    void testCertifyReportSuccess() throws Exception {
+        // Given
+        UsernamePasswordAuthenticationToken authentication =
+                new UsernamePasswordAuthenticationToken(reviewerUser, null,
+                        List.of(new SimpleGrantedAuthority("ROLE_REVIEWER")));
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+
+        ReviewRequest request = ReviewRequest.builder()
+                .reportId(1L)
+                .reviewResult(3)
+                .reviewComment("认证通过")
+                .build();
+
+        CarbonReportResponse response = CarbonReportResponse.builder()
+                .id(1L)
+                .status(5)
+                .build();
+
+        when(carbonService.certifyReport(any(), any())).thenReturn(response);
+
+        // When & Then
+        mockMvc.perform(post("/carbon/certify")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value(5));
+
+        verify(carbonService, times(1)).certifyReport(any(), any());
+    }
+
+    // ==================== Calculate Power Grid Tests ====================
+
+    @Test
+    @DisplayName("电网碳排放计算成功")
+    void testCalculatePowerGridSuccess() throws Exception {
+        // Given
+        UsernamePasswordAuthenticationToken authentication =
+                new UsernamePasswordAuthenticationToken(enterpriseUser, null,
+                        List.of(new SimpleGrantedAuthority("ROLE_ENTERPRISE")));
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+
+        PowerGridCalculationRequest request = new PowerGridCalculationRequest();
+        request.setTransmissionVolume(new BigDecimal("10000.00"));
+        request.setLineLossRate(new BigDecimal("0.05"));
+        request.setGridEmissionFactor(new BigDecimal("0.5810"));
+        request.setReportingYear(2024);
+        request.setEnterpriseName("测试企业");
+
+        PowerGridCalculationResponse response = PowerGridCalculationResponse.builder()
+                .totalEmission(new BigDecimal("5519.50"))
+                .transmissionLossEmission(new BigDecimal("275.975"))
+                .importedEmission(new BigDecimal("5243.525"))
+                .transmissionLoss(new BigDecimal("500.00"))
+                .formulaReference("GB/T 32150-2015")
+                .build();
+
+        when(powerGridFormulaService.calculate(any(PowerGridCalculationRequest.class)))
+                .thenReturn(response);
+
+        // When & Then
+        mockMvc.perform(post("/carbon/calculate/power-grid")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.totalEmission").value(5519.50))
+                .andExpect(jsonPath("$.data.formulaReference").value("GB/T 32150-2015"));
+
+        verify(powerGridFormulaService, times(1)).calculate(any(PowerGridCalculationRequest.class));
+    }
+
+    // ==================== Calculate Power Generation Tests ====================
+
+    @Test
+    @DisplayName("发电企业碳排放计算成功")
+    void testCalculatePowerGenerationSuccess() throws Exception {
+        // Given
+        UsernamePasswordAuthenticationToken authentication =
+                new UsernamePasswordAuthenticationToken(enterpriseUser, null,
+                        List.of(new SimpleGrantedAuthority("ROLE_ENTERPRISE")));
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+
+        PowerGenerationCalculationRequest request = new PowerGenerationCalculationRequest();
+        request.setRawCoalFc(new BigDecimal("100.00"));
+        request.setRawCoalNcv(new BigDecimal("20.9"));
+        request.setRawCoalCc(new BigDecimal("26.08"));
+        request.setRawCoalOf(new BigDecimal("0.94"));
+        request.setReportingYear(2024);
+        request.setEnterpriseName("测试发电企业");
+
+        PowerGenerationCalculationResponse response = PowerGenerationCalculationResponse.builder()
+                .totalEmission(new BigDecimal("500.00"))
+                .combustionEmission(new BigDecimal("480.00"))
+                .desulfurizationEmission(new BigDecimal("20.00"))
+                .formulaReference("GB/T 32150-2015")
+                .build();
+
+        when(powerGenerationFormulaService.calculate(any(PowerGenerationCalculationRequest.class)))
+                .thenReturn(response);
+
+        // When & Then
+        mockMvc.perform(post("/carbon/calculate/power-generation")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.totalEmission").value(500.00))
+                .andExpect(jsonPath("$.data.formulaReference").value("GB/T 32150-2015"));
+
+        verify(powerGenerationFormulaService, times(1)).calculate(any(PowerGenerationCalculationRequest.class));
     }
 }

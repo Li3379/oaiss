@@ -120,6 +120,19 @@ class MarketPredictionServiceTest {
             assertThat(result).isNotNull();
             verify(mlServiceClient).predictCarbonPrice(any(MarketForecastRequest.class));
         }
+
+        @Test
+        @DisplayName("should throw BusinessException when insufficient data")
+        void shouldThrowWhenInsufficientData() {
+            when(auctionOrderRepository.findTop60ByDeletedFalseOrderByCreatedAtDesc())
+                    .thenReturn(Collections.emptyList());
+
+            assertThatThrownBy(() -> marketPredictionService.predictCarbonPrice(7))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("code").isEqualTo(ErrorCode.INSUFFICIENT_DATA);
+
+            verifyNoInteractions(mlServiceClient);
+        }
     }
 
     @Nested
@@ -138,6 +151,19 @@ class MarketPredictionServiceTest {
 
             assertThat(result).isNotNull();
             verify(mlServiceClient).predictSupplyDemand(any(MarketForecastRequest.class));
+        }
+
+        @Test
+        @DisplayName("should throw BusinessException when insufficient data")
+        void shouldThrowWhenInsufficientData() {
+            when(auctionOrderRepository.findTop60ByDeletedFalseOrderByCreatedAtDesc())
+                    .thenReturn(Collections.emptyList());
+
+            assertThatThrownBy(() -> marketPredictionService.predictSupplyDemand(14))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("code").isEqualTo(ErrorCode.INSUFFICIENT_DATA);
+
+            verifyNoInteractions(mlServiceClient);
         }
     }
 

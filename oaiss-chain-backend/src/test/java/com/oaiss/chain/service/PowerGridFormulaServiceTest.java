@@ -133,4 +133,92 @@ class PowerGridFormulaServiceTest {
         assertEquals("测试企业", response.getEnterpriseName());
         assertNotNull(response.getCalculatedAt());
     }
+
+    @Test
+    @DisplayName("外购电量非零但排放因子为null时，外购电力排放为0")
+    void calculate_importedElectricityPresentButFactorNull_zeroImportedEmission() {
+        PowerGridCalculationRequest request = buildRequest(
+                new BigDecimal("10000"), new BigDecimal("0.05"),
+                new BigDecimal("0.6"), new BigDecimal("2000"), null);
+
+        PowerGridCalculationResponse response = powerGridFormulaService.calculate(request);
+
+        assertEquals(0, response.getImportedEmission().compareTo(BigDecimal.ZERO));
+        assertEquals(0, new BigDecimal("300.0000").compareTo(response.getTotalEmission()));
+    }
+
+    @Test
+    @DisplayName("外购电量为零时，外购电力排放为0")
+    void calculate_importedElectricityZero_zeroImportedEmission() {
+        PowerGridCalculationRequest request = buildRequest(
+                new BigDecimal("10000"), new BigDecimal("0.05"),
+                new BigDecimal("0.6"), BigDecimal.ZERO, new BigDecimal("0.8"));
+
+        PowerGridCalculationResponse response = powerGridFormulaService.calculate(request);
+
+        assertEquals(0, response.getImportedEmission().compareTo(BigDecimal.ZERO));
+        assertEquals(0, new BigDecimal("300.0000").compareTo(response.getTotalEmission()));
+    }
+
+    @Test
+    @DisplayName("外购电力排放因子为零时，外购电力排放为0")
+    void calculate_importEmissionFactorZero_zeroImportedEmission() {
+        PowerGridCalculationRequest request = buildRequest(
+                new BigDecimal("10000"), new BigDecimal("0.05"),
+                new BigDecimal("0.6"), new BigDecimal("2000"), BigDecimal.ZERO);
+
+        PowerGridCalculationResponse response = powerGridFormulaService.calculate(request);
+
+        assertEquals(0, response.getImportedEmission().compareTo(BigDecimal.ZERO));
+        assertEquals(0, new BigDecimal("300.0000").compareTo(response.getTotalEmission()));
+    }
+
+    @Test
+    @DisplayName("外购电量为null但排放因子非null时，外购电力排放为0")
+    void calculate_importedElectricityNullButFactorPresent_zeroImportedEmission() {
+        PowerGridCalculationRequest request = buildRequest(
+                new BigDecimal("10000"), new BigDecimal("0.05"),
+                new BigDecimal("0.6"), null, new BigDecimal("0.8"));
+
+        PowerGridCalculationResponse response = powerGridFormulaService.calculate(request);
+
+        assertEquals(0, response.getImportedEmission().compareTo(BigDecimal.ZERO));
+    }
+
+    @Test
+    @DisplayName("外购电量为null且排放因子为零时，外购电力排放为0")
+    void calculate_importedElectricityNullAndFactorZero_zeroImportedEmission() {
+        PowerGridCalculationRequest request = buildRequest(
+                new BigDecimal("10000"), new BigDecimal("0.05"),
+                new BigDecimal("0.6"), null, BigDecimal.ZERO);
+
+        PowerGridCalculationResponse response = powerGridFormulaService.calculate(request);
+
+        assertEquals(0, response.getImportedEmission().compareTo(BigDecimal.ZERO));
+    }
+
+    @Test
+    @DisplayName("外购电量为零且排放因子为null时，外购电力排放为0")
+    void calculate_importedElectricityZeroAndFactorNull_zeroImportedEmission() {
+        PowerGridCalculationRequest request = buildRequest(
+                new BigDecimal("10000"), new BigDecimal("0.05"),
+                new BigDecimal("0.6"), BigDecimal.ZERO, null);
+
+        PowerGridCalculationResponse response = powerGridFormulaService.calculate(request);
+
+        assertEquals(0, response.getImportedEmission().compareTo(BigDecimal.ZERO));
+    }
+
+    @Test
+    @DisplayName("线损率恰好等于1时不抛异常")
+    void calculate_lineLossRateExactlyOne_noException() {
+        PowerGridCalculationRequest request = buildRequest(
+                new BigDecimal("10000"), BigDecimal.ONE,
+                new BigDecimal("0.6"), null, null);
+
+        PowerGridCalculationResponse response = powerGridFormulaService.calculate(request);
+
+        assertNotNull(response);
+        assertEquals(0, new BigDecimal("10000.0000").compareTo(response.getTransmissionLoss()));
+    }
 }

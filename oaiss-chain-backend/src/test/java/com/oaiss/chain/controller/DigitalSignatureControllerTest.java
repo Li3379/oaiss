@@ -19,7 +19,6 @@ import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.LocalDateTime;
@@ -36,12 +35,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * DigitalSignatureController Unit Tests
  * 数字签名控制器单元测试
  */
-@WebMvcTest(value = DigitalSignatureController.class, 
-        excludeAutoConfiguration = {
-                org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration.class,
-                org.springframework.boot.autoconfigure.data.jpa.JpaRepositoriesAutoConfiguration.class
-        })
-@ActiveProfiles("test")
+@WebMvcTest(controllers = DigitalSignatureController.class)
 @AutoConfigureMockMvc(addFilters = false)
 class DigitalSignatureControllerTest {
 

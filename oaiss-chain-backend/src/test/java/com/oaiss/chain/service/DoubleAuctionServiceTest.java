@@ -363,4 +363,694 @@ class DoubleAuctionServiceTest {
         assertFalse(java.lang.reflect.Modifier.isSynchronized(method.getModifiers()),
                 "executeMatching() must NOT be synchronized; use @DistributedLock instead");
     }
+
+    @Test
+    @DisplayName("validateOrderRequest rejects null request")
+    void testValidateOrderRequestNull() {
+        assertThrows(TradeException.class, () ->
+                doubleAuctionService.placeBuyOrder(currentUser, null));
+    }
+
+    @Test
+    @DisplayName("validateOrderRequest rejects null quantity")
+    void testValidateOrderRequestNullQuantity() {
+        orderRequest.setQuantity(null);
+
+        assertThrows(TradeException.class, () ->
+                doubleAuctionService.placeBuyOrder(currentUser, orderRequest));
+    }
+
+    @Test
+    @DisplayName("validateOrderRequest rejects null price")
+    void testValidateOrderRequestNullPrice() {
+        orderRequest.setPrice(null);
+
+        assertThrows(TradeException.class, () ->
+                doubleAuctionService.placeBuyOrder(currentUser, orderRequest));
+    }
+
+    @Test
+    @DisplayName("validateOrderRequest rejects zero price")
+    void testValidateOrderRequestZeroPrice() {
+        orderRequest.setPrice(BigDecimal.ZERO);
+
+        assertThrows(TradeException.class, () ->
+                doubleAuctionService.placeBuyOrder(currentUser, orderRequest));
+    }
+
+    @Test
+    @DisplayName("placeSellOrder fails when enterprise is missing")
+    void testPlaceSellOrderFailEnterpriseNotFound() {
+        when(enterpriseRepository.findByUserId(1L)).thenReturn(Optional.empty());
+
+        assertThrows(TradeException.class, () ->
+                doubleAuctionService.placeSellOrder(currentUser, orderRequest));
+        verify(auctionOrderRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("listOrders returns paged responses with direction and status filter")
+    void testListOrdersWithDirectionAndStatus() {
+        AuctionOrder order = AuctionOrder.builder()
+                .orderNo("B20240101001")
+                .userId(1L)
+                .direction(1)
+                .quantity(new BigDecimal("100.00"))
+                .price(new BigDecimal("50.00"))
+                .matchedQuantity(BigDecimal.ZERO)
+                .status(AuctionOrderStatusEnum.PENDING.getCode())
+                .build();
+        order.setId(1L);
+
+        Page<AuctionOrder> page = new PageImpl<>(Arrays.asList(order));
+        when(auctionOrderRepository.findByDirectionAndStatusAndDeletedFalse(eq(1), eq(0), any(Pageable.class)))
+                .thenReturn(page);
+
+        Page<AuctionOrderResponse> result = doubleAuctionService.listOrders(1, 0, 1, 10);
+
+        assertNotNull(result);
+        assertEquals(1, result.getContent().size());
+        assertEquals("买入", result.getContent().get(0).getDirectionText());
+    }
+
+    @Test
+    @DisplayName("listMyOrders with direction filter only")
+    void testListMyOrdersWithDirectionOnly() {
+        AuctionOrder order = AuctionOrder.builder()
+                .orderNo("B20240101001")
+                .userId(1L)
+                .direction(2)
+                .quantity(new BigDecimal("100.00"))
+                .price(new BigDecimal("50.00"))
+                .matchedQuantity(BigDecimal.ZERO)
+                .status(AuctionOrderStatusEnum.PENDING.getCode())
+                .build();
+        order.setId(1L);
+
+        Page<AuctionOrder> page = new PageImpl<>(Arrays.asList(order));
+        when(auctionOrderRepository.findByUserIdAndDirectionAndDeletedFalse(eq(1L), eq(2), any(Pageable.class)))
+                .thenReturn(page);
+
+        Page<AuctionOrderResponse> result = doubleAuctionService.listMyOrders(currentUser, 2, null, 1, 10);
+
+        assertNotNull(result);
+        assertEquals(1, result.getContent().size());
+        assertEquals("卖出", result.getContent().get(0).getDirectionText());
+    }
+
+    @Test
+    @DisplayName("listMyOrders with direction and status filter")
+    void testListMyOrdersWithDirectionAndStatus() {
+        AuctionOrder order = AuctionOrder.builder()
+                .orderNo("B20240101001")
+                .userId(1L)
+                .direction(1)
+                .quantity(new BigDecimal("100.00"))
+                .price(new BigDecimal("50.00"))
+                .matchedQuantity(BigDecimal.ZERO)
+                .status(AuctionOrderStatusEnum.PENDING.getCode())
+                .build();
+        order.setId(1L);
+
+        Page<AuctionOrder> page = new PageImpl<>(Arrays.asList(order));
+        when(auctionOrderRepository.findByUserIdAndDirectionAndStatusAndDeletedFalse(
+                eq(1L), eq(1), eq(0), any(Pageable.class))).thenReturn(page);
+
+        Page<AuctionOrderResponse> result = doubleAuctionService.listMyOrders(currentUser, 1, 0, 1, 10);
+
+        assertNotNull(result);
+        assertEquals(1, result.getContent().size());
+    }
+
+    @Test
+    @DisplayName("executeMatching returns empty when only buy orders exist")
+    void testExecuteMatchingOnlyBuyOrders() {
+        AuctionOrder buyOrder = AuctionOrder.builder()
+                .orderNo("B001").userId(1L).direction(1)
+                .quantity(new BigDecimal("100")).price(new BigDecimal("50"))
+                .matchedQuantity(BigDecimal.ZERO).status(AuctionOrderStatusEnum.PENDING.getCode())
+                .build();
+        buyOrder.setId(1L);
+
+        when(auctionOrderRepository.findByDirectionAndStatusInAndDeletedFalseOrderByPriceDesc(eq(1), anyList()))
+                .thenReturn(Arrays.asList(buyOrder));
+        when(auctionOrderRepository.findByDirectionAndStatusInAndDeletedFalseOrderByPriceAsc(eq(2), anyList()))
+                .thenReturn(Collections.emptyList());
+
+        var results = doubleAuctionService.executeMatching();
+
+        assertNotNull(results);
+        assertTrue(results.isEmpty());
+    }
+
+    @Test
+    @DisplayName("executeMatching returns empty when only sell orders exist")
+    void testExecuteMatchingOnlySellOrders() {
+        AuctionOrder sellOrder = AuctionOrder.builder()
+                .orderNo("S001").userId(2L).direction(2)
+                .quantity(new BigDecimal("100")).price(new BigDecimal("50"))
+                .matchedQuantity(BigDecimal.ZERO).status(AuctionOrderStatusEnum.PENDING.getCode())
+                .build();
+        sellOrder.setId(2L);
+
+        when(auctionOrderRepository.findByDirectionAndStatusInAndDeletedFalseOrderByPriceDesc(eq(1), anyList()))
+                .thenReturn(Collections.emptyList());
+        when(auctionOrderRepository.findByDirectionAndStatusInAndDeletedFalseOrderByPriceAsc(eq(2), anyList()))
+                .thenReturn(Arrays.asList(sellOrder));
+
+        var results = doubleAuctionService.executeMatching();
+
+        assertNotNull(results);
+        assertTrue(results.isEmpty());
+    }
+
+    @Test
+    @DisplayName("executeMatching does not match when buy price < sell price")
+    void testExecuteMatchingNoMatchDueToPrice() {
+        AuctionOrder buyOrder = AuctionOrder.builder()
+                .orderNo("B001").userId(1L).direction(1)
+                .quantity(new BigDecimal("100")).price(new BigDecimal("40"))
+                .matchedQuantity(BigDecimal.ZERO).status(AuctionOrderStatusEnum.PENDING.getCode())
+                .build();
+        buyOrder.setId(1L);
+
+        AuctionOrder sellOrder = AuctionOrder.builder()
+                .orderNo("S001").userId(2L).direction(2)
+                .quantity(new BigDecimal("100")).price(new BigDecimal("50"))
+                .matchedQuantity(BigDecimal.ZERO).status(AuctionOrderStatusEnum.PENDING.getCode())
+                .build();
+        sellOrder.setId(2L);
+
+        when(auctionOrderRepository.findByDirectionAndStatusInAndDeletedFalseOrderByPriceDesc(eq(1), anyList()))
+                .thenReturn(Arrays.asList(buyOrder));
+        when(auctionOrderRepository.findByDirectionAndStatusInAndDeletedFalseOrderByPriceAsc(eq(2), anyList()))
+                .thenReturn(Arrays.asList(sellOrder));
+
+        var results = doubleAuctionService.executeMatching();
+
+        assertNotNull(results);
+        assertTrue(results.isEmpty());
+        verify(matchingResultRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("executeMatching handles partial match correctly")
+    void testExecuteMatchingPartialMatch() {
+        AuctionOrder buyOrder = AuctionOrder.builder()
+                .orderNo("B001").userId(1L).direction(1)
+                .quantity(new BigDecimal("200")).price(new BigDecimal("60"))
+                .matchedQuantity(BigDecimal.ZERO).status(AuctionOrderStatusEnum.PENDING.getCode())
+                .build();
+        buyOrder.setId(1L);
+
+        AuctionOrder sellOrder = AuctionOrder.builder()
+                .orderNo("S001").userId(2L).direction(2)
+                .quantity(new BigDecimal("100")).price(new BigDecimal("50"))
+                .matchedQuantity(BigDecimal.ZERO).status(AuctionOrderStatusEnum.PENDING.getCode())
+                .build();
+        sellOrder.setId(2L);
+
+        Enterprise buyerEnterprise = Enterprise.builder().userId(1L)
+                .carbonQuota(new BigDecimal("1000")).carbonTradable(new BigDecimal("500")).carbonUsed(new BigDecimal("500"))
+                .build();
+        buyerEnterprise.setId(1L);
+        Enterprise sellerEnterprise = Enterprise.builder().userId(2L)
+                .carbonQuota(new BigDecimal("1000")).carbonTradable(new BigDecimal("500")).carbonUsed(new BigDecimal("500"))
+                .build();
+        sellerEnterprise.setId(2L);
+
+        User buyer = User.builder().realName("Buyer").build();
+        buyer.setId(1L);
+        User seller = User.builder().realName("Seller").build();
+        seller.setId(2L);
+
+        when(auctionOrderRepository.findByDirectionAndStatusInAndDeletedFalseOrderByPriceDesc(eq(1), anyList()))
+                .thenReturn(Arrays.asList(buyOrder));
+        when(auctionOrderRepository.findByDirectionAndStatusInAndDeletedFalseOrderByPriceAsc(eq(2), anyList()))
+                .thenReturn(Arrays.asList(sellOrder));
+        when(matchingResultRepository.save(any(MatchingResult.class))).thenAnswer(invocation -> {
+            MatchingResult match = invocation.getArgument(0);
+            match.setId(1L);
+            return match;
+        });
+        when(transactionRepository.save(any(Transaction.class))).thenAnswer(invocation -> {
+            Transaction tx = invocation.getArgument(0);
+            tx.setId(1L);
+            return tx;
+        });
+        when(enterpriseRepository.findByUserId(1L)).thenReturn(Optional.of(buyerEnterprise));
+        when(enterpriseRepository.findByUserId(2L)).thenReturn(Optional.of(sellerEnterprise));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(buyer));
+        when(userRepository.findById(2L)).thenReturn(Optional.of(seller));
+        when(auctionOrderRepository.save(any(AuctionOrder.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        var results = doubleAuctionService.executeMatching();
+
+        assertNotNull(results);
+        assertEquals(1, results.size());
+        // Buy order should be partially matched (100 of 200)
+        assertEquals(new BigDecimal("100"), buyOrder.getMatchedQuantity());
+        // Sell order should be fully matched
+        assertEquals(new BigDecimal("100"), sellOrder.getMatchedQuantity());
+    }
+
+    @Test
+    @DisplayName("placeSellOrder rejects negative price before repository access")
+    void testPlaceSellOrderFailNegativePrice() {
+        orderRequest.setPrice(new BigDecimal("-1.00"));
+
+        TradeException ex = assertThrows(TradeException.class, () ->
+                doubleAuctionService.placeSellOrder(currentUser, orderRequest));
+
+        assertEquals(ErrorCode.PARAM_ERROR, ex.getCode());
+        verify(enterpriseRepository, never()).findByUserId(any());
+    }
+
+    // ==================== Additional branch coverage tests (batch 2) ====================
+
+    @Test
+    @DisplayName("executeMatching-卖单完全匹配后sellRemaining<=0不再继续")
+    void testExecuteMatchingSellFullyConsumed() {
+        AuctionOrder buyOrder = AuctionOrder.builder()
+                .orderNo("B001").userId(1L).direction(1)
+                .quantity(new BigDecimal("50")).price(new BigDecimal("60"))
+                .matchedQuantity(BigDecimal.ZERO).status(AuctionOrderStatusEnum.PENDING.getCode())
+                .build();
+        buyOrder.setId(1L);
+
+        AuctionOrder sellOrder = AuctionOrder.builder()
+                .orderNo("S001").userId(2L).direction(2)
+                .quantity(new BigDecimal("100")).price(new BigDecimal("50"))
+                .matchedQuantity(BigDecimal.ZERO).status(AuctionOrderStatusEnum.PENDING.getCode())
+                .build();
+        sellOrder.setId(2L);
+
+        Enterprise buyerEnterprise = Enterprise.builder().userId(1L)
+                .carbonQuota(new BigDecimal("1000")).carbonTradable(new BigDecimal("500")).carbonUsed(new BigDecimal("500"))
+                .build();
+        buyerEnterprise.setId(1L);
+        Enterprise sellerEnterprise = Enterprise.builder().userId(2L)
+                .carbonQuota(new BigDecimal("1000")).carbonTradable(new BigDecimal("500")).carbonUsed(new BigDecimal("500"))
+                .build();
+        sellerEnterprise.setId(2L);
+
+        User buyer = User.builder().realName("Buyer").build();
+        buyer.setId(1L);
+        User seller = User.builder().realName("Seller").build();
+        seller.setId(2L);
+
+        when(auctionOrderRepository.findByDirectionAndStatusInAndDeletedFalseOrderByPriceDesc(eq(1), anyList()))
+                .thenReturn(Arrays.asList(buyOrder));
+        when(auctionOrderRepository.findByDirectionAndStatusInAndDeletedFalseOrderByPriceAsc(eq(2), anyList()))
+                .thenReturn(Arrays.asList(sellOrder));
+        when(matchingResultRepository.save(any(MatchingResult.class))).thenAnswer(invocation -> {
+            MatchingResult match = invocation.getArgument(0);
+            match.setId(1L);
+            return match;
+        });
+        when(transactionRepository.save(any(Transaction.class))).thenAnswer(invocation -> {
+            Transaction tx = invocation.getArgument(0);
+            tx.setId(1L);
+            return tx;
+        });
+        when(enterpriseRepository.findByUserId(1L)).thenReturn(Optional.of(buyerEnterprise));
+        when(enterpriseRepository.findByUserId(2L)).thenReturn(Optional.of(sellerEnterprise));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(buyer));
+        when(userRepository.findById(2L)).thenReturn(Optional.of(seller));
+        when(auctionOrderRepository.save(any(AuctionOrder.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        var results = doubleAuctionService.executeMatching();
+
+        assertEquals(1, results.size());
+        assertEquals(new BigDecimal("50"), buyOrder.getMatchedQuantity());
+        assertEquals(new BigDecimal("50"), sellOrder.getMatchedQuantity());
+    }
+
+    @Test
+    @DisplayName("executeMatching-买单完全匹配后buyRemaining<=0退出while循环")
+    void testExecuteMatchingBuyFullyConsumed() {
+        AuctionOrder buyOrder = AuctionOrder.builder()
+                .orderNo("B002").userId(1L).direction(1)
+                .quantity(new BigDecimal("50")).price(new BigDecimal("60"))
+                .matchedQuantity(BigDecimal.ZERO).status(AuctionOrderStatusEnum.PENDING.getCode())
+                .build();
+        buyOrder.setId(1L);
+
+        AuctionOrder sellOrder = AuctionOrder.builder()
+                .orderNo("S002").userId(2L).direction(2)
+                .quantity(new BigDecimal("100")).price(new BigDecimal("50"))
+                .matchedQuantity(BigDecimal.ZERO).status(AuctionOrderStatusEnum.PENDING.getCode())
+                .build();
+        sellOrder.setId(2L);
+
+        Enterprise buyerEnterprise = Enterprise.builder().userId(1L)
+                .carbonQuota(new BigDecimal("1000")).carbonTradable(new BigDecimal("500")).carbonUsed(new BigDecimal("500"))
+                .build();
+        buyerEnterprise.setId(1L);
+        Enterprise sellerEnterprise = Enterprise.builder().userId(2L)
+                .carbonQuota(new BigDecimal("1000")).carbonTradable(new BigDecimal("500")).carbonUsed(new BigDecimal("500"))
+                .build();
+        sellerEnterprise.setId(2L);
+
+        User buyer = User.builder().realName("Buyer").build();
+        buyer.setId(1L);
+        User seller = User.builder().realName("Seller").build();
+        seller.setId(2L);
+
+        when(auctionOrderRepository.findByDirectionAndStatusInAndDeletedFalseOrderByPriceDesc(eq(1), anyList()))
+                .thenReturn(Arrays.asList(buyOrder));
+        when(auctionOrderRepository.findByDirectionAndStatusInAndDeletedFalseOrderByPriceAsc(eq(2), anyList()))
+                .thenReturn(Arrays.asList(sellOrder));
+        when(matchingResultRepository.save(any(MatchingResult.class))).thenAnswer(invocation -> {
+            MatchingResult match = invocation.getArgument(0);
+            match.setId(1L);
+            return match;
+        });
+        when(transactionRepository.save(any(Transaction.class))).thenAnswer(invocation -> {
+            Transaction tx = invocation.getArgument(0);
+            tx.setId(1L);
+            return tx;
+        });
+        when(enterpriseRepository.findByUserId(1L)).thenReturn(Optional.of(buyerEnterprise));
+        when(enterpriseRepository.findByUserId(2L)).thenReturn(Optional.of(sellerEnterprise));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(buyer));
+        when(userRepository.findById(2L)).thenReturn(Optional.of(seller));
+        when(auctionOrderRepository.save(any(AuctionOrder.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        var results = doubleAuctionService.executeMatching();
+
+        assertEquals(1, results.size());
+    }
+
+    @Test
+    @DisplayName("executeMatching-多个买单匹配多个卖单")
+    void testExecuteMatchingMultipleBuysAndSells() {
+        AuctionOrder buyOrder1 = AuctionOrder.builder()
+                .orderNo("B003").userId(1L).direction(1)
+                .quantity(new BigDecimal("100")).price(new BigDecimal("70"))
+                .matchedQuantity(BigDecimal.ZERO).status(AuctionOrderStatusEnum.PENDING.getCode())
+                .build();
+        buyOrder1.setId(1L);
+
+        AuctionOrder buyOrder2 = AuctionOrder.builder()
+                .orderNo("B004").userId(3L).direction(1)
+                .quantity(new BigDecimal("50")).price(new BigDecimal("55"))
+                .matchedQuantity(BigDecimal.ZERO).status(AuctionOrderStatusEnum.PENDING.getCode())
+                .build();
+        buyOrder2.setId(3L);
+
+        AuctionOrder sellOrder1 = AuctionOrder.builder()
+                .orderNo("S003").userId(2L).direction(2)
+                .quantity(new BigDecimal("60")).price(new BigDecimal("50"))
+                .matchedQuantity(BigDecimal.ZERO).status(AuctionOrderStatusEnum.PENDING.getCode())
+                .build();
+        sellOrder1.setId(2L);
+
+        AuctionOrder sellOrder2 = AuctionOrder.builder()
+                .orderNo("S004").userId(4L).direction(2)
+                .quantity(new BigDecimal("80")).price(new BigDecimal("60"))
+                .matchedQuantity(BigDecimal.ZERO).status(AuctionOrderStatusEnum.PENDING.getCode())
+                .build();
+        sellOrder2.setId(4L);
+
+        Enterprise enterprise1 = Enterprise.builder().userId(1L)
+                .carbonQuota(new BigDecimal("1000")).carbonTradable(new BigDecimal("500")).carbonUsed(new BigDecimal("500")).build();
+        enterprise1.setId(1L);
+        Enterprise enterprise2 = Enterprise.builder().userId(2L)
+                .carbonQuota(new BigDecimal("1000")).carbonTradable(new BigDecimal("500")).carbonUsed(new BigDecimal("500")).build();
+        enterprise2.setId(2L);
+        Enterprise enterprise3 = Enterprise.builder().userId(3L)
+                .carbonQuota(new BigDecimal("1000")).carbonTradable(new BigDecimal("500")).carbonUsed(new BigDecimal("500")).build();
+        enterprise3.setId(3L);
+        Enterprise enterprise4 = Enterprise.builder().userId(4L)
+                .carbonQuota(new BigDecimal("1000")).carbonTradable(new BigDecimal("500")).carbonUsed(new BigDecimal("500")).build();
+        enterprise4.setId(4L);
+
+        User user1 = User.builder().realName("User1").build(); user1.setId(1L);
+        User user2 = User.builder().realName("User2").build(); user2.setId(2L);
+        User user3 = User.builder().realName("User3").build(); user3.setId(3L);
+        User user4 = User.builder().realName("User4").build(); user4.setId(4L);
+
+        when(auctionOrderRepository.findByDirectionAndStatusInAndDeletedFalseOrderByPriceDesc(eq(1), anyList()))
+                .thenReturn(Arrays.asList(buyOrder1, buyOrder2));
+        when(auctionOrderRepository.findByDirectionAndStatusInAndDeletedFalseOrderByPriceAsc(eq(2), anyList()))
+                .thenReturn(Arrays.asList(sellOrder1, sellOrder2));
+        when(matchingResultRepository.save(any(MatchingResult.class))).thenAnswer(invocation -> {
+            MatchingResult m = invocation.getArgument(0);
+            m.setId(m.getBuyOrderId());
+            return m;
+        });
+        when(transactionRepository.save(any(Transaction.class))).thenAnswer(invocation -> {
+            Transaction tx = invocation.getArgument(0);
+            tx.setId(tx.getSellerId());
+            return tx;
+        });
+        when(enterpriseRepository.findByUserId(1L)).thenReturn(Optional.of(enterprise1));
+        when(enterpriseRepository.findByUserId(2L)).thenReturn(Optional.of(enterprise2));
+        when(enterpriseRepository.findByUserId(4L)).thenReturn(Optional.of(enterprise4));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user1));
+        when(userRepository.findById(2L)).thenReturn(Optional.of(user2));
+        when(userRepository.findById(4L)).thenReturn(Optional.of(user4));
+        when(auctionOrderRepository.save(any(AuctionOrder.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        var results = doubleAuctionService.executeMatching();
+
+        // buyOrder1(100@70) matches sellOrder1(60@50)=60, then sellOrder2(80@60)=40 → buyOrder1 matched 100
+        // buyOrder2(50@55) matches sellOrder2 remaining(40@60) → can't match (55 < 60), so no match for buyOrder2
+        assertTrue(results.size() >= 1);
+    }
+
+    @Test
+    @DisplayName("executeMatching-卖单部分已匹配时sellRemaining为0跳过")
+    void testExecuteMatchingSellOrderAlreadyFullyMatched() {
+        AuctionOrder buyOrder = AuctionOrder.builder()
+                .orderNo("B005").userId(1L).direction(1)
+                .quantity(new BigDecimal("100")).price(new BigDecimal("60"))
+                .matchedQuantity(BigDecimal.ZERO).status(AuctionOrderStatusEnum.PENDING.getCode())
+                .build();
+        buyOrder.setId(1L);
+
+        // Sell order already fully matched
+        AuctionOrder sellOrder = AuctionOrder.builder()
+                .orderNo("S005").userId(2L).direction(2)
+                .quantity(new BigDecimal("100")).price(new BigDecimal("50"))
+                .matchedQuantity(new BigDecimal("100")).status(AuctionOrderStatusEnum.FULLY_MATCHED.getCode())
+                .build();
+        sellOrder.setId(2L);
+
+        when(auctionOrderRepository.findByDirectionAndStatusInAndDeletedFalseOrderByPriceDesc(eq(1), anyList()))
+                .thenReturn(Arrays.asList(buyOrder));
+        when(auctionOrderRepository.findByDirectionAndStatusInAndDeletedFalseOrderByPriceAsc(eq(2), anyList()))
+                .thenReturn(Arrays.asList(sellOrder));
+        when(auctionOrderRepository.save(any(AuctionOrder.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        var results = doubleAuctionService.executeMatching();
+
+        assertTrue(results.isEmpty());
+    }
+
+    @Test
+    @DisplayName("executeMatching-买单和卖单价格恰好相等时撮合成功")
+    void testExecuteMatchingEqualPrice() {
+        AuctionOrder buyOrder = AuctionOrder.builder()
+                .orderNo("B006").userId(1L).direction(1)
+                .quantity(new BigDecimal("100")).price(new BigDecimal("55"))
+                .matchedQuantity(BigDecimal.ZERO).status(AuctionOrderStatusEnum.PENDING.getCode())
+                .build();
+        buyOrder.setId(1L);
+
+        AuctionOrder sellOrder = AuctionOrder.builder()
+                .orderNo("S006").userId(2L).direction(2)
+                .quantity(new BigDecimal("100")).price(new BigDecimal("55"))
+                .matchedQuantity(BigDecimal.ZERO).status(AuctionOrderStatusEnum.PENDING.getCode())
+                .build();
+        sellOrder.setId(2L);
+
+        Enterprise buyerEnterprise = Enterprise.builder().userId(1L)
+                .carbonQuota(new BigDecimal("1000")).carbonTradable(new BigDecimal("500")).carbonUsed(new BigDecimal("500"))
+                .build();
+        buyerEnterprise.setId(1L);
+        Enterprise sellerEnterprise = Enterprise.builder().userId(2L)
+                .carbonQuota(new BigDecimal("1000")).carbonTradable(new BigDecimal("500")).carbonUsed(new BigDecimal("500"))
+                .build();
+        sellerEnterprise.setId(2L);
+
+        User buyer = User.builder().realName("Buyer").build(); buyer.setId(1L);
+        User seller = User.builder().realName("Seller").build(); seller.setId(2L);
+
+        when(auctionOrderRepository.findByDirectionAndStatusInAndDeletedFalseOrderByPriceDesc(eq(1), anyList()))
+                .thenReturn(Arrays.asList(buyOrder));
+        when(auctionOrderRepository.findByDirectionAndStatusInAndDeletedFalseOrderByPriceAsc(eq(2), anyList()))
+                .thenReturn(Arrays.asList(sellOrder));
+        when(matchingResultRepository.save(any(MatchingResult.class))).thenAnswer(invocation -> {
+            MatchingResult m = invocation.getArgument(0); m.setId(1L); return m;
+        });
+        when(transactionRepository.save(any(Transaction.class))).thenAnswer(invocation -> {
+            Transaction tx = invocation.getArgument(0); tx.setId(1L); return tx;
+        });
+        when(enterpriseRepository.findByUserId(1L)).thenReturn(Optional.of(buyerEnterprise));
+        when(enterpriseRepository.findByUserId(2L)).thenReturn(Optional.of(sellerEnterprise));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(buyer));
+        when(userRepository.findById(2L)).thenReturn(Optional.of(seller));
+        when(auctionOrderRepository.save(any(AuctionOrder.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        var results = doubleAuctionService.executeMatching();
+
+        assertEquals(1, results.size());
+        assertEquals(new BigDecimal("55.00"), results.get(0).getSettlementPrice());
+    }
+
+    @Test
+    @DisplayName("toOrderResponse-matchedQuantity为null时remainingQuantity等于quantity")
+    void testToOrderResponseNullMatchedQuantity() {
+        AuctionOrder order = AuctionOrder.builder()
+                .orderNo("B007").userId(1L).direction(1)
+                .quantity(new BigDecimal("100")).price(new BigDecimal("50"))
+                .matchedQuantity(null)  // null matchedQuantity
+                .status(AuctionOrderStatusEnum.PENDING.getCode())
+                .build();
+        order.setId(1L);
+
+        Page<AuctionOrder> page = new PageImpl<>(Arrays.asList(order));
+        when(auctionOrderRepository.findByDeletedFalse(any(Pageable.class))).thenReturn(page);
+
+        Page<AuctionOrderResponse> result = doubleAuctionService.listOrders(null, null, 1, 10);
+        assertNotNull(result);
+        assertEquals(new BigDecimal("100"), result.getContent().get(0).getRemainingQuantity());
+    }
+
+    @Test
+    @DisplayName("safeAuctionStatusText-未知状态返回空字符串")
+    void testSafeAuctionStatusTextUnknown() {
+        AuctionOrder order = AuctionOrder.builder()
+                .orderNo("B008").userId(1L).direction(1)
+                .quantity(new BigDecimal("100")).price(new BigDecimal("50"))
+                .matchedQuantity(BigDecimal.ZERO)
+                .status(99)  // unknown status
+                .build();
+        order.setId(1L);
+
+        Page<AuctionOrder> page = new PageImpl<>(Arrays.asList(order));
+        when(auctionOrderRepository.findByDeletedFalse(any(Pageable.class))).thenReturn(page);
+
+        Page<AuctionOrderResponse> result = doubleAuctionService.listOrders(null, null, 1, 10);
+        assertEquals("", result.getContent().get(0).getStatusText());
+    }
+
+    @Test
+    @DisplayName("safeMatchingStatusText-未知状态返回空字符串")
+    void testSafeMatchingStatusTextUnknown() {
+        MatchingResult match = MatchingResult.builder()
+                .matchNo("MT001").buyOrderId(1L).sellOrderId(2L)
+                .buyerId(1L).sellerId(2L)
+                .matchedQuantity(new BigDecimal("100"))
+                .settlementPrice(new BigDecimal("55"))
+                .totalAmount(new BigDecimal("5500"))
+                .status(99)  // unknown status
+                .build();
+        match.setId(1L);
+
+        User buyer = User.builder().realName("Buyer").build(); buyer.setId(1L);
+        User seller = User.builder().realName("Seller").build(); seller.setId(2L);
+
+        Page<MatchingResult> page = new PageImpl<>(Arrays.asList(match));
+        when(matchingResultRepository.findByUserIdRelated(eq(1L), any(Pageable.class))).thenReturn(page);
+        when(userRepository.findAllById(any())).thenReturn(Arrays.asList(buyer, seller));
+
+        Page<MatchingResultResponse> result = doubleAuctionService.listMatchingResults(currentUser, 1, 10);
+        assertEquals("", result.getContent().get(0).getStatusText());
+    }
+
+    @Test
+    @DisplayName("listMyOrders-方向筛选仅返回对应方向订单")
+    void testListMyOrdersDirectionOnly() {
+        AuctionOrder order = AuctionOrder.builder()
+                .orderNo("S007").userId(1L).direction(2)
+                .quantity(new BigDecimal("100")).price(new BigDecimal("50"))
+                .matchedQuantity(BigDecimal.ZERO)
+                .status(AuctionOrderStatusEnum.PENDING.getCode())
+                .build();
+        order.setId(1L);
+
+        Page<AuctionOrder> page = new PageImpl<>(Arrays.asList(order));
+        when(auctionOrderRepository.findByUserIdAndDirectionAndDeletedFalse(eq(1L), eq(2), any(Pageable.class)))
+                .thenReturn(page);
+
+        Page<AuctionOrderResponse> result = doubleAuctionService.listMyOrders(currentUser, 2, null, 1, 10);
+        assertNotNull(result);
+        assertEquals(1, result.getContent().size());
+        assertEquals("卖出", result.getContent().get(0).getDirectionText());
+    }
+
+    @Test
+    @DisplayName("listOrders-不带方向和状态筛选返回全部订单")
+    void testListOrdersWithoutFilters() {
+        AuctionOrder order = AuctionOrder.builder()
+                .orderNo("B009").userId(1L).direction(1)
+                .quantity(new BigDecimal("100")).price(new BigDecimal("50"))
+                .matchedQuantity(BigDecimal.ZERO)
+                .status(AuctionOrderStatusEnum.PENDING.getCode())
+                .build();
+        order.setId(1L);
+
+        Page<AuctionOrder> page = new PageImpl<>(Arrays.asList(order));
+        when(auctionOrderRepository.findByDeletedFalse(any(Pageable.class))).thenReturn(page);
+
+        Page<AuctionOrderResponse> result = doubleAuctionService.listOrders(null, null, 1, 10);
+        assertNotNull(result);
+        assertEquals(1, result.getContent().size());
+    }
+
+    @Test
+    @DisplayName("executeMatching-买单已部分匹配时继续匹配剩余量")
+    void testExecuteMatchingBuyOrderPartiallyMatched() {
+        AuctionOrder buyOrder = AuctionOrder.builder()
+                .orderNo("B010").userId(1L).direction(1)
+                .quantity(new BigDecimal("200")).price(new BigDecimal("60"))
+                .matchedQuantity(new BigDecimal("50"))  // already partially matched
+                .status(AuctionOrderStatusEnum.PARTIALLY_MATCHED.getCode())
+                .build();
+        buyOrder.setId(1L);
+
+        AuctionOrder sellOrder = AuctionOrder.builder()
+                .orderNo("S008").userId(2L).direction(2)
+                .quantity(new BigDecimal("100")).price(new BigDecimal("50"))
+                .matchedQuantity(BigDecimal.ZERO).status(AuctionOrderStatusEnum.PENDING.getCode())
+                .build();
+        sellOrder.setId(2L);
+
+        Enterprise buyerEnterprise = Enterprise.builder().userId(1L)
+                .carbonQuota(new BigDecimal("1000")).carbonTradable(new BigDecimal("500")).carbonUsed(new BigDecimal("500"))
+                .build();
+        buyerEnterprise.setId(1L);
+        Enterprise sellerEnterprise = Enterprise.builder().userId(2L)
+                .carbonQuota(new BigDecimal("1000")).carbonTradable(new BigDecimal("500")).carbonUsed(new BigDecimal("500"))
+                .build();
+        sellerEnterprise.setId(2L);
+
+        User buyer = User.builder().realName("Buyer").build(); buyer.setId(1L);
+        User seller = User.builder().realName("Seller").build(); seller.setId(2L);
+
+        when(auctionOrderRepository.findByDirectionAndStatusInAndDeletedFalseOrderByPriceDesc(eq(1), anyList()))
+                .thenReturn(Arrays.asList(buyOrder));
+        when(auctionOrderRepository.findByDirectionAndStatusInAndDeletedFalseOrderByPriceAsc(eq(2), anyList()))
+                .thenReturn(Arrays.asList(sellOrder));
+        when(matchingResultRepository.save(any(MatchingResult.class))).thenAnswer(invocation -> {
+            MatchingResult m = invocation.getArgument(0); m.setId(1L); return m;
+        });
+        when(transactionRepository.save(any(Transaction.class))).thenAnswer(invocation -> {
+            Transaction tx = invocation.getArgument(0); tx.setId(1L); return tx;
+        });
+        when(enterpriseRepository.findByUserId(1L)).thenReturn(Optional.of(buyerEnterprise));
+        when(enterpriseRepository.findByUserId(2L)).thenReturn(Optional.of(sellerEnterprise));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(buyer));
+        when(userRepository.findById(2L)).thenReturn(Optional.of(seller));
+        when(auctionOrderRepository.save(any(AuctionOrder.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        var results = doubleAuctionService.executeMatching();
+
+        assertEquals(1, results.size());
+        // buyOrder: 200 - 50 = 150 remaining, matches 100 from sellOrder → buyOrder matchedQuantity = 50+100 = 150
+        assertEquals(new BigDecimal("150"), buyOrder.getMatchedQuantity());
+    }
 }

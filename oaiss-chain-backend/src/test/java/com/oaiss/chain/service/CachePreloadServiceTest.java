@@ -152,4 +152,114 @@ class CachePreloadServiceTest {
 
         assertDoesNotThrow(() -> cachePreloadService.preloadCacheOnStartup());
     }
+
+    // ==================== Additional coverage tests ====================
+
+    @Test
+    @DisplayName("缓存预热-系统配置缓存不存在时创建")
+    void testPreloadSystemConfigCacheNotExists() {
+        when(redisTemplate.hasKey("user_types:all")).thenReturn(true);
+        when(redisTemplate.hasKey("system:config")).thenReturn(false);
+        when(redisTemplate.hasKey("permissions:all")).thenReturn(true);
+        when(redisTemplate.hasKey("emission_factors:default")).thenReturn(true);
+        when(redisTemplate.expire(anyString(), anyLong(), any())).thenReturn(true);
+
+        cachePreloadService.preloadCacheOnStartup();
+
+        verify(hashOperations).put(eq("system:config"), eq("carbon_unit"), eq("tCO2e"));
+        verify(hashOperations).put(eq("system:config"), eq("currency_unit"), eq("CNY"));
+        verify(hashOperations).put(eq("system:config"), eq("report_period"), eq("YEARLY"));
+        verify(hashOperations).put(eq("system:config"), eq("credit_initial_score"), eq("100"));
+    }
+
+    @Test
+    @DisplayName("缓存预热-权限列表缓存不存在时创建")
+    void testPreloadPermissionCacheNotExists() {
+        when(redisTemplate.hasKey("user_types:all")).thenReturn(true);
+        when(redisTemplate.hasKey("system:config")).thenReturn(true);
+        when(redisTemplate.hasKey("permissions:all")).thenReturn(false);
+        when(redisTemplate.hasKey("emission_factors:default")).thenReturn(true);
+        when(redisTemplate.expire(anyString(), anyLong(), any())).thenReturn(true);
+
+        cachePreloadService.preloadCacheOnStartup();
+
+        verify(setOperations).add(eq("permissions:all"), any(Object[].class));
+    }
+
+    @Test
+    @DisplayName("缓存预热-排放因子缓存不存在时创建")
+    void testPreloadEmissionFactorCacheNotExists() {
+        when(redisTemplate.hasKey("user_types:all")).thenReturn(true);
+        when(redisTemplate.hasKey("system:config")).thenReturn(true);
+        when(redisTemplate.hasKey("permissions:all")).thenReturn(true);
+        when(redisTemplate.hasKey("emission_factors:default")).thenReturn(false);
+        when(redisTemplate.expire(anyString(), anyLong(), any())).thenReturn(true);
+
+        cachePreloadService.preloadCacheOnStartup();
+
+        verify(hashOperations).put(eq("emission_factors:default"), eq("electricity_grid"), eq("0.5839"));
+        verify(hashOperations).put(eq("emission_factors:default"), eq("natural_gas"), eq("2.1620"));
+        verify(hashOperations).put(eq("emission_factors:default"), eq("gasoline"), eq("2.9848"));
+        verify(hashOperations).put(eq("emission_factors:default"), eq("diesel"), eq("3.1809"));
+        verify(hashOperations).put(eq("emission_factors:default"), eq("coal"), eq("2.6600"));
+    }
+
+    @Test
+    @DisplayName("获取缓存统计信息-keyCount为null时处理")
+    void testGetCacheStatisticsWithNullKeyCount() {
+        when(cacheManager.getCacheNames()).thenReturn(List.of("cache1"));
+        when(redisTemplate.execute(any(RedisCallback.class))).thenReturn(null);
+
+        CachePreloadService.CacheStatistics stats = cachePreloadService.getCacheStatistics();
+
+        assertNotNull(stats);
+        assertEquals(1, stats.totalCaches());
+        assertEquals(0, stats.totalKeys());
+    }
+
+    @Test
+    @DisplayName("手动刷新缓存-部分缓存返回null")
+    void testRefreshAllCachesWithNullCache() {
+        when(cacheManager.getCacheNames()).thenReturn(List.of("cache1", "cache2"));
+        when(cacheManager.getCache("cache1")).thenReturn(mock(Cache.class));
+        when(cacheManager.getCache("cache2")).thenReturn(null); // null cache
+        when(redisTemplate.hasKey(anyString())).thenReturn(true);
+
+        assertDoesNotThrow(() -> cachePreloadService.refreshAllCaches());
+    }
+
+    @Test
+    @DisplayName("缓存预热-系统配置缓存异常时继续")
+    void testPreloadSystemConfigCacheException() {
+        when(redisTemplate.hasKey("user_types:all")).thenReturn(true);
+        when(redisTemplate.hasKey("system:config")).thenReturn(false);
+        org.mockito.Mockito.doThrow(new RuntimeException("Redis error"))
+                .when(hashOperations).put(anyString(), any(), any());
+
+        assertDoesNotThrow(() -> cachePreloadService.preloadCacheOnStartup());
+    }
+
+    @Test
+    @DisplayName("缓存预热-权限缓存异常时继续")
+    void testPreloadPermissionCacheException() {
+        when(redisTemplate.hasKey("user_types:all")).thenReturn(true);
+        when(redisTemplate.hasKey("system:config")).thenReturn(true);
+        when(redisTemplate.hasKey("permissions:all")).thenReturn(false);
+        when(setOperations.add(anyString(), any())).thenThrow(new RuntimeException("Redis error"));
+
+        assertDoesNotThrow(() -> cachePreloadService.preloadCacheOnStartup());
+    }
+
+    @Test
+    @DisplayName("缓存预热-排放因子缓存异常时继续")
+    void testPreloadEmissionFactorCacheException() {
+        when(redisTemplate.hasKey("user_types:all")).thenReturn(true);
+        when(redisTemplate.hasKey("system:config")).thenReturn(true);
+        when(redisTemplate.hasKey("permissions:all")).thenReturn(true);
+        when(redisTemplate.hasKey("emission_factors:default")).thenReturn(false);
+        org.mockito.Mockito.doThrow(new RuntimeException("Redis error"))
+                .when(hashOperations).put(eq("emission_factors:default"), any(), any());
+
+        assertDoesNotThrow(() -> cachePreloadService.preloadCacheOnStartup());
+    }
 }

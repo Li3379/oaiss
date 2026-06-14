@@ -199,4 +199,111 @@ class RedisLockServiceTest {
         assertNotNull(lockValue);
         verify(valueOperations).setIfAbsent(anyString(), anyString(), eq(60L), eq(TimeUnit.SECONDS));
     }
+
+    @Test
+    @DisplayName("带重试获取锁-超时后返回null")
+    void testTryLockWithRetryTimeout() {
+        // Given - always fail to acquire lock
+        when(valueOperations.setIfAbsent(anyString(), anyString(), anyLong(), any(TimeUnit.class)))
+                .thenReturn(false);
+
+        // When - very short wait time
+        String lockValue = redisLockService.tryLockWithRetry(
+                "test-lock",
+                1,
+                TimeUnit.MILLISECONDS,
+                30,
+                TimeUnit.SECONDS
+        );
+
+        // Then
+        assertNull(lockValue);
+    }
+
+    @Test
+    @DisplayName("带重试获取锁-线程中断后返回null")
+    void testTryLockWithRetryInterrupted() throws Exception {
+        // Given - lock acquisition always fails
+        when(valueOperations.setIfAbsent(anyString(), anyString(), anyLong(), any(TimeUnit.class)))
+                .thenReturn(false);
+
+        // When - interrupt the current thread during retry
+        Thread.currentThread().interrupt();
+        String lockValue = redisLockService.tryLockWithRetry(
+                "test-lock",
+                5000,
+                TimeUnit.MILLISECONDS,
+                30,
+                TimeUnit.SECONDS
+        );
+
+        // Then
+        assertNull(lockValue);
+        // Clean up interrupt flag
+        assertTrue(Thread.interrupted());
+    }
+
+    @Test
+    @DisplayName("释放锁失败-redisTemplate.execute返回null")
+    void testReleaseLockFailExecuteReturnsNull() {
+        // Given
+        String lockValue = "test-lock-value";
+        when(redisTemplate.execute(any(), anyList(), eq(lockValue))).thenReturn(null);
+
+        // When
+        boolean result = redisLockService.releaseLock("test-lock", lockValue);
+
+        // Then
+        assertFalse(result);
+    }
+
+    @Test
+    @DisplayName("带重试获取锁-循环体内锁失败后重试再超时")
+    void testTryLockWithRetryLoopBodyExecutesBeforeTimeout() {
+        // Given - always fail to acquire lock, but use enough wait time to enter loop body
+        when(valueOperations.setIfAbsent(anyString(), anyString(), anyLong(), any(TimeUnit.class)))
+                .thenReturn(false);
+
+        // When - wait long enough for at least one retry iteration
+        String lockValue = redisLockService.tryLockWithRetry(
+                "test-lock",
+                250,
+                TimeUnit.MILLISECONDS,
+                30,
+                TimeUnit.SECONDS
+        );
+
+        // Then
+        assertNull(lockValue);
+        // Verify tryLock was called at least once inside the loop
+        verify(valueOperations, atLeastOnce()).setIfAbsent(anyString(), anyString(), anyLong(), any(TimeUnit.class));
+    }
+
+    @Test
+    @DisplayName("尝试获取锁-setIfAbsent返回null视为失败")
+    void testTryLockSetIfAbsentReturnsNull() {
+        // Given
+        when(valueOperations.setIfAbsent(anyString(), anyString(), anyLong(), any(TimeUnit.class)))
+                .thenReturn(null);
+
+        // When
+        String lockValue = redisLockService.tryLock("test-lock");
+
+        // Then
+        assertNull(lockValue);
+    }
+
+    @Test
+    @DisplayName("释放锁-deleted大于0时返回true")
+    void testReleaseLockDeletedGreaterThanZero() {
+        // Given
+        String lockValue = "test-lock-value";
+        when(redisTemplate.execute(any(), anyList(), eq(lockValue))).thenReturn(2L);
+
+        // When
+        boolean result = redisLockService.releaseLock("test-lock", lockValue);
+
+        // Then
+        assertTrue(result);
+    }
 }

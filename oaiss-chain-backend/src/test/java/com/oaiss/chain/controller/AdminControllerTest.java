@@ -20,7 +20,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.LocalDateTime;
@@ -37,12 +36,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * AdminController Unit Tests
  * 管理后台控制器单元测试
  */
-@WebMvcTest(value = AdminController.class,
-        excludeAutoConfiguration = {
-                org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration.class,
-                org.springframework.boot.autoconfigure.data.jpa.JpaRepositoriesAutoConfiguration.class
-        })
-@ActiveProfiles("test")
+@WebMvcTest(controllers = AdminController.class)
 @AutoConfigureMockMvc(addFilters = false)
 class AdminControllerTest {
 
@@ -518,5 +512,114 @@ class AdminControllerTest {
                         .param("size", "10"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.content[0].certificateNo").value("RV-002"));
+    }
+
+    // ==================== Branch Coverage: Self-Disable Check ====================
+
+    @Test
+    @DisplayName("更新用户状态-管理员禁用自己的账号应失败")
+    void testUpdateUserStatus_SelfDisable_ShouldFail() throws Exception {
+        // The controller checks: currentUser != null && currentUser.getUserId().equals(userId) && status == 0
+        // When all three conditions are true, it throws CANNOT_DISABLE_SELF
+        // Since filters are disabled, @AuthenticationPrincipal will be null in this test setup.
+        // We need to test the branch where currentUser is NOT null and tries to disable self.
+        // With @WebMvcTest and addFilters=false, @AuthenticationPrincipal resolves from SecurityContext.
+
+        // Set up an admin user in SecurityContext
+        com.oaiss.chain.security.JwtUserDetails adminUser =
+                com.oaiss.chain.security.JwtUserDetails.builder()
+                        .userId(1L)
+                        .username("admin_user")
+                        .userType(4)
+                        .roles(List.of("ADMIN"))
+                        .enabled(true)
+                        .accountNonExpired(true)
+                        .accountNonLocked(true)
+                        .credentialsNonExpired(true)
+                        .build();
+        org.springframework.security.authentication.UsernamePasswordAuthenticationToken auth =
+                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+                        adminUser, null, adminUser.getAuthorities());
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(auth);
+
+        // When & Then - trying to disable own account (userId=1, status=0)
+        mockMvc.perform(put("/admin/users/1/status")
+                        .param("status", "0"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(ErrorCode.CANNOT_DISABLE_SELF));
+
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("更新用户状态-管理员启用自己的账号应成功")
+    void testUpdateUserStatus_SelfEnable_ShouldSucceed() throws Exception {
+        // status=1 (enable self) should NOT trigger the self-disable check
+        com.oaiss.chain.security.JwtUserDetails adminUser =
+                com.oaiss.chain.security.JwtUserDetails.builder()
+                        .userId(1L)
+                        .username("admin_user")
+                        .userType(4)
+                        .roles(List.of("ADMIN"))
+                        .enabled(true)
+                        .accountNonExpired(true)
+                        .accountNonLocked(true)
+                        .credentialsNonExpired(true)
+                        .build();
+        org.springframework.security.authentication.UsernamePasswordAuthenticationToken auth =
+                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+                        adminUser, null, adminUser.getAuthorities());
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(auth);
+
+        User userToEnable = User.builder().username("admin_user").status(0).build();
+        userToEnable.setId(1L);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(userToEnable));
+        when(userRepository.save(any(User.class))).thenReturn(userToEnable);
+
+        mockMvc.perform(put("/admin/users/1/status")
+                        .param("status", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200));
+
+        verify(userRepository, times(1)).save(any(User.class));
+    }
+
+    @Test
+    @DisplayName("查询用户列表-同时传userType和status只按userType筛选")
+    void testListUsers_UserTypeTakesPrecedenceOverStatus() throws Exception {
+        // The code: if (userType != null) { ... } else if (status != null) { ... }
+        // When both are provided, userType branch is taken
+        List<User> users = List.of(testUser1);
+        Page<User> userPage = new PageImpl<>(users);
+        when(userRepository.findByUserTypeAndDeletedFalse(eq(1), any(Pageable.class))).thenReturn(userPage);
+
+        mockMvc.perform(get("/admin/users")
+                        .param("userType", "1")
+                        .param("status", "1")
+                        .param("page", "1")
+                        .param("size", "10"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200));
+
+        verify(userRepository, times(1)).findByUserTypeAndDeletedFalse(eq(1), any(Pageable.class));
+        verify(userRepository, never()).findByStatusAndDeletedFalse(any(), any());
+    }
+
+    @Test
+    @DisplayName("查询用户列表-仅传status参数筛选")
+    void testListUsers_OnlyStatusFilter() throws Exception {
+        List<User> activeUsers = List.of(testUser1, testUser2);
+        Page<User> userPage = new PageImpl<>(activeUsers);
+        when(userRepository.findByStatusAndDeletedFalse(eq(1), any(Pageable.class))).thenReturn(userPage);
+
+        mockMvc.perform(get("/admin/users")
+                        .param("status", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.content.length()").value(2));
+
+        verify(userRepository, times(1)).findByStatusAndDeletedFalse(eq(1), any(Pageable.class));
+        verify(userRepository, never()).findByUserTypeAndDeletedFalse(any(), any());
+        verify(userRepository, never()).findByDeletedFalse(any());
     }
 }

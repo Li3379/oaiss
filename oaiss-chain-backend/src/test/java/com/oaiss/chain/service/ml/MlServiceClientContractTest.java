@@ -5,6 +5,8 @@ import com.oaiss.chain.dto.*;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerConfig;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Meter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import okhttp3.mockwebserver.MockResponse;
@@ -234,6 +236,22 @@ class MlServiceClientContractTest {
     }
 
     @Test
+    @DisplayName("Carbon price falls back on HTTP error")
+    void carbonPrice_httpError_shouldFallback() {
+        mockWebServer.enqueue(new MockResponse().setResponseCode(500));
+
+        MarketForecastResponse response = mlServiceClient.predictCarbonPrice(MarketForecastRequest.builder()
+                .dates(List.of("2025-01"))
+                .prices(List.of(60.0))
+                .volumes(List.of(500.0))
+                .horizonDays(14)
+                .build());
+
+        assertEquals("unknown", response.getTrend());
+        assertEquals("fallback", response.getModelVersion());
+    }
+
+    @Test
     @DisplayName("Carbon price falls back on transport error")
     void carbonPrice_transportError_shouldFallback() {
         assertDoesNotThrow(() -> mockWebServer.shutdown());
@@ -369,5 +387,120 @@ class MlServiceClientContractTest {
         assertEquals(99L, response.getEnterpriseId());
         assertEquals("unknown", response.getTrend());
         assertEquals("fallback", response.getModelVersion());
+    }
+
+    // ==================== Additional coverage tests ====================
+
+    @Test
+    @DisplayName("Supply demand falls back on HTTP error")
+    void supplyDemand_httpError_shouldFallback() {
+        mockWebServer.enqueue(new MockResponse().setResponseCode(502));
+
+        MarketForecastResponse response = mlServiceClient.predictSupplyDemand(MarketForecastRequest.builder()
+                .dates(List.of("2025-02"))
+                .prices(List.of(58.0))
+                .volumes(List.of(900.0))
+                .horizonDays(21)
+                .build());
+
+        assertEquals("unknown", response.getTrend());
+        assertEquals("fallback", response.getModelVersion());
+    }
+
+    @Test
+    @DisplayName("Enterprise inference falls back on transport error")
+    void enterpriseInference_transportError_shouldFallback() {
+        assertDoesNotThrow(() -> mockWebServer.shutdown());
+
+        EnterpriseInferenceResponse response = mlServiceClient.inferEnterprise(EnterpriseInferenceRequest.builder()
+                .enterpriseId(456L)
+                .reportCount(3)
+                .totalEmissions(150.0)
+                .creditScore(70.0)
+                .complianceFlags(0)
+                .build());
+
+        assertEquals(456L, response.getEnterpriseId());
+        assertEquals("unknown", response.getComplianceStatus());
+        assertEquals("fallback", response.getModelVersion());
+    }
+
+    @Test
+    @DisplayName("Market trend success uses correct endpoint")
+    void marketTrend_success_shouldUseCorrectEndpoint() throws InterruptedException, IOException {
+        mockWebServer.enqueue(new MockResponse()
+                .setBody(objectMapper.writeValueAsString(MarketForecastResponse.builder()
+                        .trend("downward")
+                        .modelVersion("2.0.0")
+                        .build()))
+                .setHeader("Content-Type", "application/json"));
+
+        MarketForecastResponse response = mlServiceClient.predictMarketTrend(MarketForecastRequest.builder()
+                .dates(List.of("2025-03"))
+                .prices(List.of(45.0))
+                .volumes(List.of(800.0))
+                .horizonDays(30)
+                .build());
+
+        RecordedRequest recorded = mockWebServer.takeRequest();
+        assertEquals("/predict/market/trend", recorded.getPath());
+        assertEquals("downward", response.getTrend());
+        assertEquals("2.0.0", response.getModelVersion());
+    }
+
+    @Test
+    @DisplayName("Market trend transport error falls back")
+    void marketTrend_transportError_shouldFallback() {
+        assertDoesNotThrow(() -> mockWebServer.shutdown());
+
+        MarketForecastResponse response = mlServiceClient.predictMarketTrend(MarketForecastRequest.builder()
+                .dates(List.of("2025-01"))
+                .prices(List.of(55.0))
+                .volumes(List.of(100.0))
+                .horizonDays(7)
+                .build());
+
+        assertEquals("unknown", response.getTrend());
+        assertEquals("fallback", response.getModelVersion());
+    }
+
+    @Test
+    @DisplayName("timedCall catch block exercised when error handler throws")
+    void timedCall_catchBlockTriggered_whenErrorHandlerThrows() {
+        // MeterRegistry that throws on counter() calls, forcing errors through both
+        // onErrorResume handlers and into the timedCall catch block.
+        MeterRegistry throwingRegistry = new SimpleMeterRegistry() {
+            @Override
+            protected Counter newCounter(Meter.Id id) {
+                throw new RuntimeException("counter error");
+            }
+        };
+
+        WebClient freshClient = WebClient.builder()
+                .baseUrl(mockWebServer.url("/").toString())
+                .build();
+
+        CircuitBreakerConfig cbConfig = CircuitBreakerConfig.custom()
+                .waitDurationInOpenState(Duration.ofSeconds(1))
+                .slidingWindowSize(10)
+                .failureRateThreshold(50)
+                .build();
+        CircuitBreakerRegistry cbRegistry = CircuitBreakerRegistry.of(cbConfig);
+        CircuitBreaker cb = cbRegistry.circuitBreaker("timedCallCatchTest");
+
+        MlServiceClient client = new MlServiceClient(freshClient, cb, throwingRegistry);
+
+        mockWebServer.enqueue(new MockResponse().setResponseCode(500));
+
+        // WebClientResponseException handler throws (counter() throws)
+        // => Exception handler catches, but also throws (counter() throws)
+        // => block() throws => timedCall catch block catches and re-throws
+        assertThrows(RuntimeException.class, () ->
+                client.predictCarbonPrice(MarketForecastRequest.builder()
+                        .dates(List.of("2025-01"))
+                        .prices(List.of(60.0))
+                        .volumes(List.of(500.0))
+                        .horizonDays(14)
+                        .build()));
     }
 }

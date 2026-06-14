@@ -89,4 +89,12 @@ class AesGcmEncryptorTest {
         String decrypted = encryptor.decrypt(encrypted);
         assertEquals("", decrypted);
     }
+
+    @Test
+    @DisplayName("Wrong-length KEK throws IllegalStateException")
+    void testWrongLengthKekThrowsException() {
+        // 16 bytes instead of 32 — valid base64 but wrong decoded length
+        String shortKek = Base64.getEncoder().encodeToString(new byte[16]);
+        assertThrows(IllegalStateException.class, () -> new AesGcmEncryptor(shortKek));
+    }
 }

@@ -98,11 +98,12 @@ class MinioServiceTest {
     }
 
     @Test
-    @DisplayName("initBucket wraps initialization failure")
-    void initBucket_wrapsFailure() throws Exception {
+    @DisplayName("initBucket logs warning on failure without throwing")
+    void initBucket_logsWarningOnFailure() throws Exception {
         when(minioClient.bucketExists(any(BucketExistsArgs.class))).thenThrow(new RuntimeException("bucket failed"));
 
-        assertThrows(BusinessException.class, () -> minioService.initBucket());
+        minioService.initBucket();
+        // Should not throw — just log a warning
     }
 
     @Test
@@ -423,7 +424,7 @@ class MinioServiceTest {
     @DisplayName("getFileOwner returns null for invalid metadata")
     void getFileOwner_returnsNullForInvalidMetadata() throws Exception {
         StatObjectResponse stat = mock(StatObjectResponse.class);
-        when(stat.userMetadata()).thenReturn(Collections.singletonMap("x-amz-meta-uploader-id", "oops"));
+        when(stat.userMetadata()).thenReturn(Map.of("x-amz-meta-uploader-id", "oops"));
         when(minioClient.statObject(any(StatObjectArgs.class))).thenReturn(stat);
 
         Long ownerId = minioService.getFileOwner("reports/test.pdf");
@@ -445,5 +446,184 @@ class MinioServiceTest {
         when(minioClient.copyObject(any(CopyObjectArgs.class))).thenThrow(new RuntimeException("copy failed"));
 
         assertThrows(BusinessException.class, () -> minioService.copyFile("source.pdf", "target.pdf"));
+    }
+
+    @Test
+    @DisplayName("uploadFile rejects null file")
+    void uploadFile_rejectsNullFile() {
+        assertThrows(BusinessException.class, () -> minioService.uploadFile(null, "reports"));
+    }
+
+    @Test
+    @DisplayName("uploadFile with null original filename succeeds")
+    void uploadFile_nullOriginalFilename() throws Exception {
+        InputStream inputStream = new ByteArrayInputStream("test content".getBytes());
+        when(testFile.getOriginalFilename()).thenReturn(null);
+        when(testFile.getInputStream()).thenReturn(inputStream);
+        when(minioClient.putObject(any(PutObjectArgs.class))).thenReturn(mock(ObjectWriteResponse.class));
+
+        MinioService.UploadResult result = minioService.uploadFile(testFile, "reports");
+
+        assertNotNull(result);
+        assertTrue(result.objectName().startsWith("reports/"));
+    }
+
+    @Test
+    @DisplayName("uploadFile with null folder generates object name without folder prefix")
+    void uploadFile_nullFolder() throws Exception {
+        InputStream inputStream = new ByteArrayInputStream("test content".getBytes());
+        when(testFile.getInputStream()).thenReturn(inputStream);
+        when(minioClient.putObject(any(PutObjectArgs.class))).thenReturn(mock(ObjectWriteResponse.class));
+
+        MinioService.UploadResult result = minioService.uploadFile(testFile, null);
+
+        assertNotNull(result);
+        assertFalse(result.objectName().contains("/"));
+    }
+
+    @Test
+    @DisplayName("uploadFile wraps MinIO exception as BusinessException")
+    void uploadFile_wrapsMinioException() throws Exception {
+        InputStream inputStream = new ByteArrayInputStream("test content".getBytes());
+        when(testFile.getInputStream()).thenReturn(inputStream);
+        when(minioClient.putObject(any(PutObjectArgs.class))).thenThrow(new RuntimeException("MinIO down"));
+
+        assertThrows(BusinessException.class, () -> minioService.uploadFile(testFile, "reports"));
+    }
+
+    @Test
+    @DisplayName("uploadStream wraps MinIO exception as BusinessException")
+    void uploadStream_wrapsMinioException() throws Exception {
+        InputStream inputStream = new ByteArrayInputStream("test content".getBytes());
+        when(minioClient.putObject(any(PutObjectArgs.class))).thenThrow(new RuntimeException("MinIO down"));
+
+        assertThrows(BusinessException.class, () ->
+                minioService.uploadStream(inputStream, "test/object.pdf", "application/pdf", 1024L));
+    }
+
+    @Test
+    @DisplayName("deleteFiles wraps batch delete failure")
+    void deleteFiles_wrapsFailure() throws Exception {
+        doThrow(new RuntimeException("batch delete failed")).when(minioClient).removeObjects(any(RemoveObjectsArgs.class));
+
+        assertThrows(BusinessException.class, () -> minioService.deleteFiles(List.of("file1.pdf")));
+    }
+
+    @Test
+    @DisplayName("getFileOwner returns null when stat throws exception")
+    void getFileOwner_returnsNullOnException() throws Exception {
+        when(minioClient.statObject(any(StatObjectArgs.class))).thenThrow(new RuntimeException("not found"));
+
+        Long ownerId = minioService.getFileOwner("nonexistent.pdf");
+
+        assertNull(ownerId);
+    }
+
+    @Test
+    @DisplayName("listFiles with empty prefix and null requester shows admin view")
+    void listFiles_adminViewWithNullRequester() throws Exception {
+        Result<Item> itemResult = mock(Result.class);
+        Item item = mock(Item.class);
+        when(itemResult.get()).thenReturn(item);
+        when(item.objectName()).thenReturn("root.pdf");
+        when(item.size()).thenReturn(50L);
+        when(item.etag()).thenReturn("etag-root");
+
+        when(minioClient.listObjects(any(ListObjectsArgs.class))).thenReturn(List.of(itemResult));
+
+        MinioService.FileListResult result = minioService.listFiles("", 1, 10, null, true);
+
+        assertEquals(1, result.total());
+        assertEquals("root.pdf", result.files().get(0).objectName());
+    }
+
+    @Test
+    @DisplayName("listFiles non-admin view with null requester filters out all files")
+    void listFiles_nonAdminNullRequesterFiltersAll() throws Exception {
+        Result<Item> itemResult = mock(Result.class);
+        Item item = mock(Item.class);
+        when(itemResult.get()).thenReturn(item);
+        when(item.objectName()).thenReturn("reports/file.pdf");
+        when(item.size()).thenReturn(50L);
+        when(item.etag()).thenReturn("etag");
+
+        StatObjectResponse stat = mock(StatObjectResponse.class);
+        when(stat.userMetadata()).thenReturn(Map.of("x-amz-meta-uploader-id", "42"));
+        when(minioClient.listObjects(any(ListObjectsArgs.class))).thenReturn(List.of(itemResult));
+        when(minioClient.statObject(any(StatObjectArgs.class))).thenReturn(stat);
+
+        MinioService.FileListResult result = minioService.listFiles("reports", 1, 10, null, false);
+
+        assertEquals(0, result.total());
+    }
+
+    @Test
+    @DisplayName("listFiles with page beyond available results returns empty page")
+    void listFiles_pageBeyondResults() throws Exception {
+        Result<Item> itemResult = mock(Result.class);
+        Item item = mock(Item.class);
+        when(itemResult.get()).thenReturn(item);
+        when(item.objectName()).thenReturn("reports/a.pdf");
+        when(item.size()).thenReturn(12L);
+        when(item.etag()).thenReturn("etag-a");
+
+        when(minioClient.listObjects(any(ListObjectsArgs.class))).thenReturn(List.of(itemResult));
+
+        MinioService.FileListResult result = minioService.listFiles("reports", 5, 10, null, true);
+
+        assertEquals(1, result.total());
+        assertEquals(0, result.files().size());
+    }
+
+    @Test
+    @DisplayName("uploadFile with folder trailing slash normalized")
+    void uploadFile_folderTrailingSlash() throws Exception {
+        InputStream inputStream = new ByteArrayInputStream("test content".getBytes());
+        when(testFile.getInputStream()).thenReturn(inputStream);
+        when(minioClient.putObject(any(PutObjectArgs.class))).thenReturn(mock(ObjectWriteResponse.class));
+
+        MinioService.UploadResult result = minioService.uploadFile(testFile, "reports///");
+
+        assertNotNull(result);
+        assertTrue(result.objectName().startsWith("reports/"));
+        assertFalse(result.objectName().contains("///"));
+    }
+
+    @Test
+    @DisplayName("getFileOwner returns null when stat returns null metadata")
+    void getFileOwner_returnsNullWhenMetadataNull() throws Exception {
+        StatObjectResponse stat = mock(StatObjectResponse.class);
+        when(stat.userMetadata()).thenReturn(null);
+        when(minioClient.statObject(any(StatObjectArgs.class))).thenReturn(stat);
+
+        Long ownerId = minioService.getFileOwner("reports/test.pdf");
+
+        assertNull(ownerId);
+    }
+
+    @Test
+    @DisplayName("uploadFile with filename without dot returns empty extension")
+    void uploadFile_filenameWithoutDot() throws Exception {
+        InputStream inputStream = new ByteArrayInputStream("test content".getBytes());
+        when(testFile.getOriginalFilename()).thenReturn("Makefile");
+        when(testFile.getInputStream()).thenReturn(inputStream);
+        when(minioClient.putObject(any(PutObjectArgs.class))).thenReturn(mock(ObjectWriteResponse.class));
+
+        MinioService.UploadResult result = minioService.uploadFile(testFile, "builds");
+
+        assertNotNull(result);
+        assertTrue(result.objectName().startsWith("builds/"));
+        assertFalse(result.objectName().contains("."));
+    }
+
+    @Test
+    @DisplayName("listFiles caps size at 1000 when larger value provided")
+    void listFiles_capsSizeAt1000() throws Exception {
+        when(minioClient.listObjects(any(ListObjectsArgs.class))).thenReturn(Collections.emptyList());
+
+        MinioService.FileListResult result = minioService.listFiles("reports", 1, 5000, null, true);
+
+        assertEquals(0, result.total());
+        assertEquals(1000, result.size());
     }
 }

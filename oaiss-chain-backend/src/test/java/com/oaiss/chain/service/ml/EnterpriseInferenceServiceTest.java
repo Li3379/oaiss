@@ -204,4 +204,172 @@ class EnterpriseInferenceServiceTest {
         assertNotNull(response);
         assertEquals("compliant", response.getComplianceStatus());
     }
+
+    @Test
+    @DisplayName("Should handle reports with null totalEmission")
+    void inferEnterprise_reportsWithNullEmission_handledGracefully() {
+        Long enterpriseId = 4L;
+        User user = new User();
+        when(userRepository.findByIdAndDeletedFalse(enterpriseId)).thenReturn(Optional.of(user));
+
+        CarbonReport reportWithNull = new CarbonReport();
+        reportWithNull.setTotalEmission(null);
+        reportWithNull.setStatus(1);
+        reportWithNull.setCreatedAt(LocalDateTime.now());
+
+        CarbonReport reportWithEmission = new CarbonReport();
+        reportWithEmission.setTotalEmission(new BigDecimal("200.0"));
+        reportWithEmission.setStatus(1);
+        reportWithEmission.setCreatedAt(LocalDateTime.now());
+
+        when(carbonReportRepository.findByEnterpriseIdAndDeletedFalse(enterpriseId))
+                .thenReturn(List.of(reportWithNull, reportWithEmission));
+        when(creditScoreRepository.findByEnterpriseIdAndDeletedFalse(enterpriseId))
+                .thenReturn(Optional.empty());
+        when(emissionRatingRepository.findByEnterpriseIdAndDeletedFalseOrderByRatingYearDesc(enterpriseId))
+                .thenReturn(Collections.emptyList());
+        when(transactionRepository.countByUserIdRelated(enterpriseId)).thenReturn(0L);
+
+        EnterpriseInferenceResponse mlResponse = EnterpriseInferenceResponse.builder()
+                .enterpriseId(enterpriseId)
+                .complianceStatus("compliant")
+                .confidence(0.85)
+                .anomalyScore(0.1)
+                .isAnomaly(false)
+                .riskFactors(Collections.emptyList())
+                .modelVersion("1.0.0")
+                .build();
+        when(mlServiceClient.inferEnterprise(any(EnterpriseInferenceRequest.class))).thenReturn(mlResponse);
+
+        EnterpriseInferenceResponse response = service.inferEnterprise(enterpriseId);
+
+        assertNotNull(response);
+        assertEquals("compliant", response.getComplianceStatus());
+    }
+
+    @Test
+    @DisplayName("Should handle reports with null createdAt")
+    void inferEnterprise_reportsWithNullCreatedAt_handledGracefully() {
+        Long enterpriseId = 5L;
+        User user = new User();
+        when(userRepository.findByIdAndDeletedFalse(enterpriseId)).thenReturn(Optional.of(user));
+
+        CarbonReport reportWithNullDate = new CarbonReport();
+        reportWithNullDate.setTotalEmission(new BigDecimal("100.0"));
+        reportWithNullDate.setStatus(1);
+        reportWithNullDate.setCreatedAt(null);
+
+        CarbonReport reportWithDate = new CarbonReport();
+        reportWithDate.setTotalEmission(new BigDecimal("200.0"));
+        reportWithDate.setStatus(1);
+        reportWithDate.setCreatedAt(LocalDateTime.now().minusDays(5));
+
+        when(carbonReportRepository.findByEnterpriseIdAndDeletedFalse(enterpriseId))
+                .thenReturn(List.of(reportWithNullDate, reportWithDate));
+        when(creditScoreRepository.findByEnterpriseIdAndDeletedFalse(enterpriseId))
+                .thenReturn(Optional.empty());
+        when(emissionRatingRepository.findByEnterpriseIdAndDeletedFalseOrderByRatingYearDesc(enterpriseId))
+                .thenReturn(Collections.emptyList());
+        when(transactionRepository.countByUserIdRelated(enterpriseId)).thenReturn(0L);
+
+        EnterpriseInferenceResponse mlResponse = EnterpriseInferenceResponse.builder()
+                .enterpriseId(enterpriseId)
+                .complianceStatus("compliant")
+                .confidence(0.80)
+                .anomalyScore(0.05)
+                .isAnomaly(false)
+                .riskFactors(Collections.emptyList())
+                .modelVersion("1.0.0")
+                .build();
+        when(mlServiceClient.inferEnterprise(any(EnterpriseInferenceRequest.class))).thenReturn(mlResponse);
+
+        EnterpriseInferenceResponse response = service.inferEnterprise(enterpriseId);
+
+        assertNotNull(response);
+        assertEquals("compliant", response.getComplianceStatus());
+    }
+
+    @Test
+    @DisplayName("Should handle credit score with score value and emission rating with score")
+    void inferEnterprise_withCreditScoreAndEmissionRating_usesValues() {
+        Long enterpriseId = 6L;
+        User user = new User();
+        when(userRepository.findByIdAndDeletedFalse(enterpriseId)).thenReturn(Optional.of(user));
+
+        CarbonReport report = new CarbonReport();
+        report.setTotalEmission(new BigDecimal("500.0"));
+        report.setStatus(1);
+        report.setCreatedAt(LocalDateTime.now());
+        when(carbonReportRepository.findByEnterpriseIdAndDeletedFalse(enterpriseId))
+                .thenReturn(List.of(report));
+
+        CreditScore creditScore = new CreditScore();
+        creditScore.setScore(85);
+        when(creditScoreRepository.findByEnterpriseIdAndDeletedFalse(enterpriseId))
+                .thenReturn(Optional.of(creditScore));
+
+        EmissionRating emissionRating = new EmissionRating();
+        emissionRating.setRatingScore(80);
+        when(emissionRatingRepository.findByEnterpriseIdAndDeletedFalseOrderByRatingYearDesc(enterpriseId))
+                .thenReturn(List.of(emissionRating));
+        when(transactionRepository.countByUserIdRelated(enterpriseId)).thenReturn(10L);
+
+        EnterpriseInferenceResponse mlResponse = EnterpriseInferenceResponse.builder()
+                .enterpriseId(enterpriseId)
+                .complianceStatus("compliant")
+                .confidence(0.90)
+                .anomalyScore(0.05)
+                .isAnomaly(false)
+                .riskFactors(Collections.emptyList())
+                .modelVersion("1.0.0")
+                .build();
+        when(mlServiceClient.inferEnterprise(any(EnterpriseInferenceRequest.class))).thenReturn(mlResponse);
+
+        EnterpriseInferenceResponse response = service.inferEnterprise(enterpriseId);
+
+        assertNotNull(response);
+        assertEquals("compliant", response.getComplianceStatus());
+    }
+
+    @Test
+    @DisplayName("Should handle report with null status in compliance flag filter")
+    void inferEnterprise_reportWithNullStatus_notCountedAsFlag() {
+        Long enterpriseId = 7L;
+        User user = new User();
+        when(userRepository.findByIdAndDeletedFalse(enterpriseId)).thenReturn(Optional.of(user));
+
+        CarbonReport reportWithNullStatus = new CarbonReport();
+        reportWithNullStatus.setTotalEmission(new BigDecimal("100.0"));
+        reportWithNullStatus.setStatus(null);
+        reportWithNullStatus.setCreatedAt(LocalDateTime.now());
+
+        CarbonReport approvedReport = new CarbonReport();
+        approvedReport.setTotalEmission(new BigDecimal("200.0"));
+        approvedReport.setStatus(3);
+        approvedReport.setCreatedAt(LocalDateTime.now().minusDays(2));
+
+        when(carbonReportRepository.findByEnterpriseIdAndDeletedFalse(enterpriseId))
+                .thenReturn(List.of(reportWithNullStatus, approvedReport));
+        when(creditScoreRepository.findByEnterpriseIdAndDeletedFalse(enterpriseId))
+                .thenReturn(Optional.empty());
+        when(emissionRatingRepository.findByEnterpriseIdAndDeletedFalseOrderByRatingYearDesc(enterpriseId))
+                .thenReturn(Collections.emptyList());
+        when(transactionRepository.countByUserIdRelated(enterpriseId)).thenReturn(0L);
+
+        EnterpriseInferenceResponse mlResponse = EnterpriseInferenceResponse.builder()
+                .enterpriseId(enterpriseId)
+                .complianceStatus("compliant")
+                .confidence(0.85)
+                .anomalyScore(0.1)
+                .isAnomaly(false)
+                .riskFactors(Collections.emptyList())
+                .modelVersion("1.0.0")
+                .build();
+        when(mlServiceClient.inferEnterprise(any(EnterpriseInferenceRequest.class))).thenReturn(mlResponse);
+
+        EnterpriseInferenceResponse response = service.inferEnterprise(enterpriseId);
+
+        assertNotNull(response);
+        assertEquals("compliant", response.getComplianceStatus());
+    }
 }

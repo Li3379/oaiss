@@ -490,6 +490,304 @@ class AuditLogAspectTest {
         assertThat(savedLog.getRequestIp()).isEqualTo("203.0.113.50");
     }
 
+    // ==================== Additional Branch Coverage Tests ====================
+
+    @Test
+    @DisplayName("recordResult启用但结果为null时跳过结果记录")
+    void recordAuditLog_recordResultEnabled_resultNull_skipsResultRecording() throws Throwable {
+        // Arrange
+        AuditLog auditLogAnnotation = createAuditLogAnnotation("测试", "测试", "测试", false, true, "");
+        setupBasicMocks(auditLogAnnotation);
+        setupRequestContext();
+
+        when(joinPoint.proceed()).thenReturn(null);
+        when(operationLogRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        // Act
+        aspect.recordAuditLog(joinPoint);
+
+        // Assert
+        verify(operationLogRepository).save(logCaptor.capture());
+        assertThat(logCaptor.getValue().getResponseResult()).isNull();
+        // objectMapper should NOT be called since result is null
+        verify(objectMapper, never()).writeValueAsString(any());
+    }
+
+    @Test
+    @DisplayName("recordResult启用但序列化失败时跳过结果记录")
+    void recordAuditLog_recordResultEnabled_serializationError_skipsResultRecording() throws Throwable {
+        // Arrange
+        AuditLog auditLogAnnotation = createAuditLogAnnotation("测试", "测试", "测试", false, true, "");
+        setupBasicMocks(auditLogAnnotation);
+        setupRequestContext();
+
+        Object result = new Object();
+        when(joinPoint.proceed()).thenReturn(result);
+        when(objectMapper.writeValueAsString(result)).thenThrow(new JsonProcessingException("serialization error") {});
+        when(operationLogRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        // Act
+        Object returnedResult = aspect.recordAuditLog(joinPoint);
+
+        // Assert
+        assertThat(returnedResult).isEqualTo(result);
+        verify(operationLogRepository).save(logCaptor.capture());
+        assertThat(logCaptor.getValue().getResponseResult()).isNull();
+    }
+
+    @Test
+    @DisplayName("recordParams启用但参数数组为空时记录空对象")
+    void recordAuditLog_recordParamsEnabled_emptyArgs_recordsEmptyObject() throws Throwable {
+        // Arrange
+        AuditLog auditLogAnnotation = createAuditLogAnnotation("测试", "测试", "测试", true, false, "");
+        setupBasicMocks(auditLogAnnotation);
+        setupRequestContext();
+
+        when(joinPoint.getArgs()).thenReturn(new Object[]{});
+        when(joinPoint.proceed()).thenReturn("result");
+        when(operationLogRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        // Act
+        aspect.recordAuditLog(joinPoint);
+
+        // Assert
+        verify(operationLogRepository).save(logCaptor.capture());
+        assertThat(logCaptor.getValue().getRequestParams()).isEqualTo("{}");
+    }
+
+    @Test
+    @DisplayName("非JwtUserDetails认证用户应按匿名处理")
+    void recordAuditLog_nonJwtUserDetailsAuthentication_handledAsAnonymous() throws Throwable {
+        // Arrange
+        AuditLog auditLogAnnotation = createAuditLogAnnotation("测试", "测试", "测试", false, false, "");
+        setupBasicMocks(auditLogAnnotation);
+        setupRequestContext();
+
+        // Set authentication with a non-JwtUserDetails principal (String)
+        Authentication auth = new UsernamePasswordAuthenticationToken("string_principal", null, List.of());
+        SecurityContextHolder.getContext().setAuthentication(auth);
+
+        when(joinPoint.proceed()).thenReturn("result");
+        when(operationLogRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        // Act
+        aspect.recordAuditLog(joinPoint);
+
+        // Assert
+        verify(operationLogRepository).save(logCaptor.capture());
+        OperationLog savedLog = logCaptor.getValue();
+        // Non-JwtUserDetails → userId=0, username="anonymous", userType=0
+        assertThat(savedLog.getUserId()).isEqualTo(0L);
+        assertThat(savedLog.getUsername()).isEqualTo("anonymous");
+        assertThat(savedLog.getUserType()).isEqualTo(0);
+    }
+
+    @Test
+    @DisplayName("未认证的authentication应按匿名处理")
+    void recordAuditLog_unauthenticatedAuthentication_handledAsAnonymous() throws Throwable {
+        // Arrange
+        AuditLog auditLogAnnotation = createAuditLogAnnotation("测试", "测试", "测试", false, false, "");
+        setupBasicMocks(auditLogAnnotation);
+        setupRequestContext();
+
+        // 2-arg constructor creates an unauthenticated token (isAuthenticated() = false)
+        Authentication unauthenticatedAuth = new UsernamePasswordAuthenticationToken("user", null);
+        SecurityContextHolder.getContext().setAuthentication(unauthenticatedAuth);
+
+        when(joinPoint.proceed()).thenReturn("result");
+        when(operationLogRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        // Act
+        aspect.recordAuditLog(joinPoint);
+
+        // Assert
+        verify(operationLogRepository).save(logCaptor.capture());
+        OperationLog savedLog = logCaptor.getValue();
+        assertThat(savedLog.getUserId()).isEqualTo(0L);
+        assertThat(savedLog.getUsername()).isEqualTo("anonymous");
+    }
+
+    @Test
+    @DisplayName("getClientIp从RemoteAddr获取IP（无转发头）")
+    void recordAuditLog_noForwardingHeaders_usesRemoteAddr() throws Throwable {
+        // Arrange
+        AuditLog auditLogAnnotation = createAuditLogAnnotation("API", "测试", "测试", false, false, "");
+        setupBasicMocks(auditLogAnnotation);
+
+        MockHttpServletRequest requestWithNoHeaders = new MockHttpServletRequest();
+        requestWithNoHeaders.setMethod("GET");
+        requestWithNoHeaders.setRequestURI("/api/test");
+        requestWithNoHeaders.setRemoteAddr("10.0.0.99");
+        // Explicitly set headers to null/empty to force fallback to RemoteAddr
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(requestWithNoHeaders, response));
+
+        when(joinPoint.proceed()).thenReturn("result");
+        when(operationLogRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        // Act
+        aspect.recordAuditLog(joinPoint);
+
+        // Assert
+        verify(operationLogRepository).save(logCaptor.capture());
+        OperationLog savedLog = logCaptor.getValue();
+        assertThat(savedLog.getRequestIp()).isEqualTo("10.0.0.99");
+    }
+
+    // ==================== Branch Coverage: getClientIp empty/"unknown" fallbacks ====================
+
+    @Test
+    @DisplayName("getClientIp: X-Forwarded-For为空字符串时回退到X-Real-IP")
+    void recordAuditLog_emptyXForwardedFor_fallsBackToXRealIp() throws Throwable {
+        // Arrange
+        AuditLog auditLogAnnotation = createAuditLogAnnotation("API", "测试", "测试", false, false, "");
+        setupBasicMocks(auditLogAnnotation);
+
+        MockHttpServletRequest customRequest = new MockHttpServletRequest();
+        customRequest.setMethod("GET");
+        customRequest.setRequestURI("/api/test");
+        customRequest.addHeader("X-Forwarded-For", "");
+        customRequest.addHeader("X-Real-IP", "10.0.0.5");
+        customRequest.addHeader("User-Agent", "TestAgent");
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(customRequest, response));
+
+        when(joinPoint.proceed()).thenReturn("result");
+        when(operationLogRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        // Act
+        aspect.recordAuditLog(joinPoint);
+
+        // Assert
+        verify(operationLogRepository).save(logCaptor.capture());
+        assertThat(logCaptor.getValue().getRequestIp()).isEqualTo("10.0.0.5");
+    }
+
+    @Test
+    @DisplayName("getClientIp: X-Forwarded-For为unknown时回退到X-Real-IP")
+    void recordAuditLog_unknownXForwardedFor_fallsBackToXRealIp() throws Throwable {
+        // Arrange
+        AuditLog auditLogAnnotation = createAuditLogAnnotation("API", "测试", "测试", false, false, "");
+        setupBasicMocks(auditLogAnnotation);
+
+        MockHttpServletRequest customRequest = new MockHttpServletRequest();
+        customRequest.setMethod("GET");
+        customRequest.setRequestURI("/api/test");
+        customRequest.addHeader("X-Forwarded-For", "unknown");
+        customRequest.addHeader("X-Real-IP", "10.0.0.6");
+        customRequest.addHeader("User-Agent", "TestAgent");
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(customRequest, response));
+
+        when(joinPoint.proceed()).thenReturn("result");
+        when(operationLogRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        // Act
+        aspect.recordAuditLog(joinPoint);
+
+        // Assert
+        verify(operationLogRepository).save(logCaptor.capture());
+        assertThat(logCaptor.getValue().getRequestIp()).isEqualTo("10.0.0.6");
+    }
+
+    @Test
+    @DisplayName("getClientIp: X-Real-IP为空字符串时回退到RemoteAddr")
+    void recordAuditLog_emptyXRealIp_fallsBackToRemoteAddr() throws Throwable {
+        // Arrange
+        AuditLog auditLogAnnotation = createAuditLogAnnotation("API", "测试", "测试", false, false, "");
+        setupBasicMocks(auditLogAnnotation);
+
+        MockHttpServletRequest customRequest = new MockHttpServletRequest();
+        customRequest.setMethod("GET");
+        customRequest.setRequestURI("/api/test");
+        customRequest.addHeader("X-Real-IP", "");
+        customRequest.setRemoteAddr("10.0.0.7");
+        customRequest.addHeader("User-Agent", "TestAgent");
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(customRequest, response));
+
+        when(joinPoint.proceed()).thenReturn("result");
+        when(operationLogRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        // Act
+        aspect.recordAuditLog(joinPoint);
+
+        // Assert
+        verify(operationLogRepository).save(logCaptor.capture());
+        assertThat(logCaptor.getValue().getRequestIp()).isEqualTo("10.0.0.7");
+    }
+
+    @Test
+    @DisplayName("getClientIp: X-Real-IP为unknown时回退到RemoteAddr")
+    void recordAuditLog_unknownXRealIp_fallsBackToRemoteAddr() throws Throwable {
+        // Arrange
+        AuditLog auditLogAnnotation = createAuditLogAnnotation("API", "测试", "测试", false, false, "");
+        setupBasicMocks(auditLogAnnotation);
+
+        MockHttpServletRequest customRequest = new MockHttpServletRequest();
+        customRequest.setMethod("GET");
+        customRequest.setRequestURI("/api/test");
+        customRequest.addHeader("X-Real-IP", "unknown");
+        customRequest.setRemoteAddr("10.0.0.8");
+        customRequest.addHeader("User-Agent", "TestAgent");
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(customRequest, response));
+
+        when(joinPoint.proceed()).thenReturn("result");
+        when(operationLogRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        // Act
+        aspect.recordAuditLog(joinPoint);
+
+        // Assert
+        verify(operationLogRepository).save(logCaptor.capture());
+        assertThat(logCaptor.getValue().getRequestIp()).isEqualTo("10.0.0.8");
+    }
+
+    // ==================== Branch Coverage: getClientIp null ip at comma check ====================
+
+    @Test
+    @DisplayName("getClientIp: 所有IP来源均为null时ip为null（&&短路分支）")
+    void recordAuditLog_allIpSourcesNull_coversNullIpAndBranch() throws Throwable {
+        // Arrange
+        AuditLog auditLogAnnotation = createAuditLogAnnotation("API", "测试", "测试", false, false, "");
+        setupBasicMocks(auditLogAnnotation);
+
+        MockHttpServletRequest customRequest = new MockHttpServletRequest();
+        customRequest.setMethod("GET");
+        customRequest.setRequestURI("/api/test");
+        customRequest.setRemoteAddr(null);
+        customRequest.addHeader("User-Agent", "TestAgent");
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(customRequest, response));
+
+        when(joinPoint.proceed()).thenReturn("result");
+        when(operationLogRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        // Act
+        aspect.recordAuditLog(joinPoint);
+
+        // Assert
+        verify(operationLogRepository).save(logCaptor.capture());
+        assertThat(logCaptor.getValue().getRequestIp()).isNull();
+    }
+
+    // ==================== Branch Coverage: getRequestParams null args ====================
+
+    @Test
+    @DisplayName("getRequestParams: args为null时返回空对象（覆盖args==null分支）")
+    void recordAuditLog_nullArgs_returnsEmptyObject() throws Throwable {
+        // Arrange
+        AuditLog auditLogAnnotation = createAuditLogAnnotation("测试", "测试", "测试", true, false, "");
+        setupBasicMocks(auditLogAnnotation);
+        setupRequestContext();
+
+        when(joinPoint.getArgs()).thenReturn(null);
+        when(joinPoint.proceed()).thenReturn("result");
+        when(operationLogRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        // Act
+        aspect.recordAuditLog(joinPoint);
+
+        // Assert
+        verify(operationLogRepository).save(logCaptor.capture());
+        assertThat(logCaptor.getValue().getRequestParams()).isEqualTo("{}");
+    }
+
     // ==================== Helper Methods ====================
 
     private void setupBasicMocks(AuditLog auditLogAnnotation) {

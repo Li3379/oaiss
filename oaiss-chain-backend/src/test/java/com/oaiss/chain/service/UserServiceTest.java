@@ -298,4 +298,109 @@ class UserServiceTest {
         // Then
         assertFalse(available);
     }
+
+    @Test
+    @DisplayName("更新用户资料-手机号与当前相同时不检查重复")
+    void testUpdateProfileSamePhoneNoDuplicateCheck() {
+        UserProfileUpdateRequest request = new UserProfileUpdateRequest();
+        request.setPhone("13800138000"); // same as current
+
+        doReturn(Optional.of(testUser)).when(userRepository).findByIdAndDeletedFalse(1L);
+        doReturn(testUser).when(userRepository).save(any(User.class));
+
+        UserInfoResponse response = userService.updateProfile(currentUser, request);
+
+        assertNotNull(response);
+        verify(userRepository, never()).existsByPhone(anyString());
+        verify(userRepository).save(any(User.class));
+    }
+
+    @Test
+    @DisplayName("更新用户资料-更新头像和地址")
+    void testUpdateProfileAvatarAndAddress() {
+        UserProfileUpdateRequest request = new UserProfileUpdateRequest();
+        request.setAvatar("http://example.com/avatar.png");
+        request.setAddress("New Address");
+
+        doReturn(Optional.of(testUser)).when(userRepository).findByIdAndDeletedFalse(1L);
+        doReturn(testUser).when(userRepository).save(any(User.class));
+
+        UserInfoResponse response = userService.updateProfile(currentUser, request);
+
+        assertNotNull(response);
+        verify(userRepository).save(any(User.class));
+    }
+
+    @Test
+    @DisplayName("更新用户资料-更新公司名")
+    void testUpdateProfileCompany() {
+        UserProfileUpdateRequest request = new UserProfileUpdateRequest();
+        request.setCompany("New Company");
+
+        doReturn(Optional.of(testUser)).when(userRepository).findByIdAndDeletedFalse(1L);
+        doReturn(testUser).when(userRepository).save(any(User.class));
+
+        UserInfoResponse response = userService.updateProfile(currentUser, request);
+
+        assertNotNull(response);
+        verify(userRepository).save(any(User.class));
+    }
+
+    @Test
+    @DisplayName("更新用户资料失败-用户不存在")
+    void testUpdateProfileFailUserNotFound() {
+        UserProfileUpdateRequest request = new UserProfileUpdateRequest();
+        request.setRealName("New Name");
+
+        doReturn(Optional.empty()).when(userRepository).findByIdAndDeletedFalse(1L);
+
+        assertThrows(BusinessException.class, () -> userService.updateProfile(currentUser, request));
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("修改密码失败-用户不存在")
+    void testChangePasswordFailUserNotFound() {
+        PasswordChangeRequest request = new PasswordChangeRequest();
+        request.setOldPassword("old");
+        request.setNewPassword("new");
+        request.setConfirmPassword("new");
+
+        doReturn(Optional.empty()).when(userRepository).findByIdAndDeletedFalse(1L);
+
+        assertThrows(BusinessException.class, () -> userService.changePassword(currentUser, request));
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("getUserById-用户不存在抛出异常")
+    void testGetUserByIdFailUserNotFound() {
+        doReturn(Optional.empty()).when(userRepository).findByIdAndDeletedFalse(99L);
+
+        assertThrows(BusinessException.class, () -> userService.getUserById(99L, currentUser));
+    }
+
+    @Test
+    @DisplayName("getUserById-null currentUser返回公开信息")
+    void testGetUserByIdNullCurrentUser() {
+        doReturn(Optional.of(testUser)).when(userRepository).findByIdAndDeletedFalse(1L);
+
+        UserInfoResponse response = userService.getUserById(1L, null);
+
+        assertNotNull(response);
+        assertNull(response.getPhone());
+        assertNull(response.getEmail());
+    }
+
+    @Test
+    @DisplayName("resolveUserTypeDescription-未知类型返回默认值")
+    void testResolveUserTypeDescriptionUnknownType() {
+        testUser.setUserType(999);
+        doReturn(Optional.of(testUser)).when(userRepository).findByIdAndDeletedFalse(1L);
+
+        UserInfoResponse response = userService.getCurrentUserInfo(currentUser);
+
+        assertNotNull(response);
+        assertEquals("未知", response.getUserTypeDesc());
+    }
 }

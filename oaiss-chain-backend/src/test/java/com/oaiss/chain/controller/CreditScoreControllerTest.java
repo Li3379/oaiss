@@ -22,7 +22,6 @@ import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.LocalDateTime;
@@ -38,12 +37,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * CreditScoreController Unit Tests
  * 信誉评分控制器单元测试
  */
-@WebMvcTest(value = CreditScoreController.class, 
-        excludeAutoConfiguration = {
-                org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration.class,
-                org.springframework.boot.autoconfigure.data.jpa.JpaRepositoriesAutoConfiguration.class
-        })
-@ActiveProfiles("test")
+@WebMvcTest(controllers = CreditScoreController.class)
 @AutoConfigureMockMvc(addFilters = false)
 class CreditScoreControllerTest {
 
@@ -459,5 +453,131 @@ class CreditScoreControllerTest {
                 .andExpect(jsonPath("$.data").value(false));
 
         verify(creditScoreService, times(1)).checkTradePermission(2L);
+    }
+
+    // ==================== Get My Score Tests ====================
+
+    @Test
+    @DisplayName("获取当前用户企业信誉分-成功测试")
+    void testGetMyScoreSuccess() throws Exception {
+        // Given
+        UsernamePasswordAuthenticationToken authentication =
+                new UsernamePasswordAuthenticationToken(enterpriseUserDetails, null,
+                        List.of(new SimpleGrantedAuthority("ROLE_ENTERPRISE")));
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+
+        when(creditScoreService.getScoreByUserId(3L)).thenReturn(creditScoreResponse);
+
+        // When & Then
+        mockMvc.perform(get("/credit/my-score"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.score").value(100))
+                .andExpect(jsonPath("$.data.level").value("EXCELLENT"));
+
+        verify(creditScoreService, times(1)).getScoreByUserId(3L);
+    }
+
+    // ==================== Get My Credit History Tests ====================
+
+    @Test
+    @DisplayName("获取当前用户企业信誉历史-成功测试")
+    void testGetMyCreditHistorySuccess() throws Exception {
+        // Given
+        UsernamePasswordAuthenticationToken authentication =
+                new UsernamePasswordAuthenticationToken(enterpriseUserDetails, null,
+                        List.of(new SimpleGrantedAuthority("ROLE_ENTERPRISE")));
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+
+        CreditEventResponse eventResponse = CreditEventResponse.builder()
+                .id(1L)
+                .enterpriseId(3L)
+                .eventType(1)
+                .eventTypeName("数据造假")
+                .eventDescription("提交虚假数据")
+                .pointsChanged(-20)
+                .scoreBefore(100)
+                .scoreAfter(80)
+                .triggeredBy(1L)
+                .triggeredByName("Admin User")
+                .triggeredAt(LocalDateTime.now())
+                .build();
+
+        Page<CreditEventResponse> page = new PageImpl<>(List.of(eventResponse), PageRequest.of(0, 20), 1);
+        when(creditScoreService.getCreditHistoryByUserId(eq(3L), isNull(), eq(1), eq(20))).thenReturn(page);
+
+        // When & Then
+        mockMvc.perform(get("/credit/history"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.content").isArray())
+                .andExpect(jsonPath("$.data.content[0].enterpriseId").value(3));
+
+        verify(creditScoreService, times(1)).getCreditHistoryByUserId(3L, null, 1, 20);
+    }
+
+    @Test
+    @DisplayName("获取当前用户企业信誉历史-按事件类型筛选")
+    void testGetMyCreditHistoryFilterByEventType() throws Exception {
+        // Given
+        UsernamePasswordAuthenticationToken authentication =
+                new UsernamePasswordAuthenticationToken(enterpriseUserDetails, null,
+                        List.of(new SimpleGrantedAuthority("ROLE_ENTERPRISE")));
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+
+        CreditEventResponse eventResponse = CreditEventResponse.builder()
+                .id(2L)
+                .enterpriseId(3L)
+                .eventType(2)
+                .eventTypeName("迟交报告")
+                .eventDescription("报告提交超过期限")
+                .pointsChanged(-10)
+                .scoreBefore(80)
+                .scoreAfter(70)
+                .triggeredBy(1L)
+                .triggeredByName("Admin User")
+                .triggeredAt(LocalDateTime.now())
+                .build();
+
+        Page<CreditEventResponse> page = new PageImpl<>(List.of(eventResponse), PageRequest.of(0, 20), 1);
+        when(creditScoreService.getCreditHistoryByUserId(eq(3L), eq(2), eq(1), eq(20))).thenReturn(page);
+
+        // When & Then
+        mockMvc.perform(get("/credit/history")
+                        .param("eventType", "2"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.content[0].eventType").value(2));
+
+        verify(creditScoreService, times(1)).getCreditHistoryByUserId(3L, 2, 1, 20);
+    }
+
+    // ==================== Get Score Ranking Tests ====================
+
+    @Test
+    @DisplayName("获取信誉排名列表-成功测试")
+    void testGetScoreRankingSuccess() throws Exception {
+        // Given
+        CreditScoreResponse rankingResponse = CreditScoreResponse.builder()
+                .id(1L)
+                .enterpriseId(1L)
+                .enterpriseName("Top Enterprise")
+                .score(100)
+                .level("EXCELLENT")
+                .tradeRestricted(false)
+                .accountFrozen(false)
+                .build();
+
+        Page<CreditScoreResponse> page = new PageImpl<>(List.of(rankingResponse), PageRequest.of(0, 20), 1);
+        when(creditScoreService.getScoreRanking(1, 20)).thenReturn(page);
+
+        // When & Then
+        mockMvc.perform(get("/credit/ranking"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.content").isArray())
+                .andExpect(jsonPath("$.data.content[0].score").value(100));
+
+        verify(creditScoreService, times(1)).getScoreRanking(1, 20);
     }
 }

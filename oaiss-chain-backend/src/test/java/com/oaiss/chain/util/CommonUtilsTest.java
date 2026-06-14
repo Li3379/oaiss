@@ -593,6 +593,222 @@ class CommonUtilsTest {
         }
     }
 
+    // ==================== sanitizeHtml 测试 ====================
+
+    @Nested
+    @DisplayName("sanitizeHtml 方法测试")
+    class SanitizeHtmlTests {
+
+        @Test
+        @DisplayName("null输入返回null")
+        void sanitizeHtml_nullInput_returnsNull() {
+            assertNull(CommonUtils.sanitizeHtml(null));
+        }
+
+        @Test
+        @DisplayName("空字符串返回空字符串")
+        void sanitizeHtml_emptyInput_returnsEmpty() {
+            assertEquals("", CommonUtils.sanitizeHtml(""));
+        }
+
+        @Test
+        @DisplayName("包含HTML特殊字符应被转义")
+        void sanitizeHtml_withSpecialChars_shouldEscape() {
+            assertEquals("&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;",
+                    CommonUtils.sanitizeHtml("<script>alert(\"xss\")</script>"));
+        }
+
+        @Test
+        @DisplayName("包含&和单引号应被转义")
+        void sanitizeHtml_ampersandAndSingleQuote_shouldEscape() {
+            assertEquals("Tom &amp; Jerry &#x27;s",
+                    CommonUtils.sanitizeHtml("Tom & Jerry 's"));
+        }
+    }
+
+    // ==================== sanitizeInput 测试 ====================
+
+    @Nested
+    @DisplayName("sanitizeInput 方法测试")
+    class SanitizeInputTests {
+
+        @Test
+        @DisplayName("null输入返回null")
+        void sanitizeInput_nullInput_returnsNull() {
+            assertNull(CommonUtils.sanitizeInput(null));
+        }
+
+        @Test
+        @DisplayName("空字符串返回空字符串")
+        void sanitizeInput_emptyInput_returnsEmpty() {
+            assertEquals("", CommonUtils.sanitizeInput(""));
+        }
+
+        @Test
+        @DisplayName("包含script标签应被移除")
+        void sanitizeInput_withScriptTag_shouldRemove() {
+            assertEquals("Hello  World",
+                    CommonUtils.sanitizeInput("Hello <script>alert('xss')</script> World"));
+        }
+
+        @Test
+        @DisplayName("包含事件处理器应被移除")
+        void sanitizeInput_withEventHandler_shouldRemove() {
+            assertEquals("Test alert(1) input",
+                    CommonUtils.sanitizeInput("Test onclick=alert(1) input"));
+        }
+
+        @Test
+        @DisplayName("普通文本不应被修改")
+        void sanitizeInput_plainText_shouldNotModify() {
+            assertEquals("Hello World", CommonUtils.sanitizeInput("Hello World"));
+        }
+    }
+
+    // ==================== Additional getClientIp 测试 ====================
+
+    @Nested
+    @DisplayName("getClientIp 额外分支测试")
+    class GetClientIpAdditionalTests {
+
+        @Test
+        @DisplayName("WL-Proxy-Client-IP有值时应返回该IP")
+        void getClientIp_fromWlProxyClientIp() {
+            HttpServletRequest mockRequest = mock(HttpServletRequest.class);
+            ServletRequestAttributes attributes = mock(ServletRequestAttributes.class);
+            when(attributes.getRequest()).thenReturn(mockRequest);
+            when(mockRequest.getHeader("X-Forwarded-For")).thenReturn(null);
+            when(mockRequest.getHeader("Proxy-Client-IP")).thenReturn(null);
+            when(mockRequest.getHeader("WL-Proxy-Client-IP")).thenReturn("172.16.0.100");
+
+            try (MockedStatic<RequestContextHolder> mockedStatic = mockStatic(RequestContextHolder.class)) {
+                mockedStatic.when(RequestContextHolder::getRequestAttributes).thenReturn(attributes);
+
+                String ip = CommonUtils.getClientIp();
+
+                assertEquals("172.16.0.100", ip);
+            }
+        }
+
+        @Test
+        @DisplayName("X-Forwarded-For为空字符串时应继续查找")
+        void getClientIp_emptyXForwardedFor_fallback() {
+            HttpServletRequest mockRequest = mock(HttpServletRequest.class);
+            ServletRequestAttributes attributes = mock(ServletRequestAttributes.class);
+            when(attributes.getRequest()).thenReturn(mockRequest);
+            when(mockRequest.getHeader("X-Forwarded-For")).thenReturn("");
+            when(mockRequest.getHeader("Proxy-Client-IP")).thenReturn("10.0.0.50");
+
+            try (MockedStatic<RequestContextHolder> mockedStatic = mockStatic(RequestContextHolder.class)) {
+                mockedStatic.when(RequestContextHolder::getRequestAttributes).thenReturn(attributes);
+
+                String ip = CommonUtils.getClientIp();
+
+                assertEquals("10.0.0.50", ip);
+            }
+        }
+
+        @Test
+        @DisplayName("所有中间头返回unknown时应从RemoteAddr获取")
+        void getClientIp_allHeadersUnknown_fallbackToRemoteAddr() {
+            HttpServletRequest mockRequest = mock(HttpServletRequest.class);
+            ServletRequestAttributes attributes = mock(ServletRequestAttributes.class);
+            when(attributes.getRequest()).thenReturn(mockRequest);
+            when(mockRequest.getHeader("X-Forwarded-For")).thenReturn("unknown");
+            when(mockRequest.getHeader("Proxy-Client-IP")).thenReturn("unknown");
+            when(mockRequest.getHeader("WL-Proxy-Client-IP")).thenReturn("unknown");
+            when(mockRequest.getHeader("X-Real-IP")).thenReturn("unknown");
+            when(mockRequest.getRemoteAddr()).thenReturn("192.168.0.1");
+
+            try (MockedStatic<RequestContextHolder> mockedStatic = mockStatic(RequestContextHolder.class)) {
+                mockedStatic.when(RequestContextHolder::getRequestAttributes).thenReturn(attributes);
+
+                String ip = CommonUtils.getClientIp();
+
+                assertEquals("192.168.0.1", ip);
+            }
+        }
+
+        @Test
+        @DisplayName("Proxy-Client-IP为空字符串时应继续查找WL头")
+        void getClientIp_emptyProxyClientIp_fallbackToWl() {
+            HttpServletRequest mockRequest = mock(HttpServletRequest.class);
+            ServletRequestAttributes attributes = mock(ServletRequestAttributes.class);
+            when(attributes.getRequest()).thenReturn(mockRequest);
+            when(mockRequest.getHeader("X-Forwarded-For")).thenReturn(null);
+            when(mockRequest.getHeader("Proxy-Client-IP")).thenReturn("");
+            when(mockRequest.getHeader("WL-Proxy-Client-IP")).thenReturn("10.0.0.99");
+
+            try (MockedStatic<RequestContextHolder> mockedStatic = mockStatic(RequestContextHolder.class)) {
+                mockedStatic.when(RequestContextHolder::getRequestAttributes).thenReturn(attributes);
+
+                String ip = CommonUtils.getClientIp();
+
+                assertEquals("10.0.0.99", ip);
+            }
+        }
+
+        @Test
+        @DisplayName("WL-Proxy-Client-IP为空字符串时应继续查找X-Real-IP")
+        void getClientIp_emptyWlProxyClientIp_fallbackToXRealIp() {
+            HttpServletRequest mockRequest = mock(HttpServletRequest.class);
+            ServletRequestAttributes attributes = mock(ServletRequestAttributes.class);
+            when(attributes.getRequest()).thenReturn(mockRequest);
+            when(mockRequest.getHeader("X-Forwarded-For")).thenReturn(null);
+            when(mockRequest.getHeader("Proxy-Client-IP")).thenReturn(null);
+            when(mockRequest.getHeader("WL-Proxy-Client-IP")).thenReturn("");
+            when(mockRequest.getHeader("X-Real-IP")).thenReturn("10.0.0.88");
+
+            try (MockedStatic<RequestContextHolder> mockedStatic = mockStatic(RequestContextHolder.class)) {
+                mockedStatic.when(RequestContextHolder::getRequestAttributes).thenReturn(attributes);
+
+                String ip = CommonUtils.getClientIp();
+
+                assertEquals("10.0.0.88", ip);
+            }
+        }
+
+        @Test
+        @DisplayName("X-Real-IP为空字符串时应从RemoteAddr获取")
+        void getClientIp_emptyXRealIp_fallbackToRemoteAddr() {
+            HttpServletRequest mockRequest = mock(HttpServletRequest.class);
+            ServletRequestAttributes attributes = mock(ServletRequestAttributes.class);
+            when(attributes.getRequest()).thenReturn(mockRequest);
+            when(mockRequest.getHeader("X-Forwarded-For")).thenReturn(null);
+            when(mockRequest.getHeader("Proxy-Client-IP")).thenReturn(null);
+            when(mockRequest.getHeader("WL-Proxy-Client-IP")).thenReturn(null);
+            when(mockRequest.getHeader("X-Real-IP")).thenReturn("");
+            when(mockRequest.getRemoteAddr()).thenReturn("10.0.0.77");
+
+            try (MockedStatic<RequestContextHolder> mockedStatic = mockStatic(RequestContextHolder.class)) {
+                mockedStatic.when(RequestContextHolder::getRequestAttributes).thenReturn(attributes);
+
+                String ip = CommonUtils.getClientIp();
+
+                assertEquals("10.0.0.77", ip);
+            }
+        }
+
+        @Test
+        @DisplayName("Proxy-Client-IP为unknown时继续查找WL头")
+        void getClientIp_unknownProxyClientIp_fallbackToWl() {
+            HttpServletRequest mockRequest = mock(HttpServletRequest.class);
+            ServletRequestAttributes attributes = mock(ServletRequestAttributes.class);
+            when(attributes.getRequest()).thenReturn(mockRequest);
+            when(mockRequest.getHeader("X-Forwarded-For")).thenReturn(null);
+            when(mockRequest.getHeader("Proxy-Client-IP")).thenReturn("unknown");
+            when(mockRequest.getHeader("WL-Proxy-Client-IP")).thenReturn("10.0.0.55");
+
+            try (MockedStatic<RequestContextHolder> mockedStatic = mockStatic(RequestContextHolder.class)) {
+                mockedStatic.when(RequestContextHolder::getRequestAttributes).thenReturn(attributes);
+
+                String ip = CommonUtils.getClientIp();
+
+                assertEquals("10.0.0.55", ip);
+            }
+        }
+    }
+
     @Nested
     @DisplayName("getCurrentRequest 方法测试")
     class GetCurrentRequestTests {
@@ -629,6 +845,61 @@ class CommonUtilsTest {
                 // Then
                 assertNull(result);
             }
+        }
+    }
+
+    // ==================== Additional branch coverage ====================
+
+    @Test
+    @DisplayName("WL-Proxy-Client-IP为unknown（忽略大小写）时继续查找")
+    void getClientIp_wlProxyClientIpUnknownCase_fallback() {
+        HttpServletRequest mockRequest = mock(HttpServletRequest.class);
+        ServletRequestAttributes attributes = mock(ServletRequestAttributes.class);
+        when(attributes.getRequest()).thenReturn(mockRequest);
+        when(mockRequest.getHeader("X-Forwarded-For")).thenReturn(null);
+        when(mockRequest.getHeader("Proxy-Client-IP")).thenReturn(null);
+        when(mockRequest.getHeader("WL-Proxy-Client-IP")).thenReturn("Unknown");
+        when(mockRequest.getHeader("X-Real-IP")).thenReturn("10.1.1.1");
+
+        try (MockedStatic<RequestContextHolder> mockedStatic = mockStatic(RequestContextHolder.class)) {
+            mockedStatic.when(RequestContextHolder::getRequestAttributes).thenReturn(attributes);
+            assertEquals("10.1.1.1", CommonUtils.getClientIp());
+        }
+    }
+
+    @Test
+    @DisplayName("X-Real-IP为unknown（忽略大小写）时回退到RemoteAddr")
+    void getClientIp_xRealIpUnknownCase_fallbackToRemoteAddr() {
+        HttpServletRequest mockRequest = mock(HttpServletRequest.class);
+        ServletRequestAttributes attributes = mock(ServletRequestAttributes.class);
+        when(attributes.getRequest()).thenReturn(mockRequest);
+        when(mockRequest.getHeader("X-Forwarded-For")).thenReturn(null);
+        when(mockRequest.getHeader("Proxy-Client-IP")).thenReturn(null);
+        when(mockRequest.getHeader("WL-Proxy-Client-IP")).thenReturn(null);
+        when(mockRequest.getHeader("X-Real-IP")).thenReturn("UNKNOWN");
+        when(mockRequest.getRemoteAddr()).thenReturn("192.168.0.200");
+
+        try (MockedStatic<RequestContextHolder> mockedStatic = mockStatic(RequestContextHolder.class)) {
+            mockedStatic.when(RequestContextHolder::getRequestAttributes).thenReturn(attributes);
+            assertEquals("192.168.0.200", CommonUtils.getClientIp());
+        }
+    }
+
+    @Test
+    @DisplayName("RemoteAddr包含逗号时取第一个IP")
+    void getClientIp_remoteAddrContainsComma_takesFirstIp() {
+        HttpServletRequest mockRequest = mock(HttpServletRequest.class);
+        ServletRequestAttributes attributes = mock(ServletRequestAttributes.class);
+        when(attributes.getRequest()).thenReturn(mockRequest);
+        when(mockRequest.getHeader("X-Forwarded-For")).thenReturn(null);
+        when(mockRequest.getHeader("Proxy-Client-IP")).thenReturn(null);
+        when(mockRequest.getHeader("WL-Proxy-Client-IP")).thenReturn(null);
+        when(mockRequest.getHeader("X-Real-IP")).thenReturn(null);
+        when(mockRequest.getRemoteAddr()).thenReturn("10.0.0.1, 192.168.1.1");
+
+        try (MockedStatic<RequestContextHolder> mockedStatic = mockStatic(RequestContextHolder.class)) {
+            mockedStatic.when(RequestContextHolder::getRequestAttributes).thenReturn(attributes);
+            assertEquals("10.0.0.1", CommonUtils.getClientIp());
         }
     }
 }

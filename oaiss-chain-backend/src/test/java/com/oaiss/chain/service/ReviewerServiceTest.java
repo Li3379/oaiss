@@ -187,4 +187,79 @@ class ReviewerServiceTest {
         assertEquals(4, reviewer.getCompletedReviews());
         verify(reviewerRepository).save(reviewer);
     }
+
+    @Test
+    @DisplayName("getReviewerInfo skips name enrichment when user not found")
+    void getReviewerInfo_whenUserNotFound_skipsEnrichment() {
+        when(reviewerRepository.findByUserIdAndDeletedFalse(11L)).thenReturn(Optional.of(reviewer));
+        when(userRepository.findByIdAndDeletedFalse(11L)).thenReturn(Optional.empty());
+
+        Reviewer result = reviewerService.getReviewerInfo(11L);
+
+        assertEquals(11L, result.getUserId());
+    }
+
+    @Test
+    @DisplayName("getReviewerInfo skips name enrichment when realName is blank")
+    void getReviewerInfo_whenRealNameBlank_skipsEnrichment() {
+        user.setRealName("   ");
+        when(reviewerRepository.findByUserIdAndDeletedFalse(11L)).thenReturn(Optional.of(reviewer));
+        when(userRepository.findByIdAndDeletedFalse(11L)).thenReturn(Optional.of(user));
+
+        Reviewer result = reviewerService.getReviewerInfo(11L);
+
+        assertEquals(11L, result.getUserId());
+    }
+
+    @Test
+    @DisplayName("enrichReportDisplayFields handles missing enterprise")
+    void enrichReportDisplayFields_whenEnterpriseMissing_handlesGracefully() {
+        CarbonReport report = CarbonReport.builder()
+                .enterpriseId(99L)
+                .status(ReportStatusEnum.SUBMITTED.getCode())
+                .reportNo("CR-003")
+                .submitterId(1L)
+                .accountingPeriod("2026-Q3")
+                .title("Q3 report")
+                .reportType(1)
+                .emissionData("{}")
+                .build();
+        Page<CarbonReport> page = new PageImpl<>(List.of(report));
+
+        when(reviewerRepository.findByUserIdAndDeletedFalse(11L)).thenReturn(Optional.of(reviewer));
+        when(userRepository.findByIdAndDeletedFalse(11L)).thenReturn(Optional.of(user));
+        when(carbonReportRepository.findByStatusAndDeletedFalse(eq(ReportStatusEnum.SUBMITTED.getCode()), any(Pageable.class)))
+                .thenReturn(page);
+        when(enterpriseRepository.findById(99L)).thenReturn(Optional.empty());
+
+        Page<CarbonReport> result = reviewerService.getPendingReports(11L, 1, 10);
+
+        assertEquals(1, result.getTotalElements());
+        assertEquals(ReportStatusEnum.SUBMITTED.getDescription(), result.getContent().get(0).getStatusText());
+    }
+
+    @Test
+    @DisplayName("enrichReportDisplayFields handles null status")
+    void enrichReportDisplayFields_whenNullStatus_handlesGracefully() {
+        CarbonReport report = CarbonReport.builder()
+                .enterpriseId(9L)
+                .status(null)
+                .reportNo("CR-004")
+                .submitterId(1L)
+                .accountingPeriod("2026-Q4")
+                .title("Q4 report")
+                .reportType(1)
+                .emissionData("{}")
+                .build();
+        Page<CarbonReport> page = new PageImpl<>(List.of(report));
+
+        when(reviewerRepository.findByUserIdAndDeletedFalse(11L)).thenReturn(Optional.of(reviewer));
+        when(userRepository.findByIdAndDeletedFalse(11L)).thenReturn(Optional.of(user));
+        when(carbonReportRepository.findByStatusAndDeletedFalse(eq(ReportStatusEnum.SUBMITTED.getCode()), any(Pageable.class)))
+                .thenReturn(page);
+
+        Page<CarbonReport> result = reviewerService.getPendingReports(11L, 1, 10);
+
+        assertEquals(1, result.getTotalElements());
+    }
 }

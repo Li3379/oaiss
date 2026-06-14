@@ -15,6 +15,7 @@ import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Date;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -626,5 +627,136 @@ class JwtTokenProviderTest {
 
         // Then
         assertFalse(isRefresh);
+    }
+
+    @Test
+    @DisplayName("从令牌获取用户ID-Integer类型-成功")
+    void testGetUserIdFromTokenIntegerSuccess() {
+        // Given - Create a token with userId as Integer (JJWT may serialize small longs as Integer)
+        String token = Jwts.builder()
+                .claim("userId", 1)
+                .subject("testuser")
+                .issuedAt(new Date())
+                .expiration(new Date(System.currentTimeMillis() + ACCESS_TOKEN_EXPIRATION))
+                .signWith(ReflectionTestUtils.invokeMethod(jwtTokenProvider, "getSigningKey"))
+                .compact();
+
+        // When
+        Long userId = jwtTokenProvider.getUserIdFromToken(token);
+
+        // Then
+        assertNotNull(userId);
+        assertEquals(1L, userId);
+    }
+
+    @Test
+    @DisplayName("检查令牌过期-过期令牌-返回true")
+    void testIsTokenExpiredExpiredToken() {
+        // Given - create an expired token
+        String expiredToken = Jwts.builder()
+                .claim("userId", 1L)
+                .subject("testuser")
+                .issuedAt(new Date(System.currentTimeMillis() - 2 * ACCESS_TOKEN_EXPIRATION))
+                .expiration(new Date(System.currentTimeMillis() - ACCESS_TOKEN_EXPIRATION))
+                .signWith(ReflectionTestUtils.invokeMethod(jwtTokenProvider, "getSigningKey"))
+                .compact();
+
+        // When
+        boolean isExpired = jwtTokenProvider.isTokenExpired(expiredToken);
+
+        // Then
+        assertTrue(isExpired);
+    }
+
+    @Test
+    @DisplayName("验证令牌-不支持的令牌类型-返回false")
+    void testValidateTokenUnsupportedJwt() {
+        // Given - create a manually crafted JWT with "none" algorithm which is unsupported
+        String unsupportedToken = "eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJ1c2VySWQiOjF9.";
+
+        // When
+        boolean isValid = jwtTokenProvider.validateToken(unsupportedToken);
+
+        // Then - should return false (UnsupportedJwtException or other JwtException)
+        assertFalse(isValid);
+    }
+
+    @Test
+    @DisplayName("验证令牌-空claims字符串-返回false")
+    void testValidateTokenEmptyClaimsString() {
+        // When - null token
+        boolean isValid = jwtTokenProvider.validateToken(null);
+
+        // Then
+        assertFalse(isValid);
+    }
+
+    @Test
+    @DisplayName("从令牌获取企业ID-Integer类型-返回Long")
+    void testGetEnterpriseIdFromTokenIntegerType() {
+        // Given - manually create token with Integer enterpriseId claim
+        String token = Jwts.builder()
+                .claim("userId", 1L)
+                .claim("enterpriseId", 99)
+                .subject("testuser")
+                .issuedAt(new Date())
+                .expiration(new Date(System.currentTimeMillis() + ACCESS_TOKEN_EXPIRATION))
+                .signWith(ReflectionTestUtils.invokeMethod(jwtTokenProvider, "getSigningKey"))
+                .compact();
+
+        // When
+        Long extractedEnterpriseId = jwtTokenProvider.getEnterpriseIdFromToken(token);
+
+        // Then
+        assertEquals(99L, extractedEnterpriseId);
+    }
+
+    @Test
+    @DisplayName("验证令牌-过期令牌-返回false")
+    void testValidateTokenExpiredReturnsFalse() {
+        // Given - create an already-expired token
+        String expiredToken = Jwts.builder()
+                .claim("userId", 1L)
+                .subject("testuser")
+                .issuedAt(new Date(System.currentTimeMillis() - 2 * ACCESS_TOKEN_EXPIRATION))
+                .expiration(new Date(System.currentTimeMillis() - ACCESS_TOKEN_EXPIRATION))
+                .signWith(ReflectionTestUtils.invokeMethod(jwtTokenProvider, "getSigningKey"))
+                .compact();
+
+        // When
+        boolean isValid = jwtTokenProvider.validateToken(expiredToken);
+
+        // Then
+        assertFalse(isValid);
+    }
+
+    @Test
+    @DisplayName("从令牌获取用户ID-大于Integer.MAX_VALUE的Long类型")
+    void testGetUserIdFromTokenLargeLongValue() {
+        // Given - userId > Integer.MAX_VALUE ensures it stays as Long after JSON round-trip
+        Long largeUserId = (long) Integer.MAX_VALUE + 100L;
+        String token = jwtTokenProvider.generateAccessToken(largeUserId, "testuser", Arrays.asList("ROLE_USER"));
+
+        // When
+        Long extractedUserId = jwtTokenProvider.getUserIdFromToken(token);
+
+        // Then
+        assertNotNull(extractedUserId);
+        assertEquals(largeUserId, extractedUserId);
+    }
+
+    @Test
+    @DisplayName("从令牌获取企业ID-大于Integer.MAX_VALUE的Long类型")
+    void testGetEnterpriseIdFromTokenLargeLongValue() {
+        // Given - enterpriseId > Integer.MAX_VALUE ensures it stays as Long after JSON round-trip
+        Long largeEnterpriseId = (long) Integer.MAX_VALUE + 200L;
+        String token = jwtTokenProvider.generateAccessToken(1L, "testuser", Arrays.asList("ROLE_USER"), 2, largeEnterpriseId);
+
+        // When
+        Long extractedEnterpriseId = jwtTokenProvider.getEnterpriseIdFromToken(token);
+
+        // Then
+        assertNotNull(extractedEnterpriseId);
+        assertEquals(largeEnterpriseId, extractedEnterpriseId);
     }
 }

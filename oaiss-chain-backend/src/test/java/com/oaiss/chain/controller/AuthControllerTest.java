@@ -12,8 +12,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
-import org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
@@ -22,7 +20,6 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.lang.reflect.Method;
@@ -41,12 +38,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * AuthController Unit Tests
  * 认证控制器单元测试
  */
-@WebMvcTest(value = AuthController.class, 
-        excludeAutoConfiguration = {
-                org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration.class,
-                org.springframework.boot.autoconfigure.data.jpa.JpaRepositoriesAutoConfiguration.class
-        })
-@ActiveProfiles("test")
+@WebMvcTest(controllers = AuthController.class)
 @AutoConfigureMockMvc(addFilters = false)
 class AuthControllerTest {
 
@@ -416,8 +408,8 @@ class AuthControllerTest {
     @DisplayName("登出成功测试")
     void testLogoutSuccess() throws Exception {
         // Given - Set up security context
-        UsernamePasswordAuthenticationToken authentication = 
-                new UsernamePasswordAuthenticationToken(testUserDetails, null, 
+        UsernamePasswordAuthenticationToken authentication =
+                new UsernamePasswordAuthenticationToken(testUserDetails, null,
                         List.of(new SimpleGrantedAuthority("ROLE_ENTERPRISE")));
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
@@ -431,6 +423,45 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.message").value("登出成功"));
 
         verify(authService, times(1)).logout(eq("testuser"), anyString());
+    }
+
+    @Test
+    @DisplayName("登出成功-无Authorization头部时token为null")
+    void testLogoutWithoutAuthorizationHeader() throws Exception {
+        // Given
+        UsernamePasswordAuthenticationToken authentication =
+                new UsernamePasswordAuthenticationToken(testUserDetails, null,
+                        List.of(new SimpleGrantedAuthority("ROLE_ENTERPRISE")));
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+
+        doNothing().when(authService).logout(anyString(), any());
+
+        // When & Then - No Authorization header → token is null
+        mockMvc.perform(post("/auth/logout"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200));
+
+        verify(authService, times(1)).logout(eq("testuser"), isNull());
+    }
+
+    @Test
+    @DisplayName("登出成功-Authorization头部不是Bearer前缀时token为null")
+    void testLogoutWithNonBearerAuthorizationHeader() throws Exception {
+        // Given
+        UsernamePasswordAuthenticationToken authentication =
+                new UsernamePasswordAuthenticationToken(testUserDetails, null,
+                        List.of(new SimpleGrantedAuthority("ROLE_ENTERPRISE")));
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+
+        doNothing().when(authService).logout(anyString(), any());
+
+        // When & Then - Authorization header present but not "Bearer " prefix → token is null
+        mockMvc.perform(post("/auth/logout")
+                        .header("Authorization", "Basic dXNlcjpwYXNz"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200));
+
+        verify(authService, times(1)).logout(eq("testuser"), isNull());
     }
 
     // ==================== Change Password Tests ====================

@@ -366,6 +366,36 @@ class DistributedLockAspectTest {
                     .hasCauseInstanceOf(IllegalArgumentException.class)
                     .hasRootCauseMessage("Unsupported distributed lock key expression: " + expression);
         }
+
+        @Test
+        @DisplayName("表达式包含括号 - 拒绝解析")
+        void expressionWithParentheses_Rejected() throws Throwable {
+            String expression = "method('key')";
+            Method method = TestService.class.getMethod("methodWithSpEL", Long.class);
+
+            java.lang.reflect.Method parseMethod = DistributedLockAspect.class.getDeclaredMethod(
+                    "parseLockKey", String.class, Method.class, Object[].class
+            );
+            parseMethod.setAccessible(true);
+
+            assertThatThrownBy(() -> parseMethod.invoke(aspect, expression, method, new Object[]{1L}))
+                    .hasCauseInstanceOf(IllegalArgumentException.class);
+        }
+
+        @Test
+        @DisplayName("表达式包含@符号 - 拒绝解析")
+        void expressionWithAtSign_Rejected() throws Throwable {
+            String expression = "#var@special";
+            Method method = TestService.class.getMethod("methodWithSpEL", Long.class);
+
+            java.lang.reflect.Method parseMethod = DistributedLockAspect.class.getDeclaredMethod(
+                    "parseLockKey", String.class, Method.class, Object[].class
+            );
+            parseMethod.setAccessible(true);
+
+            assertThatThrownBy(() -> parseMethod.invoke(aspect, expression, method, new Object[]{1L}))
+                    .hasCauseInstanceOf(IllegalArgumentException.class);
+        }
     }
 
     @Nested
@@ -417,6 +447,59 @@ class DistributedLockAspectTest {
             // Verify first call
             verify(redisLockService).tryLock("test:lock", 30, TimeUnit.SECONDS);
             verify(redisLockService).releaseLock("test:lock", "lock1");
+        }
+
+        @Test
+        @DisplayName("带等待时间锁获取失败 - 抛出BusinessException")
+        void withWaitTime_lockFails_ThrowsBusinessException() throws Throwable {
+            // Arrange
+            Method methodWithWait = TestService.class.getMethod("methodWithSpEL", Long.class);
+            when(joinPoint.getSignature()).thenReturn(signature);
+            when(signature.getMethod()).thenReturn(methodWithWait);
+            when(joinPoint.getArgs()).thenReturn(new Object[]{1L});
+            when(redisLockService.tryLockWithRetry(anyString(), anyLong(), any(TimeUnit.class), anyLong(), any(TimeUnit.class)))
+                    .thenReturn(null);
+
+            // Act & Assert
+            assertThatThrownBy(() -> aspect.handleDistributedLock(joinPoint))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("message", "请勿重复操作");
+
+            verify(joinPoint, never()).proceed();
+        }
+
+        @Test
+        @DisplayName("方法执行异常后锁释放失败 - 仍然返回异常")
+        void methodException_lockReleaseFails_stillThrowsOriginalException() throws Throwable {
+            RuntimeException expectedException = new RuntimeException("Method failed");
+            when(joinPoint.getSignature()).thenReturn(signature);
+            when(signature.getMethod()).thenReturn(testMethod);
+            when(redisLockService.tryLock(anyString(), anyLong(), any(TimeUnit.class)))
+                    .thenReturn("lock-value");
+            when(joinPoint.proceed()).thenThrow(expectedException);
+            when(redisLockService.releaseLock(anyString(), anyString())).thenReturn(false);
+
+            assertThatThrownBy(() -> aspect.handleDistributedLock(joinPoint))
+                    .isSameAs(expectedException);
+
+            verify(redisLockService).releaseLock("test:lock", "lock-value");
+        }
+
+        @Test
+        @DisplayName("SpEL表达式结果为null时返回表达式字符串")
+        void spelExpression_resolvesToNull_returnsExpressionString() throws Throwable {
+            java.lang.reflect.Method parseMethod = DistributedLockAspect.class.getDeclaredMethod(
+                    "parseLockKey", String.class, Method.class, Object[].class
+            );
+            parseMethod.setAccessible(true);
+
+            // '#nonexistent' references an undefined variable → SpEL returns null
+            String expression = "#nonexistent";
+            Method method = TestService.class.getMethod("methodWithSpEL", Long.class);
+
+            String result = (String) parseMethod.invoke(aspect, expression, method, new Object[]{1L});
+
+            assertThat(result).isEqualTo("#nonexistent");
         }
     }
 }

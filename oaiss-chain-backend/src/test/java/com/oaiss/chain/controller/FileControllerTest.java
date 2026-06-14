@@ -1,6 +1,7 @@
 package com.oaiss.chain.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.oaiss.chain.constant.ErrorCode;
 import com.oaiss.chain.security.JwtUserDetails;
 import com.oaiss.chain.exception.BusinessException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -17,7 +18,6 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.io.ByteArrayInputStream;
@@ -41,12 +41,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * FileController Unit Tests
  * 文件控制器单元测试
  */
-@WebMvcTest(value = FileController.class, 
-        excludeAutoConfiguration = {
-                org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration.class,
-                org.springframework.boot.autoconfigure.data.jpa.JpaRepositoriesAutoConfiguration.class
-        })
-@ActiveProfiles("test")
+@WebMvcTest(controllers = FileController.class)
 @AutoConfigureMockMvc(addFilters = false)
 class FileControllerTest {
 
@@ -842,5 +837,274 @@ class FileControllerTest {
                 .andExpect(status().isForbidden());
 
         verify(minioService, never()).deleteFile(anyString());
+    }
+
+    // ==================== Branch Coverage: Admin List Files ====================
+
+    @Test
+    @DisplayName("管理员列出文件-使用admin范围查询")
+    void testListFilesAdminScopedSuccess() throws Exception {
+        MinioService.FileInfo file1 = new MinioService.FileInfo(
+                "reports/2024/file1.pdf", 1024L, "application/pdf", "etag1"
+        );
+        MinioService.FileListResult result = new MinioService.FileListResult(List.of(file1), 1, 1, 20);
+        when(minioService.listFiles(anyString(), any(), any(), eq(1L), eq(true))).thenReturn(result);
+
+        mockMvc.perform(get("/file/list")
+                        .param("prefix", "reports/2024/")
+                        .with(request -> {
+                            JwtUserDetails user = JwtUserDetails.builder()
+                                    .userId(1L).username("admin").userType(4)
+                                    .roles(List.of("ADMIN")).build();
+                            SecurityContextHolder.getContext().setAuthentication(
+                                    new UsernamePasswordAuthenticationToken(user, null,
+                                            List.of(new SimpleGrantedAuthority("ROLE_ADMIN"))));
+                            return request;
+                        }))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.files.length()").value(1));
+
+        verify(minioService).listFiles(eq("reports/2024/"), isNull(), isNull(), eq(1L), eq(true));
+    }
+
+    @Test
+    @DisplayName("批量删除文件-非所有者禁止删除")
+    void testDeleteFiles_NonOwnerForbidden() throws Exception {
+        List<String> objectNames = List.of("reports/other-file.pdf");
+        when(minioService.getFileOwner("reports/other-file.pdf")).thenReturn(99L);
+
+        mockMvc.perform(delete("/file/batch")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(objectNames))
+                        .with(request -> {
+                            JwtUserDetails user = JwtUserDetails.builder()
+                                    .userId(42L).username("enterprise").userType(1)
+                                    .roles(List.of("ENTERPRISE")).build();
+                            SecurityContextHolder.getContext().setAuthentication(
+                                    new UsernamePasswordAuthenticationToken(user, null,
+                                            List.of(new SimpleGrantedAuthority("ROLE_ENTERPRISE"))));
+                            return request;
+                        }))
+                .andExpect(status().isForbidden());
+
+        verify(minioService, never()).deleteFiles(anyList());
+    }
+
+    @Test
+    @DisplayName("批量上传文件-认证用户写入owner元数据")
+    void testUploadFilesAuthenticatedOwner() throws Exception {
+        MockMultipartFile file1 = new MockMultipartFile(
+                "files", "file1.pdf", "application/pdf", "Content1".getBytes()
+        );
+
+        when(minioService.uploadFile(any(), anyString(), eq(42L))).thenReturn(uploadResult);
+
+        mockMvc.perform(multipart("/file/upload/batch")
+                        .file(file1)
+                        .param("folder", "reports")
+                        .with(request -> {
+                            JwtUserDetails user = JwtUserDetails.builder()
+                                    .userId(42L).username("enterprise").userType(1)
+                                    .roles(List.of("ENTERPRISE")).build();
+                            SecurityContextHolder.getContext().setAuthentication(
+                                    new UsernamePasswordAuthenticationToken(user, null,
+                                            List.of(new SimpleGrantedAuthority("ROLE_ENTERPRISE"))));
+                            return request;
+                        }))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.message").value("批量上传成功，共 1 个文件"));
+
+        verify(minioService).uploadFile(any(), eq("reports"), eq(42L));
+    }
+
+    // ==================== Branch Coverage: download exception path ====================
+
+    @Test
+    @DisplayName("下载文件失败-内部异常应返回系统错误")
+    void testDownloadFileInternalError() throws Exception {
+        when(minioService.downloadFile(anyString()))
+                .thenThrow(new RuntimeException("MinIO connection timeout"));
+
+        mockMvc.perform(get("/file/download")
+                        .param("objectName", "reports/file.pdf"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(ErrorCode.SYSTEM_ERROR));
+
+        verify(minioService, times(1)).downloadFile("reports/file.pdf");
+    }
+
+    // ==================== Branch Coverage: delete with null currentUser ====================
+
+    @Test
+    @DisplayName("删除文件-无认证用户时文件所有者检查")
+    void testDeleteFileNoAuthUser() throws Exception {
+        when(minioService.getFileOwner("reports/file.pdf")).thenReturn(null);
+        doNothing().when(minioService).deleteFile(anyString());
+
+        mockMvc.perform(delete("/file")
+                        .param("objectName", "reports/file.pdf"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200));
+
+        verify(minioService).deleteFile("reports/file.pdf");
+    }
+
+    // ==================== Branch Coverage: upload batch with null currentUser ====================
+
+    @Test
+    @DisplayName("批量上传文件-无认证用户时不传owner")
+    void testUploadFilesNoAuthUser() throws Exception {
+        MockMultipartFile file1 = new MockMultipartFile(
+                "files", "file1.pdf", "application/pdf", "Content1".getBytes()
+        );
+
+        when(minioService.uploadFile(any(), isNull())).thenReturn(uploadResult);
+
+        mockMvc.perform(multipart("/file/upload/batch")
+                        .file(file1))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200));
+
+        verify(minioService).uploadFile(any(), isNull());
+    }
+
+    // ==================== Branch Coverage: list files with null currentUser ====================
+
+    @Test
+    @DisplayName("列出文件-无认证用户时不传owner和admin参数")
+    void testListFilesNoAuthUser() throws Exception {
+        MinioService.FileListResult result = new MinioService.FileListResult(
+                Collections.emptyList(), 0, 1, 20);
+        when(minioService.listFiles(isNull(), any(), any())).thenReturn(result);
+
+        mockMvc.perform(get("/file/list"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200));
+
+        verify(minioService).listFiles(isNull(), any(), any());
+    }
+
+    // ==================== Branch Coverage: delete with null fileOwner and non-admin ====================
+
+    @Test
+    @DisplayName("删除文件-文件无所有者信息时允许删除(向后兼容)")
+    void testDeleteFileNoOwnerBackwardCompat() throws Exception {
+        when(minioService.getFileOwner("reports/legacy-file.pdf")).thenReturn(null);
+        doNothing().when(minioService).deleteFile(anyString());
+
+        mockMvc.perform(delete("/file")
+                        .param("objectName", "reports/legacy-file.pdf")
+                        .with(request -> {
+                            JwtUserDetails user = JwtUserDetails.builder()
+                                    .userId(42L).username("enterprise").userType(1)
+                                    .roles(List.of("ENTERPRISE")).build();
+                            SecurityContextHolder.getContext().setAuthentication(
+                                    new UsernamePasswordAuthenticationToken(user, null,
+                                            List.of(new SimpleGrantedAuthority("ROLE_ENTERPRISE"))));
+                            return request;
+                        }))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200));
+
+        verify(minioService).deleteFile("reports/legacy-file.pdf");
+    }
+
+    @Test
+    @DisplayName("删除文件-userType为null时非管理员走文件所有者检查")
+    void testDeleteFileNullUserType_checksFileOwner() throws Exception {
+        when(minioService.getFileOwner("reports/file.pdf")).thenReturn(null);
+        doNothing().when(minioService).deleteFile(anyString());
+
+        mockMvc.perform(delete("/file")
+                        .param("objectName", "reports/file.pdf")
+                        .with(request -> {
+                            JwtUserDetails user = JwtUserDetails.builder()
+                                    .userId(42L).username("enterprise").userType(null)
+                                    .roles(List.of("ENTERPRISE")).build();
+                            SecurityContextHolder.getContext().setAuthentication(
+                                    new UsernamePasswordAuthenticationToken(user, null,
+                                            List.of(new SimpleGrantedAuthority("ROLE_ENTERPRISE"))));
+                            return request;
+                        }))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200));
+
+        verify(minioService).deleteFile("reports/file.pdf");
+    }
+
+    @Test
+    @DisplayName("列出文件-admin用户使用admin范围查询")
+    void testListFilesWithAdminUserType4_usesAdminView() throws Exception {
+        MinioService.FileListResult result = new MinioService.FileListResult(
+                Collections.emptyList(), 0, 1, 20);
+        when(minioService.listFiles(anyString(), any(), any(), eq(1L), eq(true))).thenReturn(result);
+
+        mockMvc.perform(get("/file/list")
+                        .param("prefix", "reports/")
+                        .with(request -> {
+                            JwtUserDetails user = JwtUserDetails.builder()
+                                    .userId(1L).username("admin").userType(4)
+                                    .roles(List.of("ADMIN")).build();
+                            SecurityContextHolder.getContext().setAuthentication(
+                                    new UsernamePasswordAuthenticationToken(user, null,
+                                            List.of(new SimpleGrantedAuthority("ROLE_ADMIN"))));
+                            return request;
+                        }))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200));
+
+        verify(minioService).listFiles(eq("reports/"), isNull(), isNull(), eq(1L), eq(true));
+    }
+
+    @Test
+    @DisplayName("批量删除文件-管理员可删除任意文件")
+    void testDeleteFilesAdminCanDeleteAnyFile() throws Exception {
+        List<String> objectNames = List.of("reports/file1.pdf");
+        when(minioService.getFileOwner("reports/file1.pdf")).thenReturn(99L);
+        doNothing().when(minioService).deleteFiles(anyList());
+
+        mockMvc.perform(delete("/file/batch")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(objectNames))
+                        .with(request -> {
+                            JwtUserDetails user = JwtUserDetails.builder()
+                                    .userId(1L).username("admin").userType(4)
+                                    .roles(List.of("ADMIN")).build();
+                            SecurityContextHolder.getContext().setAuthentication(
+                                    new UsernamePasswordAuthenticationToken(user, null,
+                                            List.of(new SimpleGrantedAuthority("ROLE_ADMIN"))));
+                            return request;
+                        }))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200));
+
+        verify(minioService).deleteFiles(objectNames);
+    }
+
+    @Test
+    @DisplayName("批量删除文件-旧文件无所有者信息时允许删除")
+    void testDeleteFilesNoOwnerBackwardCompat() throws Exception {
+        List<String> objectNames = List.of("reports/legacy.pdf");
+        when(minioService.getFileOwner("reports/legacy.pdf")).thenReturn(null);
+        doNothing().when(minioService).deleteFiles(anyList());
+
+        mockMvc.perform(delete("/file/batch")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(objectNames))
+                        .with(request -> {
+                            JwtUserDetails user = JwtUserDetails.builder()
+                                    .userId(42L).username("enterprise").userType(1)
+                                    .roles(List.of("ENTERPRISE")).build();
+                            SecurityContextHolder.getContext().setAuthentication(
+                                    new UsernamePasswordAuthenticationToken(user, null,
+                                            List.of(new SimpleGrantedAuthority("ROLE_ENTERPRISE"))));
+                            return request;
+                        }))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200));
+
+        verify(minioService).deleteFiles(objectNames);
     }
 }

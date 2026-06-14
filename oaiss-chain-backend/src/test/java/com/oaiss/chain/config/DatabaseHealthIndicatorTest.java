@@ -95,4 +95,21 @@ class DatabaseHealthIndicatorTest {
         assertEquals("MySQL", health.getDetails().get("database"));
         assertNotNull(health.getDetails().get("error"));
     }
+
+    @Test
+    @DisplayName("健康检查失败-连接无效且关闭异常")
+    void testHealthFailInvalidThenCloseException() throws SQLException {
+        // Given
+        when(dataSource.getConnection()).thenReturn(connection);
+        when(connection.isValid(2)).thenReturn(false);
+        doThrow(new SQLException("Close error")).when(connection).close();
+
+        // When
+        Health health = healthIndicator.health();
+
+        // Then - isValid returns false (else branch), then close throws -> catch
+        assertEquals(Status.DOWN, health.getStatus());
+        assertEquals("MySQL", health.getDetails().get("database"));
+        assertNotNull(health.getDetails().get("error"));
+    }
 }
