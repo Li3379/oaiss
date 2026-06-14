@@ -17,7 +17,7 @@ spring:
       password: ${REDIS_PASSWORD}
 
 minio:
-  endpoint: http://127.0.0.1:9002
+  endpoint: http://127.0.0.1:9004
   access-key: ${MINIO_ACCESS_KEY}
   secret-key: ${MINIO_SECRET_KEY}
 
