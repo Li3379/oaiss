@@ -243,6 +243,20 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.error(ErrorCode.OPERATION_IN_PROGRESS, "数据已被其他操作修改，请刷新后重试"));
     }
 
+    // ==================== 参数校验异常处理 ====================
+
+    /**
+     * 处理非法参数异常（如分页参数越界）
+     */
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ApiResponse<Void>> handleIllegalArgumentException(
+            IllegalArgumentException ex, HttpServletRequest request) {
+        log.warn("Illegal argument: {} - {}", request.getRequestURI(), ex.getMessage());
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error(ErrorCode.PARAM_ERROR, ex.getMessage()));
+    }
+
     // ==================== 未知异常处理 ====================
 
     /**

@@ -16,6 +16,7 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
@@ -25,16 +26,17 @@ import java.util.Collections;
 import java.util.concurrent.TimeUnit;
 
 /**
- * 接口限流切面
+ * 鎺ュ彛闄愭祦鍒囬潰
  * 
- * <p>拦截标注了@RateLimit注解的方法，进行限流控制</p>
- * <p>基于Redis实现分布式限流</p>
+ * <p>鎷︽埅鏍囨敞浜咢RateLimit娉ㄨВ鐨勬柟娉曪紝杩涜闄愭祦鎺у埗</p>
+ * <p>鍩轰簬Redis瀹炵幇鍒嗗竷寮忛檺娴?/p>
  * 
  * @author OAISS Chain Team
  * @since 1.0.0
  */
 @Slf4j
 @Aspect
+@ConditionalOnProperty(name = "oaiss.ratelimit.enabled", havingValue = "true", matchIfMissing = true)
 @Component
 @RequiredArgsConstructor
 public class RateLimitAspect {
@@ -53,25 +55,25 @@ public class RateLimitAspect {
 
     @Around("@annotation(com.oaiss.chain.annotation.RateLimit)")
     public Object enforceRateLimit(ProceedingJoinPoint joinPoint) throws Throwable {
-        // 获取注解
+        // 鑾峰彇娉ㄨВ
         MethodSignature signature = (MethodSignature) joinPoint.getSignature();
         Method method = signature.getMethod();
         RateLimit annotation = method.getAnnotation(RateLimit.class);
 
-        // 构建限流Key
+        // 鏋勫缓闄愭祦Key
         String key = buildRateLimitKey(annotation, joinPoint);
         
-        // 获取时间窗口和限制次数
+        // 鑾峰彇鏃堕棿绐楀彛鍜岄檺鍒舵鏁?
         int period = annotation.period();
         int limit = annotation.limit();
 
         try {
-            // 使用Lua脚本原子操作：递增+设置过期
+            // 浣跨敤Lua鑴氭湰鍘熷瓙鎿嶄綔锛氶€掑+璁剧疆杩囨湡
             DefaultRedisScript<Long> script = new DefaultRedisScript<>(LUA_INCR_EXPIRE, Long.class);
             Long currentCount = redisScriptTemplate.execute(script,
                     Collections.singletonList(key), String.valueOf(period));
 
-            // 检查是否超过限制
+            // 妫€鏌ユ槸鍚﹁秴杩囬檺鍒?
             if (currentCount != null && currentCount > limit) {
                 log.warn("Rate limit exceeded for key: {}, count: {}, limit: {}", key, currentCount, limit);
                 throw new BusinessException(ErrorCode.REQUEST_TOO_FREQUENT, annotation.message());
@@ -83,31 +85,31 @@ public class RateLimitAspect {
             throw e;
         } catch (Exception e) {
             log.error("Rate limit check failed for key: {}", key, e);
-            // 限流检查失败时不阻止请求（降级处理）
+            // 闄愭祦妫€鏌ュけ璐ユ椂涓嶉樆姝㈣姹傦紙闄嶇骇澶勭悊锛?
         }
 
-        // 执行原方法
+        // 鎵ц鍘熸柟娉?
         return joinPoint.proceed();
     }
 
     /**
-     * 构建限流Key
+     * 鏋勫缓闄愭祦Key
      */
     private String buildRateLimitKey(RateLimit annotation, ProceedingJoinPoint joinPoint) {
         StringBuilder keyBuilder = new StringBuilder(RATE_LIMIT_KEY_PREFIX);
 
-        // 添加自定义Key
+        // 娣诲姞鑷畾涔塊ey
         String customKey = annotation.key();
         if (customKey != null && !customKey.isEmpty()) {
             keyBuilder.append(customKey).append(":");
         } else {
-            // 使用类名和方法名作为Key
+            // 浣跨敤绫诲悕鍜屾柟娉曞悕浣滀负Key
             String className = joinPoint.getTarget().getClass().getSimpleName();
             String methodName = joinPoint.getSignature().getName();
             keyBuilder.append(className).append(":").append(methodName).append(":");
         }
 
-        // 根据限流类型添加标识
+        // 鏍规嵁闄愭祦绫诲瀷娣诲姞鏍囪瘑
         RateLimit.LimitType limitType = annotation.limitType();
         
         switch (limitType) {
@@ -131,7 +133,7 @@ public class RateLimitAspect {
     }
 
     /**
-     * 获取当前HTTP请求
+     * 鑾峰彇褰撳墠HTTP璇锋眰
      */
     private HttpServletRequest getCurrentRequest() {
         ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
@@ -139,7 +141,7 @@ public class RateLimitAspect {
     }
 
     /**
-     * 获取客户端IP
+     * 鑾峰彇瀹㈡埛绔疘P
      */
     private String getClientIp() {
         HttpServletRequest request = getCurrentRequest();
@@ -154,7 +156,7 @@ public class RateLimitAspect {
         if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
             ip = request.getRemoteAddr();
         }
-        // 多个代理时取第一个IP
+        // 澶氫釜浠ｇ悊鏃跺彇绗竴涓狪P
         if (ip != null && ip.contains(",")) {
             ip = ip.split(",")[0].trim();
         }
@@ -162,7 +164,7 @@ public class RateLimitAspect {
     }
 
     /**
-     * 获取当前用户ID
+     * 鑾峰彇褰撳墠鐢ㄦ埛ID
      */
     private String getCurrentUserId() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();

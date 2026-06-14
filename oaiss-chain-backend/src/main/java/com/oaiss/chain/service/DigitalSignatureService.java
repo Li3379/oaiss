@@ -139,14 +139,22 @@ public class DigitalSignatureService {
      */
     public RsaKeyPairResponse getKeyPair(Long userId) {
         RsaKeyPair keyPair = rsaKeyPairRepository.findLatestByUserId(userId)
-                .orElseThrow(() -> BlockchainException.rsaKeyPairNotFound(userId));
+                .orElse(null);
+
+        if (keyPair == null) {
+            return null;
+        }
 
         // 先标记过期密钥（事务写入），再校验状态
         markExpiredKeys(userId);
 
         // 重新获取更新后的密钥对
         keyPair = rsaKeyPairRepository.findLatestByUserId(userId)
-                .orElseThrow(() -> BlockchainException.rsaKeyPairNotFound(userId));
+                .orElse(null);
+
+        if (keyPair == null) {
+            return null;
+        }
 
         // 检查密钥状态
         return toResponse(keyPair);

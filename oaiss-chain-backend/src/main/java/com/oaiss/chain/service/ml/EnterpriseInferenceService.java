@@ -72,7 +72,7 @@ public class EnterpriseInferenceService {
                 .filter(e -> e != null)
                 .reduce(BigDecimal.ZERO, BigDecimal::add)
                 .doubleValue();
-        double avgEmissionPerReport = reportCount > 0 ? totalEmissions / reportCount : 0.0;
+        double avgEmissionPerReport = totalEmissions / reportCount;
         long daysSinceLastReport = reports.stream()
                 .map(CarbonReport::getCreatedAt)
                 .filter(java.util.Objects::nonNull)

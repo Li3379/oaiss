@@ -56,7 +56,7 @@ public class MinioService {
             boolean exists = minioClient.bucketExists(BucketExistsArgs.builder()
                     .bucket(minioConfig.getBucketName())
                     .build());
-            
+
             if (!exists) {
                 minioClient.makeBucket(MakeBucketArgs.builder()
                         .bucket(minioConfig.getBucketName())
@@ -64,8 +64,7 @@ public class MinioService {
                 log.info("Created MinIO bucket: {}", minioConfig.getBucketName());
             }
         } catch (Exception e) {
-            log.error("Failed to initialize MinIO bucket", e);
-            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "Failed to initialize storage bucket");
+            log.warn("MinIO bucket initialization failed — service will be unavailable for file operations: {}", e.getMessage());
         }
     }
 

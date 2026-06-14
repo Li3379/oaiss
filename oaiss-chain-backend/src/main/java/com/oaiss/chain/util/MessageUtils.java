@@ -40,7 +40,7 @@ public class MessageUtils {
      */
     public static String getMessage(String messageKey, Object... args) {
         if (messageSource == null) {
-            return messageKey + (args.length > 0 ? Arrays.toString(args) : "");
+            return messageKey + (args != null && args.length > 0 ? Arrays.toString(args) : "");
         }
 
         try {
@@ -51,7 +51,7 @@ public class MessageUtils {
             );
         } catch (Exception e) {
             // 降级：返回键名和参数
-            return messageKey + (args.length > 0 ? Arrays.toString(args) : "");
+            return messageKey + (args != null && args.length > 0 ? Arrays.toString(args) : "");
         }
     }
 
@@ -64,13 +64,13 @@ public class MessageUtils {
      */
     public static String getMessage(String messageKey, Locale locale, Object... args) {
         if (messageSource == null) {
-            return messageKey + (args.length > 0 ? Arrays.toString(args) : "");
+            return messageKey + (args != null && args.length > 0 ? Arrays.toString(args) : "");
         }
 
         try {
             return messageSource.getMessage(messageKey, args, locale);
         } catch (Exception e) {
-            return messageKey + (args.length > 0 ? Arrays.toString(args) : "");
+            return messageKey + (args != null && args.length > 0 ? Arrays.toString(args) : "");
         }
     }
 
