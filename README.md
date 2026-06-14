@@ -23,11 +23,11 @@ OAISS CHAIN 是一个面向双碳（碳达峰、碳中和）领域的全栈 Web 
 
 | 层级 | 技术 |
 |------|------|
-| **后端** | Java 17, Spring Boot 3.2.5, Spring Data JPA, Spring Security, Spring Cache |
+| **后端** | Java 17, Spring Boot 3.2.5, Spring Data JPA, Spring Security, Spring Cache, Spring AOP |
 | **数据层** | MySQL 8, Redis 7 (Lettuce), MinIO, Flyway |
-| **认证** | JWT (jjwt 0.12.5), BCrypt, CSRF |
+| **认证** | JWT (jjwt 0.12.5), BCrypt, CSRF, RSA 密钥加密 (AES-256-GCM) |
 | **区块链** | Hyperledger Fabric Gateway SDK 1.7.1, Go Chaincode |
-| **AI/ML** | FastAPI, Prophet, scikit-learn, XGBoost |
+| **AI/ML** | FastAPI, Prophet, scikit-learn, XGBoost, IsolationForest |
 | **前端** | Vue 3.5, TypeScript, Vite, Element Plus 2.13, Pinia 3, Vue Router 5 |
 | **可视化** | ECharts 6 (按需引入) |
 | **国际化** | vue-i18n 11 (中/英) |
@@ -79,18 +79,18 @@ OAISS CHAIN/
 ├── oaiss-chain-backend/          # Spring Boot 后端
 │   └── src/main/java/com/oaiss/chain/
 │       ├── controller/           # 21 REST 控制器
-│       ├── service/              # 28 业务服务 + 3 ML 客户端
-│       ├── repository/           # 22 JPA 仓库
+│       ├── service/              # 29 业务服务 (含 ML 客户端)
+│       ├── repository/           # 21 JPA 仓库
 │       ├── entity/               # 22 JPA 实体 (21 业务 + BaseEntity)
-│       ├── dto/                  # 请求/响应 DTO
+│       ├── dto/                  # 53 请求/响应 DTO
 │       ├── config/               # 19 配置类 (Security, Redis, MinIO, Fabric, ML...)
 │       ├── annotation/           # 5 自定义注解 (@AuditLog, @RateLimit, ...)
 │       ├── aop/                  # 5 切面
-│       ├── security/             # JWT 过滤器、认证入口
+│       ├── security/             # JWT 过滤器、认证入口 (6 类)
 │       ├── enums/                # 9 枚举
-│       ├── exception/            # 自定义异常
+│       ├── exception/            # 7 自定义异常
 │       ├── constant/             # 错误码、错误信息
-│       └── util/                 # 工具类
+│       └── util/                 # 4 工具类
 │   └── src/main/resources/
 │       ├── db/migration/         # Flyway 迁移脚本 (V1-V8, V3 缺失)
 │       └── application*.yml      # 多环境配置
@@ -99,24 +99,42 @@ OAISS CHAIN/
 │   └── src/
 │       ├── api/                  # 22 Axios API 模块
 │       ├── views/                # 页面组件
-│       │   ├── enterprise/       # 企业端 (16 页面)
-│       │   ├── auditor/          # 审核员端 (3 页面)
-│       │   ├── admin/            # 管理端 (6 页面)
-│       │   └── third-party/      # 第三方监管 (1 页面)
+│       │   ├── enterprise/       # 16 页面 (碳核算/交易/碳币/信用/项目/AI/签名等)
+│       │   ├── auditor/          # 3 页面 (审核列表/项目审核/审核历史)
+│       │   ├── admin/            # 6 页面 (用户/证书/配置/统计/碳/审核)
+│       │   └── third-party/      # 1 页面 (监控)
 │       ├── store/                # Pinia 状态管理
 │       ├── router/               # 路由 + 角色守卫
 │       ├── i18n/                 # 国际化 (中/英)
-│       ├── components/           # 共享组件
+│       ├── components/           # 共享组件 (ErrorBoundary/LanguageSwitcher/PageContainer)
 │       ├── config/               # 菜单、图片配置
-│       ├── types/                # TypeScript 类型定义
+│       ├── types/                # 18 TypeScript 类型定义
 │       └── utils/                # 工具函数 (JWT, ECharts, 格式化)
 │   └── tests/e2e/               # Playwright E2E 测试
 │
 ├── oaiss-chain-ml-service/       # Python ML 微服务
 │   └── app/
+│       ├── main.py               # FastAPI 入口
+│       ├── config.py             # 配置
+│       ├── security.py           # API Key 认证
 │       ├── services/             # 排放预测、企业推断、市场预测
 │       ├── routers/              # FastAPI 路由
 │       └── schemas/              # Pydantic 数据模型
+│   ├── requirements.txt          # Python 依赖
+│   └── Dockerfile                # 容器镜像
+│
+├── oaiss-chain-chaincode/        # Hyperledger Fabric 链码
+│   ├── chaincode.go              # Go 智能合约 (碳报告 + 交易记录)
+│   ├── chaincode_test.go         # 链码单元测试
+│   └── go.mod                    # Go 模块
+│
+├── fabric-config/                # Fabric 网络配置与加密材料
+├── scripts/                      # 测试/部署脚本 (启动/停止/健康检查/测试)
+├── docs/                         # 项目文档 (规格/部署/验收)
+├── docker-compose.yml            # 全栈容器编排（本地/演示）
+├── docker-compose.prod.yml       # 生产容器编排（仅应用服务）
+├── docker-compose.infra.yml      # 基础设施 (MySQL/Redis/MinIO/ML Service)
+└── docker-compose.fabric.yml     # Fabric 区块链网络
 │
 ├── oaiss-chain-chaincode/        # Hyperledger Fabric 链码
 │   └── chaincode.go              # Go 智能合约 (碳报告 + 交易记录)
@@ -174,7 +192,7 @@ docker compose up -d
 | 后端 API | http://localhost:8080/api/v1 | REST API |
 | Swagger UI | http://localhost:8080/api/v1/swagger-ui/index.html | API 文档 |
 | MinIO Console | http://localhost:9003 | 对象存储管理 |
-| MinIO API | http://localhost:9002 | 对象存储 API |
+| MinIO API | http://localhost:9004 | 对象存储 API |
 | ML Service | http://localhost:8001 | AI 预测服务 |
 | 健康检查 | http://localhost:8080/api/v1/actuator/health | 后端状态 |
 | Fabric Orderer | localhost:7050 | 排序节点（可选） |
@@ -197,7 +215,7 @@ docker compose -f docker-compose.infra.yml up -d
 |------|----------|----------|
 | oaiss-mysql | 127.0.0.1:**3306**→3306 | 见 `.env` 中 `DB_PASSWORD` |
 | oaiss-redis | 127.0.0.1:**6379**→6379 | 见 `.env` 中 `REDIS_PASSWORD` |
-| oaiss-minio | **9002**→9000 (API), **9003**→9001 (Console) | 见 `.env` 中 `MINIO_ACCESS_KEY` |
+| oaiss-minio | **9004**→9000 (API), **9003**→9001 (Console) | 见 `.env` 中 `MINIO_ACCESS_KEY` |
 | oaiss-ml-service | 127.0.0.1:**8001**→8001 | 无 |
 
 > **注意**: 如果本地已有 MySQL 占用 3306 端口，需先停止本地 MySQL 服务（Windows: `net stop MySQL`，需管理员权限）。
@@ -359,7 +377,7 @@ curl http://localhost:8080/api/v1/actuator/health         # 后端（需 Fabric 
 curl -X POST http://localhost:8080/api/v1/auth/login \
   -H "Content-Type: application/json" \
   -d '{"username":"admin","password":"admin123"}'         # 后端登录测试
-curl http://localhost:9002/minio/health/live              # MinIO
+curl http://localhost:9004/minio/health/live              # MinIO
 docker exec oaiss-mysql mysql -uroot -p${DB_PASSWORD} -e "SELECT 1"   # MySQL
 docker exec oaiss-redis redis-cli -a ${REDIS_PASSWORD} ping            # Redis
 docker compose -f docker-compose.fabric.yml ps            # Fabric 网络
@@ -482,7 +500,7 @@ API 文档：http://localhost:8001/docs
 | `JWT_SECRET` | — | JWT 签名密钥（**必填**，至少 32 字符） |
 | `JWT_EXPIRATION` | `3600000` | Token 有效期（毫秒，默认 1 小时） |
 | `JWT_REFRESH_EXPIRATION` | `604800000` | Refresh Token 有效期（毫秒，默认 7 天） |
-| `MINIO_ENDPOINT` | `http://localhost:9002` | MinIO 地址 |
+| `MINIO_ENDPOINT` | `http://localhost:9004` | MinIO 地址 |
 | `MINIO_ACCESS_KEY` | — | MinIO Access Key |
 | `MINIO_SECRET_KEY` | — | MinIO Secret Key |
 | `MINIO_BUCKET` | `oaiss-chain` | MinIO 存储桶 |
@@ -589,7 +607,7 @@ JWT 密钥长度必须至少 256-bit（32+ 字符）。
 |--------|------|------|
 | **v1.0** 手工测试 | Phase 1-6 (环境/碳报告/交易/项目/支撑/边界) | 已发布 2026-05-13 |
 | **v1.1.0** 需求对齐 | Phase 7-12 (AI/公式/区块链/准入/前端覆盖/E2E) | 已发布 2026-05-18 |
-| **v2.0** 安全与性能 | Phase 13-15 (并发安全/性能优化/DevOps) | 进行中 |
+| **v2.0** 安全与性能 | Phase 13-15 (并发安全/性能优化/DevOps/安全审计) | 进行中 2026-06 |
 
 ## License
 
