@@ -1,4 +1,4 @@
-import { test, type APIRequestContext, type Page } from '@playwright/test'
+﻿import { test, type APIRequestContext, type Page } from '@playwright/test'
 import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
@@ -954,7 +954,7 @@ test.describe('OAISS CHAIN frontend full functional matrix', () => {
         const errors = await dialog.locator('.el-form-item__error').allTextContents()
         throw new Error(`Create report dialog remained visible after submit. toast=${toastText} errors=${errors.join('; ')}`)
       }
-      return `selectors: period=${period}, title=${title}, emission=${emission}, toast=${toastText}`
+      return `toast=${toastText}`
     })
     await recordCase(page, 'S1 Carbon Report', 'S1-04', 'report list and pagination render', 'P0', async () => {
       await page.goto(`${BASE_URL}/enterprise/carbon/upload`)
@@ -970,7 +970,7 @@ test.describe('OAISS CHAIN frontend full functional matrix', () => {
       await settle(page)
       await refillSearchAndQuery(page, title)
       const row = page.locator('.el-table__body-wrapper tbody tr').filter({ hasText: title }).first()
-      await row.locator('button').filter({ hasText: /delete|删除/i }).first().click()
+      await row.locator('button').filter({ hasText: /delete|鍒犻櫎/i }).first().click()
       await page.locator('.el-message-box__btns .el-button--primary').click()
       await waitForSuccessToast(page, 6000)
       // Reload page and re-search to ensure fresh data
@@ -1412,7 +1412,7 @@ test.describe('OAISS CHAIN frontend full functional matrix', () => {
       if ((await page.locator('.el-form-item__error').count()) === 0) throw new Error('Password mismatch validation did not appear')
     })
     await recordCase(page, 'S15 Profile', 'S15-05', 'digital signature management area', 'P1', async () => {
-      if ((await page.locator('text=/signature|签名|keypair|数字|RSA/i').count()) === 0) {
+      if ((await page.locator('text=/signature|绛惧悕|keypair|鏁板瓧|RSA/i').count()) === 0) {
         throw new Error('Digital signature/keypair management UI is not exposed in profile page')
       }
     })

@@ -460,6 +460,7 @@ export default {
     pieTransactionExpense: 'Transaction Expense',
     pieCarbonCoinConvert: 'Carbon Coin Convert',
     pieBlockchainGenerate: 'Blockchain Generate',
+    pieTradeQuantity: 'Trade Quantity',
     pieOriginal: 'Original',
     pieQuotaPurchase: 'Quota Purchase',
     tooltipValue: 'Value',

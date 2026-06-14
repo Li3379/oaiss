@@ -98,6 +98,9 @@ graphify-out/
 # ----- Tool-generated docs -----
 docs/superpowers/
 
+# ----- Frontend QA screenshots -----
+oaiss-chain-frontend/docs/
+
 # ----- Frontend temp screenshots -----
 oaiss-chain-frontend/current_state.png
 oaiss-chain-frontend/admin_users_page.png

@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+﻿import { test, expect } from '@playwright/test'
 import { loginViaApi } from '../fixtures/auth'
 import { setupSmokeMock } from '../fixtures/api-mock'
 import { Layout } from '../fixtures/page-objects/Layout'
@@ -11,7 +11,8 @@ test.describe('Role: Admin - Verify Feature Smoke', () => {
   })
 
   test('sidebar menu includes certification', async ({ page }) => {
-    await page.goto('/admin/verify/list')
+    await page.goto('/admin/verify/list', { waitUntil: 'domcontentloaded' })
+    await page.waitForTimeout(500)
     await page.waitForLoadState('domcontentloaded')
     await expect(page).toHaveURL(/\/admin\/verify\/list/)
     const layout = new Layout(page)

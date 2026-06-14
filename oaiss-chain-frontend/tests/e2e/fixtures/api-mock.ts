@@ -1,4 +1,4 @@
-import { type Page, type Route } from '@playwright/test'
+﻿import { type Page, type Route } from '@playwright/test'
 
 interface MockRouteConfig {
   method: string
@@ -57,6 +57,7 @@ const EMPTY_PAGE = { content: [], totalElements: 0, totalPages: 0, size: 10, num
 
 const SMOKE_ROUTES: Record<string, MockRouteConfig[]> = {
   ENTERPRISE: [
+    { method: 'GET', path: '/user/profile*', data: { id: 2, username: 'enterprise001', realName: 'Enterprise 001', userType: 1, email: 'enterprise001@example.com' } },
     { method: 'GET', path: '/carbon/my-reports*', data: EMPTY_PAGE },
     { method: 'GET', path: '/trade/my-trades*', data: EMPTY_PAGE },
     { method: 'GET', path: '/auction/orders*', data: EMPTY_PAGE },
@@ -77,7 +78,6 @@ const SMOKE_ROUTES: Record<string, MockRouteConfig[]> = {
     { method: 'GET', path: '/emission/rankings/*', data: [] },
     { method: 'GET', path: '/enterprise/info*', data: { id: 1, enterpriseName: 'Enterprise 001' } },
     { method: 'GET', path: '/enterprise/admission/my*', data: [] },
-    { method: 'GET', path: '/user/profile*', data: { id: 2, username: 'enterprise001', realName: '张三', userType: 1, email: 'enterprise001@example.com' } },
     { method: 'GET', path: '/signature/keypair*', data: null },
   ],
   ADMIN: [
@@ -99,6 +99,7 @@ const SMOKE_ROUTES: Record<string, MockRouteConfig[]> = {
     },
   ],
   REVIEWER: [
+    { method: 'GET', path: '/user/profile*', data: { id: 4, username: 'reviewer001', realName: 'Reviewer 001', userType: 2 } },
     { method: 'GET', path: '/carbon/reports*', data: EMPTY_PAGE },
     { method: 'GET', path: '/reviewer/reports/pending*', data: EMPTY_PAGE },
     { method: 'GET', path: '/reviewer/history*', data: EMPTY_PAGE },
@@ -115,6 +116,7 @@ const SMOKE_ROUTES: Record<string, MockRouteConfig[]> = {
     { method: 'GET', path: '/reviewer/qualification/my*', data: [] },
   ],
   THIRD_PARTY: [
+    { method: 'GET', path: '/user/profile*', data: { id: 5, username: 'thirdparty001', realName: 'Third Party 001', userType: 3 } },
     { method: 'GET', path: '/third-party/carbon-reports*', data: EMPTY_PAGE },
     { method: 'GET', path: '/third-party/statistics*', data: { totalReports: 30, pendingReports: 8, approvedReports: 20, rejectedReports: 2 } },
     {

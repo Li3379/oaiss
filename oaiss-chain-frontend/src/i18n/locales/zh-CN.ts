@@ -460,6 +460,7 @@ export default {
     pieTransactionExpense: '交易支出',
     pieCarbonCoinConvert: '碳币转化量',
     pieBlockchainGenerate: '区块链生成',
+    pieTradeQuantity: '交易数量',
     pieOriginal: '原有',
     pieQuotaPurchase: '碳额度购入',
     tooltipValue: '数值',

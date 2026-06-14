@@ -81,6 +81,7 @@ async function persistAuth(page: Page, accessToken: string, refreshToken: string
       sessionStorage.clear()
       localStorage.clear()
 
+      localStorage.setItem('locale', 'zh-CN')
       localStorage.setItem('access_token', nextAccessToken)
       localStorage.setItem('refresh_token', nextRefreshToken)
       localStorage.setItem('remember_me', 'true')

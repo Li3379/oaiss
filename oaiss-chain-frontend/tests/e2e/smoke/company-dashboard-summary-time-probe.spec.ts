@@ -1,4 +1,4 @@
-import { test, expect, type Page, type Request } from '@playwright/test'
+﻿import { test, expect, type Page, type Request } from '@playwright/test'
 import fs from 'node:fs'
 import path from 'node:path'
 import { loginViaApi } from '../fixtures/auth'
@@ -57,6 +57,8 @@ test('probe company dashboard summary source and time dimension effect', async (
   await loginViaApi(page, 'enterprise001', 'admin123')
 
   await page.goto(`${BASE_URL}/enterprise/company/dashboard`)
+  // Wait for loading to finish and overview cards to render (race condition fix)
+  await page.locator('.overview-card').first().waitFor({ state: 'visible', timeout: 15000 }).catch(() => {})
   await settle(page)
 
   const beforeValues = (await readOverviewValues(page)).map((item) => item.trim())
