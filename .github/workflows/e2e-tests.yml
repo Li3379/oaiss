@@ -251,7 +251,7 @@ FABRIC_SECRETS_MOUNT_PATH=/run/secrets/fabric
           export DB_PASSWORD=local-shadow-value
           export JWT_SECRET=local-shadow-jwt
           export REDIS_HOST=localhost
-          export MINIO_ENDPOINT=http://localhost:9002
+          export MINIO_ENDPOINT=http://localhost:9004
           ./scripts/prod-compose.sh --env-file .env.prod.example config > prod-compose-config.txt
           grep -q "SPRING_PROFILES_ACTIVE: prod" prod-compose-config.txt
           grep -q "DB_USERNAME: oaiss_app" prod-compose-config.txt
