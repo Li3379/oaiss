@@ -175,7 +175,16 @@ logback-console.xml
 *.bak
 *.cache
 
+# ----- Runtime error logs & temp artifacts -----
+*.err
+tmp/
+ent-token.json
+full-functional-segment.txt
+
 # ----- AI Tool Artifacts -----
 .codex/
 .graphify_detect.json
 .cursor/
+
+# ----- AI Agent Documentation (not project code) -----
+**/AGENTS.md
