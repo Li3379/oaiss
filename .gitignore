@@ -192,6 +192,7 @@ full-functional-segment.txt
 # ----- AI Agent Documentation & Planning (not project code) -----
 **/AGENTS.md
 .claude/
+.planning/
 /CLAUDE.md
 /AI-SPEC.md
 /PLAN.md
