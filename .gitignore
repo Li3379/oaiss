@@ -189,5 +189,27 @@ full-functional-segment.txt
 .graphify_detect.json
 .cursor/
 
+# ----- AI Agent Documentation & Planning (not project code) -----
+**/AGENTS.md
+.claude/
+/CLAUDE.md
+/AI-SPEC.md
+/PLAN.md
+/SKILL.md
+/E2E_TEST_STATUS.md
+/ROLE_PAGE_API_MAPPING.md
+/.graphify_python
+/.codegraph/
+
+# ----- Root temp files (no extension screenshots, ci check dumps) -----
+/prod-compose-config-ci-check.txt
+/00-official-home
+/00-official-home-check
+
+# ----- Frontend root temp screenshots (legacy) -----
+oaiss-chain-frontend/admin_users_page.png
+oaiss-chain-frontend/after_click.png
+oaiss-chain-frontend/current_state.png
+
 # ----- AI Agent Documentation (not project code) -----
 **/AGENTS.md
